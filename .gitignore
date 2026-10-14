@@ -1,0 +1,22 @@
+# DATA_DIR and ARCHIVE_DIR are set in .env and must stay outside this repo.
+# The patterns below are a backstop if those directories are ever created here.
+DATA_DIR
+ARCHIVE_DIR
+data/
+archive/
+results/
+
+*.parquet
+*.duckdb
+*.db
+*.csv
+*.json.gz
+*.tmp
+
+__pycache__/
+.pytest_cache/
+*.egg-info/
+.venv/
+venv/
+dist/
+build/
