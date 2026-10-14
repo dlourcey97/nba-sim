@@ -57,6 +57,7 @@ def run_backfill(
         backoff_seconds=float(http["backoff_seconds"]),
         timeout_seconds=float(http["timeout_seconds"]),
         log=log,
+        current_season=settings.current_season,
     )
     result = BackfillResult(seasons=list(seasons))
     partial = start_date is not None or end_date is not None or max_games is not None
