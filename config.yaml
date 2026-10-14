@@ -12,7 +12,7 @@ http:
   max_retries: 5
   backoff_seconds: 1.0
   delay_seconds: 0.6
-  timeout_seconds: 30
+  timeout_seconds: 60
 
 archive:
   # Optional compressed play-by-play under ARCHIVE_DIR. The engine never reads it.

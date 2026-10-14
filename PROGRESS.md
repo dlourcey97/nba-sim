@@ -30,19 +30,29 @@ Open issues: none.
 
 ## Phase 2
 
-`backfill.py` reads the data.nba.com season schedule (browser user agent, nothing written to disk), then box scores and possessions. nba_api `LeagueGameLog` is used when `stats.nba.com` answers. Otherwise the live S3 box score is used. Possessions come from the pbpstats live feed, then `stats.nba.com` only if that probe succeeded. Raw JSON is not stored. `ARCHIVE_DIR` is unused while `archive.save_play_by_play` is false.
+`backfill.py` writes compact logs, team results, rates, and a schedule row. Raw JSON is not stored. `ARCHIVE_DIR` is unused while `archive.save_play_by_play` is false.
+
+Schedule order:
+
+- The current season is read from `cdn.nba.com/static/json/staticData/scheduleLeagueV2.json`. The request includes browser client hints (`sec-ch-ua`, `sec-fetch-*`). Without those headers the CDN returns 403. On 2026-10-14 that file is the 2026-27 season.
+- Other seasons try `stats.nba.com` `LeagueGameLog`, then `LeagueGameFinder`, with nba_api's browser headers, a 60 second timeout, and exponential backoff for errors that return a response. A read that returns no bytes is not repeated five times.
+- When `stats.nba.com` times out, the season file on `data.nba.com` is used. With the same browser headers that file returns 200. A headerless client gets 403.
+
+Player logs prefer the live box score. `stats.nba.com` is not called again in a run after it has timed out, so the live feed is used directly. Possessions come from the pbpstats live feed.
 
 - Final games write `player_game_logs`, `team_game_results` (pace is offensive possessions), `player_game_rates`, and a schedule row.
 - Scheduled games upsert the schedule row only.
 - A game already in both logs and rates is skipped, so a rerun resumes.
-- Logs and team results are written before rates, so a crash still retries the missing half with pace already stored.
+- Logs and team results are written before rates.
 - Derived aggregates and zone defense are replaced from the stored season at the end of each season.
-- `_COMPLETE` is written only for an older season after a full run with no failures. `--start-date`, `--end-date`, and `--max-games` keep the season unfrozen. Replace-policy tables are never frozen.
-- Exit status is 1 when any game or schedule fetch failed.
+- `_COMPLETE` is written only for an older season after a full run with no failures. Date filters and `--max-games` keep the season unfrozen.
+- `http.timeout_seconds` is 60. `http.max_retries` is 5.
 
-Checked one game only: `2024-25`, `2024-10-22`, `--max-games 1`. Stored `0022400061` (NYK at BOS, 109-132, 23 players, 10 starters, 90 offensive possessions each, no overtime). Second run skipped that game. `DATA_DIR` was 24529 bytes, with no `.json`, no `_tmp`, and no `_COMPLETE`. The full `2015-2025` pull was not run.
+`LeagueGameLog` for 2024-25 Regular Season was called with those headers and a 60 second timeout. Five attempts, then one more during backfill, all timed out with 0 bytes (`ReadTimeout`).
 
-`stats.nba.com` timed out with 0 bytes on a 12 second probe. Early seasons whose live feeds return 403 stay incomplete until that host answers. Rerun the same command; it will not mark those seasons complete.
+One game, `2024-10-22`, `--max-games 1`: stored `0022400061` (NYK at BOS). `DATA_DIR` 24529 bytes. Exit 0.
+
+One week, `2024-10-22` through `2024-10-29`: stored 56 games, 1264 player rows, 560 starters, pace from 90 to 115. `DATA_DIR` 97589 bytes. No `.json`, no `_tmp`, and no `_COMPLETE`. Exit 0. The full `2015-2025` pull was not run.
 
 ## Next
 

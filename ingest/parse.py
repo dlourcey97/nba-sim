@@ -93,6 +93,10 @@ def parse_game_date(value: object) -> date:
     if isinstance(value, date):
         return value
     text = str(value).strip()
+    if "T" in text:
+        text = text.split("T", 1)[0]
+    elif " " in text and "," not in text:
+        text = text.split(" ", 1)[0]
     for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%b %d, %Y", "%B %d, %Y"):
         try:
             return datetime.strptime(text.title() if "," in text else text, fmt).date()
@@ -132,6 +136,129 @@ def shot_zone(shot_type: str | None, loc_x: float | None, is_corner_3: bool) -> 
     if shot_type is None:
         return None
     return _ZONE_BY_SHOT.get(shot_type)
+
+
+def games_from_team_log(records: list[dict[str, object]]) -> list[ScheduleGame]:
+    """Build one schedule row per game from a team LeagueGameLog or LeagueGameFinder."""
+    grouped: dict[str, list[dict[str, object]]] = defaultdict(list)
+    for record in records:
+        grouped[_game_id(record.get("GAME_ID"))].append(record)
+    games: list[ScheduleGame] = []
+    for game_id, rows in sorted(grouped.items()):
+        season_type = season_type_from_game_id(game_id)
+        if season_type is None:
+            continue
+        home = next((row for row in rows if _matchup_is_home(row.get("MATCHUP"))), None)
+        away = next((row for row in rows if _matchup_is_away(row.get("MATCHUP"))), None)
+        if home is None or away is None:
+            continue
+        home_pts = _optional_int(home.get("PTS"))
+        away_pts = _optional_int(away.get("PTS"))
+        final = home_pts is not None and away_pts is not None
+        games.append(
+            ScheduleGame(
+                game_id=game_id,
+                game_date=parse_game_date(home.get("GAME_DATE")),
+                status="final" if final else "scheduled",
+                home_team_id=int(home["TEAM_ID"]),
+                away_team_id=int(away["TEAM_ID"]),
+                home_abbr=str(home.get("TEAM_ABBREVIATION") or ""),
+                away_abbr=str(away.get("TEAM_ABBREVIATION") or ""),
+                home_pts=home_pts if final else None,
+                away_pts=away_pts if final else None,
+                season_type=season_type,
+            )
+        )
+    return games
+
+
+def games_from_cdn_schedule(payload: dict[str, object], season: str) -> list[ScheduleGame]:
+    """Build schedule rows from cdn.nba.com scheduleLeagueV2.json."""
+    league = payload.get("leagueSchedule")
+    if not isinstance(league, dict):
+        raise ValueError("CDN schedule has no leagueSchedule object.")
+    published = str(league.get("seasonYear") or "")
+    if published and published != season:
+        raise ValueError(f"CDN schedule is for {published}, not {season}.")
+    games: list[ScheduleGame] = []
+    dates = league.get("gameDates") or []
+    if not isinstance(dates, list):
+        raise ValueError("CDN schedule gameDates is not a list.")
+    for bucket in dates:
+        if not isinstance(bucket, dict):
+            continue
+        for item in bucket.get("games") or []:
+            if not isinstance(item, dict):
+                continue
+            game_id = _game_id(item.get("gameId"))
+            season_type = season_type_from_game_id(game_id)
+            if season_type is None:
+                continue
+            home = item.get("homeTeam") if isinstance(item.get("homeTeam"), dict) else {}
+            away = item.get("awayTeam") if isinstance(item.get("awayTeam"), dict) else {}
+            status_code = int(item.get("gameStatus") or 0)
+            final = status_code == 3 or str(item.get("gameStatusText") or "").lower() == "final"
+            when = bucket.get("gameDate") or item.get("gameDateTimeUTC") or item.get("gameDateUTC")
+            games.append(
+                ScheduleGame(
+                    game_id=game_id,
+                    game_date=parse_game_date(when),
+                    status="final" if final else "scheduled",
+                    home_team_id=int(home["teamId"]),
+                    away_team_id=int(away["teamId"]),
+                    home_abbr=str(home.get("teamTricode") or ""),
+                    away_abbr=str(away.get("teamTricode") or ""),
+                    home_pts=_optional_int(home.get("score")) if final else None,
+                    away_pts=_optional_int(away.get("score")) if final else None,
+                    season_type=season_type,
+                )
+            )
+    return games
+
+
+def games_from_data_nba_schedule(payload: dict[str, object], season: str) -> list[ScheduleGame]:
+    """Build schedule rows from the data.nba.com full-season file."""
+    months = payload.get("lscd")
+    if not isinstance(months, list):
+        raise ValueError("data.nba.com schedule has no lscd list.")
+    games: list[ScheduleGame] = []
+    for month in months:
+        if not isinstance(month, dict):
+            continue
+        block = month.get("mscd") if isinstance(month.get("mscd"), dict) else {}
+        for item in block.get("g") or []:
+            if not isinstance(item, dict):
+                continue
+            game_id = _game_id(item.get("gid"))
+            season_type = season_type_from_game_id(game_id)
+            if season_type is None:
+                continue
+            home = item.get("h") if isinstance(item.get("h"), dict) else {}
+            away = item.get("v") if isinstance(item.get("v"), dict) else {}
+            final = str(item.get("stt") or "").lower() == "final"
+            games.append(
+                ScheduleGame(
+                    game_id=game_id,
+                    game_date=parse_game_date(item.get("gdte")),
+                    status="final" if final else "scheduled",
+                    home_team_id=int(home["tid"]),
+                    away_team_id=int(away["tid"]),
+                    home_abbr=str(home.get("ta") or ""),
+                    away_abbr=str(away.get("ta") or ""),
+                    home_pts=_optional_int(home.get("s")) if final else None,
+                    away_pts=_optional_int(away.get("s")) if final else None,
+                    season_type=season_type,
+                )
+            )
+    if not games:
+        raise ValueError(f"data.nba.com schedule for {season} had no regular-season, playoff, or play-in games.")
+    return games
+
+
+def season_type_from_game_id(game_id: str) -> str | None:
+    if len(game_id) < 3 or not game_id.startswith("00"):
+        return None
+    return {"2": "Regular Season", "4": "Playoffs", "5": "PlayIn"}.get(game_id[2])
 
 
 def schedule_row(season: str, game: ScheduleGame) -> dict[str, object]:
@@ -557,6 +684,22 @@ def _optional_int(value: object) -> int | None:
     if value is None or value == "":
         return None
     return int(round(float(value)))
+
+
+def _game_id(value: object) -> str:
+    text = str(value or "").strip()
+    if text.isdigit():
+        return text.zfill(10)
+    return text
+
+
+def _matchup_is_home(value: object) -> bool:
+    text = str(value or "")
+    return " vs." in text or " vs " in text
+
+
+def _matchup_is_away(value: object) -> bool:
+    return " @ " in str(value or "")
 
 
 def _text_or_none(value: object) -> str | None:

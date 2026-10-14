@@ -11,6 +11,10 @@ from ingest.parse import (
     CourtEvent,
     PossessionView,
     ScheduleGame,
+    games_from_cdn_schedule,
+    games_from_data_nba_schedule,
+    games_from_team_log,
+    parse_game_date,
     parse_minutes,
     parse_seasons,
     player_rows_from_box,
@@ -239,6 +243,94 @@ class FakeSource:
 @pytest.fixture
 def identity_views(monkeypatch):
     monkeypatch.setattr("ingest.pipeline.possessions_to_views", lambda items: items)
+
+
+def test_schedule_rows_from_stats_and_cdn():
+    games = games_from_team_log(
+        [
+            {
+                "GAME_ID": "0022400061",
+                "GAME_DATE": "2024-10-22",
+                "MATCHUP": "BOS vs. NYK",
+                "TEAM_ID": 1610612738,
+                "TEAM_ABBREVIATION": "BOS",
+                "PTS": 132,
+            },
+            {
+                "GAME_ID": 22400061,
+                "GAME_DATE": "2024-10-22",
+                "MATCHUP": "NYK @ BOS",
+                "TEAM_ID": 1610612752,
+                "TEAM_ABBREVIATION": "NYK",
+                "PTS": 109,
+            },
+            {
+                "GAME_ID": "0012400001",
+                "GAME_DATE": "2024-10-04",
+                "MATCHUP": "BOS vs. NYK",
+                "TEAM_ID": 1610612738,
+                "TEAM_ABBREVIATION": "BOS",
+                "PTS": 90,
+            },
+        ]
+    )
+    assert len(games) == 1
+    assert games[0].game_id == "0022400061"
+    assert games[0].home_abbr == "BOS"
+    assert games[0].away_pts == 109
+    assert games[0].season_type == "Regular Season"
+    assert games[0].is_final
+    cdn = games_from_cdn_schedule(
+        {
+            "leagueSchedule": {
+                "seasonYear": "2025-26",
+                "gameDates": [
+                    {
+                        "gameDate": "10/22/2025 00:00:00",
+                        "games": [
+                            {
+                                "gameId": "0022500001",
+                                "gameStatus": 1,
+                                "gameStatusText": "7:30 pm ET",
+                                "homeTeam": {"teamId": 1610612738, "teamTricode": "BOS", "score": 0},
+                                "awayTeam": {"teamId": 1610612752, "teamTricode": "NYK", "score": 0},
+                            }
+                        ],
+                    }
+                ],
+            }
+        },
+        "2025-26",
+    )
+    assert cdn[0].status == "scheduled"
+    assert cdn[0].home_pts is None
+    assert cdn[0].game_date == parse_game_date("2025-10-22")
+    with pytest.raises(ValueError):
+        games_from_cdn_schedule({"leagueSchedule": {"seasonYear": "2026-27", "gameDates": []}}, "2025-26")
+    assert "DataNbaScheduleLoader" not in open("ingest/source.py", encoding="utf-8").read()
+    mobile = games_from_data_nba_schedule(
+        {
+            "lscd": [
+                {
+                    "mscd": {
+                        "g": [
+                            {
+                                "gid": "0022400061",
+                                "gdte": "2024-10-22",
+                                "stt": "Final",
+                                "h": {"tid": 1610612738, "ta": "BOS", "s": "132"},
+                                "v": {"tid": 1610612752, "ta": "NYK", "s": "109"},
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        "2024-25",
+    )
+    assert mobile[0].home_abbr == "BOS"
+    assert mobile[0].away_pts == 109
+    assert mobile[0].is_final
 
 
 def test_parse_seasons_and_minutes():

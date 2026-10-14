@@ -25,6 +25,8 @@ python3 backfill.py --seasons 2015-2025 --log-file /var/lib/nba-sim/backfill.log
 
 That command is the full historical pull. It is rate-limited and resumable: run the same command again after an interruption. Games already stored in both `player_game_logs` and `player_game_rates` are skipped. A season is frozen only when that run had no date filter, no `--max-games`, and no failed games. Exit status is 1 when any game failed.
 
+`stats.nba.com` is tried first for schedules and player logs. When it does not answer, schedules come from `data.nba.com` and box scores come from the live NBA feed. The current season uses `cdn.nba.com` when that file is for the requested season. The requests send browser client hints; without them the CDN returns 403.
+
 A one-day check, which does not freeze the season:
 
 ```bash

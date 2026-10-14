@@ -1,32 +1,28 @@
 """Download schedule, box scores, and possessions.
 
-Raw responses stay in memory. pbpstats is not given a directory, so it does
-not write response files. nba_api is tried first for season logs. When
-stats.nba.com does not answer, live box scores from the NBA media feed are used.
+Raw responses stay in memory. Historical schedules try stats.nba.com first.
+When that host sends no bytes, the season file on data.nba.com is used.
+The current season uses the cdn.nba.com schedule when that file matches
+the requested season. Live box scores fill player logs when stats.nba.com
+does not answer.
 """
 
 from __future__ import annotations
 
 import time
-from datetime import date
 
 import requests
+from nba_api.stats.library.http import STATS_HEADERS
 
-from ingest.parse import ScheduleGame, parse_game_date
-
-_STATS_PROBE = (
-    "https://stats.nba.com/stats/scoreboardv2"
-    "?GameDate=10/22/2024&LeagueID=00&DayOffset=0"
+from ingest.parse import (
+    ScheduleGame,
+    games_from_cdn_schedule,
+    games_from_data_nba_schedule,
+    games_from_team_log,
 )
-_STATS_HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
-        "(KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
-    ),
-    "Accept": "application/json, text/plain, */*",
-    "Referer": "https://www.nba.com/",
-    "Origin": "https://www.nba.com",
-}
+
+_CDN_SCHEDULE = "https://cdn.nba.com/static/json/staticData/scheduleLeagueV2.json"
+_SEASON_TYPES = ("Regular Season", "Playoffs", "PlayIn")
 
 
 class SourceUnavailable(Exception):
@@ -42,31 +38,33 @@ class NbaSource:
         backoff_seconds: float,
         timeout_seconds: float,
         log,
+        current_season: str | None = None,
     ) -> None:
         self.delay_seconds = delay_seconds
         self.max_retries = max_retries
         self.backoff_seconds = backoff_seconds
         self.timeout_seconds = timeout_seconds
         self.log = log
+        self.current_season = current_season
         self._last_request = 0.0
-        self._schedule_cache: dict[str, list[ScheduleGame]] = {}
+        self._schedule_cache: dict[tuple[str, str], list[ScheduleGame]] = {}
+        self._data_nba_seasons: set[str] = set()
         self._api_players: dict[tuple[str, str], dict[str, list[dict]]] = {}
         self._stats_nba_ok: bool | None = None
 
     def stats_nba_ok(self) -> bool:
-        if self._stats_nba_ok is None:
-            self._stats_nba_ok = self._probe_stats_nba()
-            state = "reachable" if self._stats_nba_ok else "not reachable; using live NBA feeds"
-            self.log(f"stats.nba.com is {state}.")
-        return self._stats_nba_ok
+        """False only after a stats.nba.com call has already failed this run."""
+        return self._stats_nba_ok is not False
 
     def clear_schedule_cache(self) -> None:
         self._schedule_cache.clear()
+        self._data_nba_seasons.clear()
 
     def schedule(self, season: str, season_type: str) -> list[ScheduleGame]:
-        if season not in self._schedule_cache:
-            self._schedule_cache[season] = self._load_schedule(season)
-        return [game for game in self._schedule_cache[season] if game.season_type == season_type]
+        key = (season, season_type)
+        if key not in self._schedule_cache:
+            self._load_schedule(season, season_type)
+        return list(self._schedule_cache.get(key, []))
 
     def api_player_rows(self, season: str, season_type: str, game_id: str) -> list[dict] | None:
         """Player log rows from nba_api, or None when that host is unavailable."""
@@ -92,55 +90,88 @@ class NbaSource:
             pass
         except Exception as exc:
             self.log(f"live possessions failed for {game_id}: {exc}")
-        if not self.stats_nba_ok():
+        if self._stats_nba_ok is False:
             raise SourceUnavailable(f"no possession feed for {game_id}")
         return self._retry(f"possessions {game_id}", lambda: self._pbpstats_possessions(game_id, "stats_nba"))
 
-    def _load_schedule(self, season: str) -> list[ScheduleGame]:
-        from pbpstats.data_loader.data_nba.schedule.loader import DataNbaScheduleLoader
+    def _load_schedule(self, season: str, season_type: str) -> None:
+        if season == self.current_season:
+            try:
+                self._remember_schedule(season, self._cdn_schedule(season))
+                return
+            except SourceUnavailable as exc:
+                self.log(f"CDN schedule unavailable for {season}: {exc}. Using stats.nba.com.")
+        if self._stats_nba_ok is not False:
+            try:
+                records = self._team_schedule_rows(season, season_type)
+            except Exception as exc:
+                self._stats_nba_ok = False
+                self.log(f"stats.nba.com schedule failed ({exc}). Using data.nba.com for {season}.")
+            else:
+                self._schedule_cache[(season, season_type)] = games_from_team_log(records)
+                return
+        if season not in self._data_nba_seasons:
+            self._remember_schedule(season, self._data_nba_schedule(season))
+            self._data_nba_seasons.add(season)
+        if (season, season_type) not in self._schedule_cache:
+            self._schedule_cache[(season, season_type)] = []
 
-        def _load() -> list[ScheduleGame]:
-            cache: dict[str, object] = {}
-            web = _ScheduleWeb()
-            caching = _CachingSchedule(web, cache, self._pause)
-            games: list[ScheduleGame] = []
-            for season_type in ("Regular Season", "Playoffs", "PlayIn"):
-                loaded = DataNbaScheduleLoader("nba", season, season_type, caching)
-                for item in loaded.items:
-                    status = "final" if item.is_final else "scheduled"
-                    games.append(
-                        ScheduleGame(
-                            game_id=str(item.game_id),
-                            game_date=parse_game_date(item.date),
-                            status=status,
-                            home_team_id=int(item.home_team_id),
-                            away_team_id=int(item.away_team_id),
-                            home_abbr=str(item.home_team_abbreviation),
-                            away_abbr=str(item.away_team_abbreviation),
-                            home_pts=_score(item.home_score, final=item.is_final),
-                            away_pts=_score(item.away_score, final=item.is_final),
-                            season_type=season_type,
-                        )
-                    )
-            return games
+    def _data_nba_schedule(self, season: str) -> list[ScheduleGame]:
+        year = season.split("-", 1)[0]
+        url = (
+            "https://data.nba.com/data/10s/v2015/json/mobile_teams/nba/"
+            f"{year}/league/00_full_schedule.json"
+        )
+        payload = self._request_json(url, label=f"data.nba.com schedule {season}", headers=_BROWSER_HEADERS)
+        try:
+            return games_from_data_nba_schedule(payload, season)
+        except ValueError as exc:
+            raise SourceUnavailable(str(exc)) from exc
 
-        return self._retry(f"schedule {season}", _load)
+    def _remember_schedule(self, season: str, games: list[ScheduleGame]) -> None:
+        for season_type in _SEASON_TYPES:
+            self._schedule_cache[(season, season_type)] = [
+                game for game in games if game.season_type == season_type
+            ]
+
+    def _cdn_schedule(self, season: str) -> list[ScheduleGame]:
+        payload = self._request_json(_CDN_SCHEDULE, label=f"cdn schedule {season}", headers=_BROWSER_HEADERS)
+        try:
+            return games_from_cdn_schedule(payload, season)
+        except ValueError as exc:
+            raise SourceUnavailable(str(exc)) from exc
+
+    def _team_schedule_rows(self, season: str, season_type: str) -> list[dict]:
+        """Team rows for one season type. LeagueGameFinder runs if LeagueGameLog fails."""
+        try:
+            return self._stats_rows(
+                "leaguegamelog",
+                _league_game_log_params(season, season_type, player_or_team="T"),
+                "LeagueGameLog",
+                label=f"LeagueGameLog {season} {season_type}",
+            )
+        except requests.Timeout:
+            raise
+        except Exception as exc:
+            self.log(f"LeagueGameLog failed for {season} {season_type}: {exc}. Trying LeagueGameFinder.")
+            return self._stats_rows(
+                "leaguegamefinder",
+                _league_game_finder_params(season, season_type),
+                "LeagueGameFinderResults",
+                label=f"LeagueGameFinder {season} {season_type}",
+            )
 
     def _league_game_log(self, season: str, season_type: str) -> dict[str, list[dict]]:
-        from nba_api.stats.endpoints import LeagueGameLog
-
-        def _load():
-            self._pause()
-            endpoint = LeagueGameLog(
-                season=season,
-                player_or_team_abbreviation="P",
-                season_type_all_star=season_type,
-                timeout=int(self.timeout_seconds),
+        try:
+            records = self._stats_rows(
+                "leaguegamelog",
+                _league_game_log_params(season, season_type, player_or_team="P"),
+                "LeagueGameLog",
+                label=f"LeagueGameLog players {season} {season_type}",
             )
-            frame = endpoint.get_data_frames()[0]
-            return frame.to_dict(orient="records")
-
-        records = self._retry(f"nba_api game log {season} {season_type}", _load)
+        except Exception:
+            self._stats_nba_ok = False
+            raise
         grouped: dict[str, list[dict]] = {}
         for record in records:
             grouped.setdefault(str(record["GAME_ID"]), []).append(record)
@@ -159,10 +190,14 @@ class NbaSource:
                 raise SourceUnavailable(str(exc)) from exc
             raise
 
-    def _request_json(self, url: str, *, label: str) -> dict:
+    def _request_json(self, url: str, *, label: str, headers: dict[str, str] | None = None) -> dict:
         def _load():
             self._pause()
-            response = requests.get(url, timeout=self.timeout_seconds, headers={"User-Agent": "nba-sim"})
+            response = requests.get(
+                url,
+                timeout=self.timeout_seconds,
+                headers=headers or {"User-Agent": "nba-sim"},
+            )
             if response.status_code in {403, 404}:
                 raise SourceUnavailable(f"{label} returned {response.status_code}")
             response.raise_for_status()
@@ -170,12 +205,30 @@ class NbaSource:
 
         return self._retry(label, _load)
 
-    def _probe_stats_nba(self) -> bool:
-        try:
-            response = requests.get(_STATS_PROBE, headers=_STATS_HEADERS, timeout=12)
-            return response.status_code == 200 and response.content[:1] in {b"{", b"["}
-        except requests.RequestException:
-            return False
+    def _stats_rows(self, endpoint: str, params: list[tuple[str, str]], result_name: str, *, label: str) -> list[dict]:
+        """GET a stats.nba.com endpoint. Query order is preserved (LeagueID first)."""
+
+        def _load() -> list[dict]:
+            self._pause()
+            response = requests.get(
+                f"https://stats.nba.com/stats/{endpoint}",
+                params=params,
+                headers=dict(STATS_HEADERS),
+                timeout=self.timeout_seconds,
+            )
+            if response.status_code in {403, 404}:
+                raise SourceUnavailable(f"{label} returned {response.status_code}")
+            response.raise_for_status()
+            body = response.text.lstrip()
+            if body.startswith("<"):
+                raise requests.RequestException(f"{label} returned HTML instead of JSON")
+            payload = response.json()
+            return _result_rows(payload, result_name)
+
+        rows = self._retry(label, _load)
+        self._stats_nba_ok = True
+        self.log(f"stats.nba.com {label} returned {len(rows)} rows.")
+        return rows
 
     def _pause(self) -> None:
         if self.delay_seconds <= 0:
@@ -193,6 +246,9 @@ class NbaSource:
                 return fn()
             except SourceUnavailable:
                 raise
+            except requests.Timeout:
+                self.log(f"{label} timed out after {self.timeout_seconds:g}s with no response.")
+                raise
             except Exception as exc:
                 last = exc
                 self.log(f"{label} attempt {attempt} failed: {exc}")
@@ -204,44 +260,62 @@ class NbaSource:
         raise last
 
 
-class _ScheduleWeb:
-    """data.nba.com schedule fetch that sends a browser user agent and saves nothing."""
-
-    def __init__(self) -> None:
-        self.file_directory = None
-
-    def load_data(self, league: str, season: str):
-        from pbpstats.data_loader.data_nba.schedule.web import DataNbaScheduleWebLoader
-
-        inner = DataNbaScheduleWebLoader(None)
-        inner.league_string = league
-        inner.season_year = season.split("-")[0]
-        league_url_part = "nba" if league == "gleague" else league
-        league_part = "dleague" if league == "gleague" else league
-        inner.url = (
-            f"https://data.{league_url_part}.com/data/10s/v2015/json/mobile_teams/"
-            f"{league_part}/{inner.season_year}/league/{inner.league_id}_full_schedule.json"
-        )
-        response = requests.get(inner.url, headers=_STATS_HEADERS, timeout=30)
-        if response.status_code in {403, 404}:
-            raise SourceUnavailable(f"schedule {season} returned {response.status_code}")
-        response.raise_for_status()
-        inner.source_data = response.json()
-        return inner.source_data
+_BROWSER_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    ),
+    "Accept": "application/json, text/plain, */*",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Origin": "https://www.nba.com",
+    "Referer": "https://www.nba.com/",
+    "Sec-Fetch-Dest": "empty",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Site": "same-site",
+    "sec-ch-ua": '"Google Chrome";v="120", "Chromium";v="120", "Not_A Brand";v="24"',
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": '"Windows"',
+}
 
 
-class _CachingSchedule:
-    def __init__(self, inner, cache: dict[str, object], pause) -> None:
-        self.inner = inner
-        self.cache = cache
-        self.pause = pause
-        self.file_directory = None
+def _league_game_log_params(season: str, season_type: str, *, player_or_team: str) -> list[tuple[str, str]]:
+    # LeagueID stays first. Alphabetical order has been answered with an HTML block page.
+    return [
+        ("LeagueID", "00"),
+        ("Season", season),
+        ("SeasonType", season_type),
+        ("PlayerOrTeam", player_or_team),
+        ("DateFrom", ""),
+        ("DateTo", ""),
+        ("Counter", "0"),
+        ("Direction", "ASC"),
+        ("Sorter", "DATE"),
+    ]
 
-    def load_data(self, league: str, season: str):
-        if season not in self.cache:
-            self.pause()
-            self.cache[season] = self.inner.load_data(league, season)
-        return self.cache[season]
+
+def _league_game_finder_params(season: str, season_type: str) -> list[tuple[str, str]]:
+    return [
+        ("LeagueID", "00"),
+        ("Season", season),
+        ("SeasonType", season_type),
+        ("PlayerOrTeam", "T"),
+        ("DateFrom", ""),
+        ("DateTo", ""),
+    ]
+
+
+def _result_rows(payload: dict, result_name: str) -> list[dict]:
+    sets = payload.get("resultSets")
+    if sets is None and isinstance(payload.get("resultSet"), dict):
+        sets = [payload["resultSet"]]
+    if not isinstance(sets, list):
+        raise requests.RequestException("stats.nba.com response has no resultSets")
+    for item in sets:
+        if item.get("name") != result_name:
+            continue
+        headers = item.get("headers") or []
+        return [dict(zip(headers, row)) for row in item.get("rowSet") or []]
+    raise requests.RequestException(f"stats.nba.com response has no {result_name}")
 
 
 def _players_and_points(payload: dict) -> tuple[list[dict], dict[int, int]]:
@@ -283,8 +357,3 @@ def _players_and_points(payload: dict) -> tuple[list[dict], dict[int, int]]:
             )
     return players, points
 
-
-def _score(value: object, *, final: bool) -> int | None:
-    if not final or value is None or value == "":
-        return None
-    return int(value)
