@@ -167,7 +167,8 @@ def _tables() -> dict[str, Table]:
         description=(
             "Compact box score for every player appearance. "
             "Completed seasons are frozen with a _COMPLETE marker and are never rewritten. "
-            "The current season accepts new keys only."
+            "The current season accepts new keys only. "
+            "starter and position come from the live box score when that feed is available."
         ),
         columns=_season_cols()
         + (
@@ -222,7 +223,7 @@ def _tables() -> dict[str, Table]:
             _col("win", "BOOLEAN", False, "True when this team won."),
             _col("pts", "INTEGER", False, "Points scored by this team."),
             _col("opp_pts", "INTEGER", False, "Points allowed."),
-            _col("pace", "DOUBLE", True, "Possessions pace for this game when known."),
+            _col("pace", "DOUBLE", True, "Offensive possessions in this game when play-by-play is available."),
             _col("overtime_periods", "INTEGER", False, "Number of overtime periods. 0 if regulation."),
         ),
     )
@@ -255,7 +256,9 @@ def _tables() -> dict[str, Table]:
         grain="one row per player per game",
         description=(
             "Per-player, per-game rates derived from play-by-play. "
-            "The whole season partition is overwritten on each run and never appended."
+            "Shot zones map from pbpstats types: AtRim, ShortMidRange, LongMidRange, "
+            "Corner3 split by court side, and Arc3. "
+            "The season file is rewritten in place when new games are added, not appended as a new copy."
         ),
         columns=_season_cols()
         + (

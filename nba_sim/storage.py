@@ -202,6 +202,13 @@ def finish_run(settings: Settings) -> StorageReport:
     return report
 
 
+def season_is_complete(settings: Settings, table: str, season: str) -> bool:
+    """True when this season partition has been frozen with a _COMPLETE marker."""
+    if table not in TABLES:
+        raise StorageError(f"unknown table {table!r}. See SCHEMA.md.")
+    return (partition_dir(settings.data_dir, table, season) / _COMPLETE).is_file()
+
+
 def mark_season_complete(settings: Settings, table: str, season: str) -> Path:
     """Freeze a season so later runs cannot rewrite it."""
     _prepare_data_dir(settings)
@@ -212,6 +219,25 @@ def mark_season_complete(settings: Settings, table: str, season: str) -> Path:
     marker.write_text("complete\n", encoding="utf-8")
     enforce_cap(settings)
     return marker
+
+
+def read_rows(settings: Settings, table: str, season: str) -> list[dict[str, object]]:
+    """Read one season partition through DuckDB. Empty when the file is absent."""
+    spec = TABLES[table]
+    path = data_file(settings.data_dir, table, season)
+    loaded = _read_partition(path, spec)
+    if loaded is None:
+        return []
+    return loaded.to_pylist()
+
+
+def stored_game_ids(settings: Settings, table: str, season: str) -> set[str]:
+    """Game ids already present in a table that uses game_id as part of its key."""
+    spec = TABLES[table]
+    if "game_id" not in spec.key:
+        raise StorageError(f"{table} has no game_id key. See SCHEMA.md.")
+    index = spec.key.index("game_id")
+    return {str(key[index]) for key in stored_keys(settings, table, season)}
 
 
 def stored_keys(settings: Settings, table: str, season: str) -> set[tuple[object, ...]]:

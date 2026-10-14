@@ -13,3 +13,20 @@ python -m nba_sim
 `python -m nba_sim` prints a storage report for `DATA_DIR` (bytes per table and season, plus the total) and exits with status 1 when the cap is exceeded.
 
 Table layouts are in `SCHEMA.md`. Phase status is in `PROGRESS.md`. Tunable blend, minutes, and simulation parameters are in `config.yaml`.
+
+## Backfill
+
+Create the data directories from `.env` first. The log file has to sit outside the repo.
+
+```bash
+mkdir -p /var/lib/nba-sim/data /var/lib/nba-sim/archive
+python3 backfill.py --seasons 2015-2025 --log-file /var/lib/nba-sim/backfill.log
+```
+
+That command is the full historical pull. It is rate-limited and resumable: run the same command again after an interruption. Games already stored in both `player_game_logs` and `player_game_rates` are skipped. A season is frozen only when that run had no date filter, no `--max-games`, and no failed games. Exit status is 1 when any game failed.
+
+A one-day check, which does not freeze the season:
+
+```bash
+python3 backfill.py --season 2024-25 --start-date 2024-10-22 --end-date 2024-10-22 --max-games 1
+```

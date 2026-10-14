@@ -20,7 +20,7 @@ DuckDB is opened in memory. This project does not keep a `.duckdb` database.
 
 ## player_game_logs
 
-Compact box score for every player appearance. Completed seasons are frozen with a _COMPLETE marker and are never rewritten. The current season accepts new keys only.
+Compact box score for every player appearance. Completed seasons are frozen with a _COMPLETE marker and are never rewritten. The current season accepts new keys only. starter and position come from the live box score when that feed is available.
 
 Policy: `incremental_current`
 
@@ -83,7 +83,7 @@ Key: `game_id`, `team_id`
 | win | BOOLEAN | no | True when this team won. |
 | pts | INTEGER | no | Points scored by this team. |
 | opp_pts | INTEGER | no | Points allowed. |
-| pace | DOUBLE | yes | Possessions pace for this game when known. |
+| pace | DOUBLE | yes | Offensive possessions in this game when play-by-play is available. |
 | overtime_periods | INTEGER | no | Number of overtime periods. 0 if regulation. |
 
 ## schedule
@@ -111,7 +111,7 @@ Key: `game_id`
 
 ## player_game_rates
 
-Per-player, per-game rates derived from play-by-play. The whole season partition is overwritten on each run and never appended.
+Per-player, per-game rates derived from play-by-play. Shot zones map from pbpstats types: AtRim, ShortMidRange, LongMidRange, Corner3 split by court side, and Arc3. The season file is rewritten in place when new games are added, not appended as a new copy.
 
 Policy: `replace`
 
