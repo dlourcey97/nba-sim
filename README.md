@@ -12,7 +12,24 @@ python -m nba_sim
 
 `python -m nba_sim` prints a storage report for `DATA_DIR` (bytes per table and season, plus the total) and exits with status 1 when the cap is exceeded.
 
-Table layouts are in `SCHEMA.md`. Phase status is in `PROGRESS.md`. Tunable blend, minutes, and simulation parameters are in `config.yaml`.
+Table layouts are in `SCHEMA.md`. Phase status is in `PROGRESS.md`. Tunable blend, minutes, and simulation parameters are in `config.yaml`. Manual injury overrides live in `overrides.yaml`.
+
+## Simulate
+
+```bash
+python run.py --date 2024-10-28 --game IND-ORL --season 2024-25 --runs 1000 --seed 1 --skip-injury-pdf
+python run.py --date 2024-10-28 --all --season 2024-25 --runs 1000 --skip-injury-pdf
+```
+
+JSON summaries land in `results/latest/` (gitignored). Prediction history is upserted under `DATA_DIR/prediction_history/`.
+
+## Nightly
+
+```bash
+python daily.py --date 2026-10-21 --log-file /Users/deanlourcey/nba_archive/daily.log
+```
+
+Ingests the current season, fetches the injury PDF, simulates the slate, writes JSON and history, then prints the storage report.
 
 ## Backfill
 
