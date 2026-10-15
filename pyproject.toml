@@ -24,7 +24,7 @@ dependencies = [
 dev = ["pytest>=8.0"]
 
 [tool.setuptools.packages.find]
-include = ["nba_sim*", "ingest*"]
+include = ["nba_sim*", "ingest*", "projections*", "sim*", "outputs*", "backtest*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

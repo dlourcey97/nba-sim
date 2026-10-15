@@ -1,13 +1,13 @@
 # Progress
 
-Last updated after Phase 3 (injury report and overrides).
+Last updated after Phase 4 (projection blending, context, minutes).
 
 | Phase | Status | Notes |
 | --- | --- | --- |
 | 1. Project setup and storage | done | Config, schema, ignore files, cap, and storage report. |
 | 2. Ingestion and backfill | done | nba_api, PlayByPlayV3 possessions, live-feed fallback, backfill.py. Sample games from 2015-16, 2019-20, and 2024-25. |
 | 3. Injury report and overrides | done | Official PDF parse via pypdf, overrides.yaml precedence, in-memory only. |
-| 4. Projections | not started | Blend, context, minutes model. |
+| 4. Projections | done | Blend, opponent/pace/rest context, absence redistribution, minutes model. |
 | 5. Simulation | not started | Possession engine. |
 | 6. Outputs and daily.py | not started | JSON summaries, prediction history, nightly pipeline. |
 | 7. Backtesting | not started | Walk-forward metrics and tuning. |
@@ -44,31 +44,26 @@ Source order for a historical season:
 - Older box scores put a position on every player. Only the first five such rows per team are stored as starters.
 - Requests use nba_api's browser headers, a 60 second timeout, and exponential backoff for errors that return a response. A read that returns no bytes, and a body that is not JSON, are not repeated five times. After one failed `stats.nba.com` schedule call, the rest of that run uses the schedule fallbacks. One bad play-by-play response does not turn that off.
 
-Storage rules are unchanged:
-
-- Final games write `player_game_logs`, `team_game_results` (pace is offensive possessions), `player_game_rates`, and a schedule row. If possessions are missing, the logs and the team score are still written and the rate rows are left for the next run.
-- Scheduled games upsert the schedule row only.
-- A game already in both logs and rates is skipped, so a rerun resumes.
-- Logs and team results are written before rates.
-- Derived aggregates and zone defense are replaced from the stored season at the end of each season.
-- `_COMPLETE` is written only for an older season after a full run with no failures. Date filters and `--max-games` keep the season unfrozen.
-
-`LeagueGameLog` for 2024-25 Regular Season succeeded from this Mac: 2460 team rows, inside the 60 second timeout.
-
-One week, `2024-10-22` through `2024-10-29`: stored 56 games from `BoxScoreTraditional`, 1264 player rows, 560 starters, pace from 90 to 115.
-
-Five regular-season games from 2015-16 (`0021500001` through `0021500005`) and five from 2019-20 (`0021900001` through `0021900005`): 10 games stored, 0 failed, 0 possessions missing. 2015-16 has 102 player rows and 50 starters, pace 95 to 102. 2019-20 has 99 player rows and 50 starters, pace 94 to 114, including one overtime game. `DATA_DIR` is 167128 bytes. No `.json`, no `_tmp`, and no `_COMPLETE` (the samples used `--max-games`). Exit 0. The full `2015-2025` pull was not run.
+Storage rules are unchanged. Sample coverage: 2015-16 (5 games), 2019-20 (5 games), 2024-25 (one week). Full `2015-2025` backfill is run separately.
 
 ## Phase 3
 
-`ingest/injuries.py` downloads the official NBA injury PDF from `ak-static.cms.nba.com` (with `static.cms.nba.com` as a second host), parses it with `pypdf`, and discards the bytes. PDF text comes out one word per line; the parser joins words, repairs split hyphens, and pulls player rows with single-token last names so reason text does not become part of the name.
+`ingest/injuries.py` downloads the official NBA injury PDF from `ak-static.cms.nba.com` (with `static.cms.nba.com` as a second host), parses it with `pypdf`, and discards the bytes. `overrides.yaml` wins on status and minutes caps. Injury rows are not written under `DATA_DIR`.
 
-`overrides.yaml` lists manual player status and optional `minutes_cap` values. `merge_injuries` lets overrides win on `(game_date, player_id)` or `(game_date, team, name)`. Nothing from the injury report is written under `DATA_DIR`.
+## Phase 4
 
-Tests cover text parsing, override precedence, repo `overrides.yaml` loading, and a live PDF fetch when the host answers. Sample report `2025-10-22` yields 80+ player rows including Out/Available/Questionable/Probable.
+`projections/` builds per-game player rates and minutes from stored logs/rates only (no future leakage when `as_of` is the game date).
 
-Open issues: player_id is null on PDF rows until a later name match against game logs; projections resolve names when building a slate.
+- `rates.py`: per-possession vectors (usage, TOV, FT, rebound/assist/steal/block, zone shares and FG%).
+- `blend.py`: multi-season baseline from `config.yaml` season weights, exponential recent-form decay, position regression with `regression_strength`.
+- `context.py`: opponent zone defense, home/away and rest pace, teammate absence usage redistribution, injury name→id match.
+- `minutes.py`: rotation mean with variance, out/doubtful → 0, questionable/probable discounts, minutes_cap.
+- `build.py`: roster from recent appearances (up to 15), returns `GameProjection`.
+
+Checked on `0022400102` (IND@ORL, 2024-10-28) in `DATA_DIR`: home/away possessions ~100, usage among active teammates ~1.0, out override zeros minutes.
+
+Open issues: with only sample seasons in `DATA_DIR`, multi-season player baselines are thin until the full backfill finishes; position priors fill the gap.
 
 ## Next
 
-Phase 4: projection blending, context adjustments, and the minutes model.
+Phase 5: possession-level simulation engine.
