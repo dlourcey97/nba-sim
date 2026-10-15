@@ -31,6 +31,15 @@ python daily.py --date 2026-10-21 --log-file /Users/deanlourcey/nba_archive/dail
 
 Ingests the current season, fetches the injury PDF, simulates the slate, writes JSON and history, then prints the storage report.
 
+## Backtest
+
+```bash
+python backtest/evaluate.py --seasons 2024-25 --runs 500 --max-games 20
+python backtest/tune.py --seasons 2024-25 --runs 300 --max-games 12
+```
+
+Walk-forward only (data before each game). Writes `results/backtest/metrics.json` and `calibration.svg`. `tune.py` searches blend knobs; pass `--write` to update `config.yaml`.
+
 ## Backfill
 
 Create the data directories from `.env` first. The log file has to sit outside the repo.

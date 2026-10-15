@@ -1,6 +1,6 @@
 # Progress
 
-Last updated after Phase 6 (outputs, daily.py, run.py).
+Last updated after Phase 7 (backtesting and tuning). All build phases are done.
 
 | Phase | Status | Notes |
 | --- | --- | --- |
@@ -10,7 +10,7 @@ Last updated after Phase 6 (outputs, daily.py, run.py).
 | 4. Projections | done | Blend, context, absence redistribution, minutes model. |
 | 5. Simulation | done | Vectorized possession engine; ~5s for 10k runs. |
 | 6. Outputs and daily.py | done | Summaries, results/latest JSON, prediction history, daily.py, run.py. |
-| 7. Backtesting | not started | Walk-forward metrics and tuning. |
+| 7. Backtesting | done | Walk-forward metrics, calibration SVG, blend-parameter tuner. |
 
 ## Phase 3
 
@@ -18,23 +18,33 @@ Last updated after Phase 6 (outputs, daily.py, run.py).
 
 ## Phase 4
 
-`projections/` builds per-game player rates and minutes from stored logs/rates with `as_of` cutoff (no future leakage). Blend weights, form decay, regression, pace/rest/home factors, and minutes variance come from `config.yaml`.
+`projections/` builds per-game player rates and minutes from stored logs/rates with an `as_of` cutoff. Blend window falls back to older available seasons when recent partitions are missing (partial backfill). Rosters prefer the newest season with appearances.
 
 ## Phase 5
 
-`sim/engine.py` vectorizes possessions across runs. Steals, turnovers, FTs, zone shots, blocks, assists, rebounds, pace noise, overtime. Seeded and reproducible. ~5s for 10k runs on the sample IND@ORL game.
+`sim/engine.py` vectorizes possessions across runs. Steals, turnovers, FTs, zone shots, blocks, assists, rebounds, pace noise, overtime. ~5s for 10k runs on the sample IND@ORL game.
 
 ## Phase 6
 
-- `outputs/summarize.py`: mean and p10–p90 for player stats and combos, plus game win/OT/margin/total.
-- `outputs/json_writer.py`: one JSON per game in `results/latest/` (overwritten).
-- `outputs/history.py`: upserts `prediction_history`, then fills actuals from final logs/schedule.
-- `outputs/pipeline.py`: projections → sim → summarize → JSON/history.
-- `run.py`: `--date` with `--game AWAY-HOME` or `--all`.
-- `daily.py`: ingest current season → injuries → slate → finish_run/storage report.
+Summaries → `results/latest/*.json` and `prediction_history` (actuals filled after finals). `run.py` for single games/slates. `daily.py` for ingest → injuries → sim → storage report.
 
-Checked with `run.py --date 2024-10-28 --game IND-ORL --season 2024-25 --runs 200 --seed 9 --skip-injury-pdf`: home_win≈0.51, JSON written, history actuals filled, storage report printed.
+## Phase 7
 
-## Next
+- `backtest/metrics.py`: Brier (home win), MAE for PTS/REB/AST/MIN, 10th–90th coverage, calibration bins, SVG plot.
+- `backtest/evaluate.py`: walk-forward over finals with prior same-season games only; writes `results/backtest/metrics.json` and `calibration.svg`.
+- `backtest/tune.py`: small grid over `form_decay`, `regression_strength`, and season weights; optional `--write` into `config.yaml`.
 
-Phase 7: walk-forward backtest metrics and parameter tuning.
+Checked on `DATA_DIR` 2024-25 with `--max-games 4 --runs 100`: metrics and calibration SVG written. Full pytest: 51 passed.
+
+Open issues: backtest metrics on the sample week are noisy (few games, thin multi-season player history until the overnight backfill finishes). Re-run `backtest/evaluate.py --seasons 2023-2025` after more seasons land.
+
+## Commands
+
+```bash
+python backfill.py --seasons 2015-2025 --log-file /Users/deanlourcey/nba_archive/backfill.log
+python daily.py --log-file /Users/deanlourcey/nba_archive/daily.log
+python run.py --date 2026-10-21 --game BOS-NYK --runs 10000
+python run.py --date 2026-10-21 --all
+python backtest/evaluate.py --seasons 2023-2025
+python backtest/tune.py --seasons 2024-25 --max-games 12
+```

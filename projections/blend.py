@@ -29,15 +29,32 @@ class SeasonBundle:
 
 
 def available_season_window(settings: Settings, current: str, seasons_back: list[int]) -> list[str]:
-    have = set(list_seasons(settings.data_dir, "player_game_rates"))
-    window: list[str] = []
+    """Seasons used for blending.
+
+    Prefer the configured seasons_back offsets. When those partitions are missing
+    (partial DATA_DIR during backfill), fall back to older available seasons so
+    early-season games still get a baseline and roster.
+    """
+    have = sorted(
+        season
+        for season in list_seasons(settings.data_dir, "player_game_rates")
+        if season <= current
+    )
     start = int(current.split("-")[0])
+    preferred: list[str] = []
     for back in seasons_back:
         year = start - int(back)
         label = f"{year}-{str(year + 1)[-2:]}"
-        if label in have:
-            window.append(label)
-    return window
+        if label in have and label not in preferred:
+            preferred.append(label)
+    if preferred:
+        # Still attach any older available seasons not already included so
+        # sample datasets spanning distant years remain usable.
+        for season in reversed(have):
+            if season not in preferred:
+                preferred.append(season)
+        return preferred
+    return list(reversed(have))
 
 
 def load_season_bundle(settings: Settings, season: str) -> SeasonBundle:
@@ -92,6 +109,9 @@ def player_baseline_and_form(
         year = start - int(back)
         label = f"{year}-{str(year + 1)[-2:]}"
         weight_by_season[label] = float(weight)
+    # Distant fallback seasons (present in DATA_DIR but outside seasons_back) get
+    # a small residual weight so they still contribute when recent years are absent.
+    fallback_weight = min(weights) * 0.25 if weights else 0.05
 
     baseline_vectors: list[tuple[RateVector, float]] = []
     form_acc = empty_accumulator()
@@ -116,7 +136,8 @@ def player_baseline_and_form(
                 add_game_to_accumulator(form_acc, rate_row=rate, log_row=log, weight=weight)
                 form_games += 1
         season_vector = vector_from_accumulator(season_acc)
-        baseline_vectors.append((season_vector, weight_by_season.get(bundle.season, 0.0)))
+        season_weight = weight_by_season.get(bundle.season, fallback_weight)
+        baseline_vectors.append((season_vector, season_weight))
 
     prior = priors.get(position_bucket(position)) or priors.get("G") or RateVector()
     baseline = blend_vectors(baseline_vectors, prior=prior, prior_strength=regression_strength)

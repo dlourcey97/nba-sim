@@ -301,16 +301,21 @@ def _build(
 
 
 def _roster_for_team(bundles: list, team_id: int, as_of: date) -> list[int]:
-    """Players who appeared for the team in the most recent stored games before as_of."""
-    counts: dict[int, int] = {}
-    for bundle in bundles:
+    """Players who appeared for the team before as_of.
+
+    Prefer the newest season that has appearances so a partial current season
+    is not diluted by ancient roster leftovers from sample backfills.
+    """
+    for bundle in sorted(bundles, key=lambda item: item.season, reverse=True):
+        counts: dict[int, int] = {}
         for player_id, rows in bundle.logs_by_player.items():
             for row in rows:
                 if int(row["team_id"]) == team_id and row["game_date"] < as_of:
                     counts[player_id] = counts.get(player_id, 0) + 1
-    # Keep a deep rotation; sim will zero minutes for fringe/out players.
-    ranked = sorted(counts, key=lambda pid: (-counts[pid], pid))
-    return ranked[:15]
+        if counts:
+            ranked = sorted(counts, key=lambda pid: (-counts[pid], pid))
+            return ranked[:15]
+    return []
 
 
 def _usually_starts(bundles: list, player_id: int, team_id: int, as_of: date) -> bool:
