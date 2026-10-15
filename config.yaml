@@ -1,0 +1,57 @@
+# Tunable parameters. Later phases read these instead of hard-coding them.
+
+storage:
+  # Hard cap on DATA_DIR. A run aborts instead of writing past this size.
+  max_bytes: 2147483648
+
+season:
+  # Nightly incremental and upsert writes are limited to this season.
+  current: "2025-26"
+
+http:
+  max_retries: 5
+  backoff_seconds: 1.0
+  delay_seconds: 0.6
+  timeout_seconds: 60
+
+archive:
+  # Optional compressed play-by-play under ARCHIVE_DIR. The engine never reads it.
+  save_play_by_play: false
+
+simulation:
+  runs: 10000
+  # Null draws a fresh seed per game. Set an integer to reproduce a run.
+  seed: null
+
+blending:
+  season_weights:
+    # 0 is the most recent season in the baseline window.
+    seasons_back: [0, 1, 2, 3]
+    weights: [0.50, 0.25, 0.15, 0.10]
+  # Weight of a game played k games ago is exp(-form_decay * k).
+  form_decay: 0.08
+  # Pseudo-possessions of the position prior mixed in for small samples.
+  regression_strength: 12.0
+  min_games_for_form: 5
+
+context:
+  home_pace_factor: 0.010
+  away_pace_factor: -0.005
+  # Keys are rest days. 0 is a back-to-back.
+  rest_day_factors:
+    0: -0.030
+    1: 0.000
+    2: 0.010
+    3: 0.015
+  opponent_defense_weight: 1.0
+  teammate_absence_usage_share: 0.85
+
+minutes:
+  blowout_margin_threshold: 15.0
+  foul_trouble_rate_prior: 0.08
+  minutes_variance: 4.5
+  min_minutes: 0.0
+  max_minutes: 44.0
+
+outputs:
+  percentiles: [10, 25, 50, 75, 90]

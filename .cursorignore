@@ -1,0 +1,23 @@
+# DATA_DIR and ARCHIVE_DIR are set in .env and must stay outside this repo.
+# Keep data files and display output out of the editor index.
+DATA_DIR
+ARCHIVE_DIR
+data/
+archive/
+results/
+
+*.parquet
+*.duckdb
+*.db
+*.csv
+*.json.gz
+*.tmp
+
+__pycache__/
+.pytest_cache/
+*.egg-info/
+.venv/
+venv/
+
+# Saved browser page, not project source.
+Nba player data sources _ Cursor.html
