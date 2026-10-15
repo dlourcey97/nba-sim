@@ -12,7 +12,7 @@ Write policies:
 - `replace`: delete the season partition and write it again. Used for derived rates and aggregates so they are never appended or versioned.
 - `upsert_current`: insert or replace rows by key in the current season. Used so prediction actuals can be filled without keeping every simulation draw.
 
-Not stored: raw API responses, raw play-by-play (optional compressed copy under `ARCHIVE_DIR` only, never read back), individual simulation runs, odds, lines, or betting edges.
+Not stored: raw API responses, raw play-by-play (optional compressed copy under `ARCHIVE_DIR` only, never read back), individual simulation runs, odds, lines, or betting edges. Official injury PDFs are downloaded, parsed in memory, and discarded in the same run. `overrides.yaml` in the repo supplies manual injury and minutes-cap changes; those rows are not written to `DATA_DIR`.
 
 Display JSON in `results/latest/` is overwritten each run and is not part of `DATA_DIR`.
 

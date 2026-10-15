@@ -1,0 +1,23 @@
+# Manual injury and lineup overrides. These take precedence over the official
+# injury report for the same player on the same game date.
+#
+# statuses: out, doubtful, questionable, probable, available
+# Optional minutes_cap limits projected minutes for that player.
+
+players: []
+# Example:
+# players:
+#   - player_id: 1628369
+#     player_name: "Jayson Tatum"
+#     team_abbr: BOS
+#     game_date: "2026-10-21"
+#     status: out
+#     reason: "manual override"
+#     minutes_cap: null
+#   - player_id: 203935
+#     player_name: "Marcus Smart"
+#     team_abbr: MEM
+#     game_date: "2026-10-21"
+#     status: available
+#     reason: "cleared"
+#     minutes_cap: 28.0

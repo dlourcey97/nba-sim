@@ -1,12 +1,12 @@
 # Progress
 
-Last updated after PlayByPlayV3 possessions and the 5-game checks for 2015-16 and 2019-20.
+Last updated after Phase 3 (injury report and overrides).
 
 | Phase | Status | Notes |
 | --- | --- | --- |
 | 1. Project setup and storage | done | Config, schema, ignore files, cap, and storage report. |
 | 2. Ingestion and backfill | done | nba_api, PlayByPlayV3 possessions, live-feed fallback, backfill.py. Sample games from 2015-16, 2019-20, and 2024-25. |
-| 3. Injury report and overrides | not started | Official PDF plus overrides.yaml. |
+| 3. Injury report and overrides | done | Official PDF parse via pypdf, overrides.yaml precedence, in-memory only. |
 | 4. Projections | not started | Blend, context, minutes model. |
 | 5. Simulation | not started | Possession engine. |
 | 6. Outputs and daily.py | not started | JSON summaries, prediction history, nightly pipeline. |
@@ -59,12 +59,16 @@ One week, `2024-10-22` through `2024-10-29`: stored 56 games from `BoxScoreTradi
 
 Five regular-season games from 2015-16 (`0021500001` through `0021500005`) and five from 2019-20 (`0021900001` through `0021900005`): 10 games stored, 0 failed, 0 possessions missing. 2015-16 has 102 player rows and 50 starters, pace 95 to 102. 2019-20 has 99 player rows and 50 starters, pace 94 to 114, including one overtime game. `DATA_DIR` is 167128 bytes. No `.json`, no `_tmp`, and no `_COMPLETE` (the samples used `--max-games`). Exit 0. The full `2015-2025` pull was not run.
 
+## Phase 3
+
+`ingest/injuries.py` downloads the official NBA injury PDF from `ak-static.cms.nba.com` (with `static.cms.nba.com` as a second host), parses it with `pypdf`, and discards the bytes. PDF text comes out one word per line; the parser joins words, repairs split hyphens, and pulls player rows with single-token last names so reason text does not become part of the name.
+
+`overrides.yaml` lists manual player status and optional `minutes_cap` values. `merge_injuries` lets overrides win on `(game_date, player_id)` or `(game_date, team, name)`. Nothing from the injury report is written under `DATA_DIR`.
+
+Tests cover text parsing, override precedence, repo `overrides.yaml` loading, and a live PDF fetch when the host answers. Sample report `2025-10-22` yields 80+ player rows including Out/Available/Questionable/Probable.
+
+Open issues: player_id is null on PDF rows until a later name match against game logs; projections resolve names when building a slate.
+
 ## Next
 
-Phase 3: official injury PDF and `overrides.yaml`.
-
-Overnight full backfill, from the repo root after the data directories exist:
-
-```bash
-.venv/bin/python backfill.py --seasons 2015-2025 --log-file /Users/deanlourcey/nba_archive/backfill.log
-```
+Phase 4: projection blending, context adjustments, and the minutes model.
