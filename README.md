@@ -25,7 +25,9 @@ python3 backfill.py --seasons 2015-2025 --log-file /Users/deanlourcey/nba_archiv
 
 That command is the full historical pull. It is rate-limited and resumable: run the same command again after an interruption. Games already stored in both `player_game_logs` and `player_game_rates` are skipped. A season is frozen only when that run had no date filter, no `--max-games`, and no failed games. Exit status is 1 when any game failed.
 
-Historical seasons use `stats.nba.com` first: `LeagueGameLog` for the schedule and `BoxScoreTraditional` for player lines. When that host does not answer, schedules come from `data.nba.com` and box scores come from the live NBA feed. The current season uses `cdn.nba.com` when that file is for the requested season. Possessions use the live play-by-play feed. The requests send browser client hints; without them the CDN returns 403.
+Historical seasons use `stats.nba.com` first: `LeagueGameLog` for the schedule, `BoxScoreTraditional` for player lines, and `PlayByPlayV3` for possessions. When that host does not answer, schedules come from `data.nba.com` and box scores come from the live NBA feed. The current season uses `cdn.nba.com` when that file is for the requested season, and the live play-by-play feed for possessions. The live feed is also the fallback for an older game. A response that is not JSON is logged once and not retried; that game's box score is stored and its possessions are left for a later run of the same command. The requests send browser client hints; without them the CDN returns 403.
+
+Every 25 final games the run prints `season`, games done/total, and failures.
 
 A one-day check, which does not freeze the season:
 

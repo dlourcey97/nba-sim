@@ -1,9 +1,10 @@
 """One-time historical pull into the compact tables.
 
 Games already present in both player_game_logs and player_game_rates are skipped,
-so stopping and rerunning this command continues where it left off.
+so stopping and rerunning this command continues where it left off. A game
+whose box score was stored without possessions is retried on the next run.
 A season is marked complete only after a full run with no date filter, no
---max-games limit, and no failed games.
+--max-games limit, no failed games, and no games missing possessions.
 """
 
 from __future__ import annotations
@@ -67,7 +68,7 @@ def main(argv: list[str] | None = None) -> int:
     except NbaSimError as exc:
         print(exc, file=sys.stderr)
         return 1
-    return 1 if result.failed_games else 0
+    return 1 if result.failed_games or result.possessions_missing else 0
 
 
 def _parse_date(value: str | None, flag: str) -> date | None:

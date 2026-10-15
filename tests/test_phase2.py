@@ -22,9 +22,9 @@ from ingest.parse import (
     rates_from_possessions,
     shot_zone,
 )
-from ingest.pbp import possessions_to_views
+from ingest.pbp import _name_is, possessions_to_views, views_from_playbyplay_v3
 from ingest.pipeline import run_backfill
-from ingest.source import SourceUnavailable
+from ingest.source import NbaSource, NonJsonResponse, PossessionsMissing, SourceUnavailable
 from nba_sim.storage import read_rows
 from pbpstats.resources.enhanced_pbp.field_goal import FieldGoal
 
@@ -231,19 +231,14 @@ class FakeSource:
             }
         ]
 
-    def possessions(self, game_id: str):
+    def possession_views(self, game_id: str, players=None, *, historical: bool = False):
         self.pbp_calls.append(game_id)
         if game_id in self.fail_pbp:
-            raise SourceUnavailable(game_id)
+            raise PossessionsMissing(game_id)
         return _views()
 
     def clear_schedule_cache(self) -> None:
         return None
-
-
-@pytest.fixture
-def identity_views(monkeypatch):
-    monkeypatch.setattr("ingest.pipeline.possessions_to_views", lambda items: items)
 
 
 def test_schedule_rows_from_stats_and_cdn():
@@ -405,7 +400,7 @@ def test_possessions_to_views_maps_a_field_goal():
     assert 0 not in event.lineup[1610612738]
 
 
-def test_backfill_stores_one_game_then_skips(settings, identity_views, capsys):
+def test_backfill_stores_one_game_then_skips(settings, capsys):
     source = FakeSource([_game(), _game(game_id="0022400099", status="scheduled", home_pts=None, away_pts=None)])
     first = run_backfill(
         settings,
@@ -447,20 +442,41 @@ def test_backfill_stores_one_game_then_skips(settings, identity_views, capsys):
     assert "bytes" in captured.out.lower() or "used" in captured.out.lower() or "DATA_DIR" in captured.out
 
 
-def test_failed_possession_is_recorded_and_not_frozen(settings, identity_views):
+def test_missing_possessions_keep_the_box_score_and_retry(settings, capsys):
     source = FakeSource([_game()], fail_pbp={"0022400001"})
-    result = run_backfill(
+    source.current_season = "2025-26"
+    first = run_backfill(
         settings,
         ["2024-25"],
         season_types=["Regular Season"],
         source=source,
     )
-    assert result.failed_games == ["0022400001"]
-    assert read_rows(settings, "player_game_logs", "2024-25") == []
+    assert first.failed_games == []
+    assert first.possessions_missing == ["0022400001"]
+    assert first.stored_games == 1
+    assert {row["player_id"] for row in read_rows(settings, "player_game_logs", "2024-25")} == {10, 11, 20}
+    assert read_rows(settings, "player_game_rates", "2024-25") == []
+    teams = read_rows(settings, "team_game_results", "2024-25")
+    assert teams and all(row["pace"] is None for row in teams)
     assert not (settings.data_dir / "player_game_logs" / "season=2024-25" / "_COMPLETE").exists()
+    captured = capsys.readouterr()
+    assert "2024-25 Regular Season: 1/1 games, failures 1" in captured.out
+
+    source.fail_pbp.clear()
+    second = run_backfill(
+        settings,
+        ["2024-25"],
+        season_types=["Regular Season"],
+        source=source,
+    )
+    assert second.possessions_missing == []
+    assert second.failed_games == []
+    assert read_rows(settings, "player_game_rates", "2024-25")
+    teams = read_rows(settings, "team_game_results", "2024-25")
+    assert all(row["pace"] == 1 for row in teams)
 
 
-def test_full_older_season_freezes_fact_tables(settings, identity_views):
+def test_full_older_season_freezes_fact_tables(settings):
     source = FakeSource([_game()])
     result = run_backfill(
         settings,
@@ -491,7 +507,7 @@ def test_full_older_season_freezes_fact_tables(settings, identity_views):
     assert source.box_calls == ["0022400001"]
 
 
-def test_historical_stats_box_is_used_before_the_live_feed(settings, identity_views):
+def test_historical_stats_box_is_used_before_the_live_feed(settings):
     source = FakeSource([_game()])
     source.current_season = "2025-26"
     source.stats_calls = []
@@ -516,7 +532,7 @@ def test_historical_stats_box_is_used_before_the_live_feed(settings, identity_vi
     assert read_rows(settings, "player_game_logs", "2024-25")[0]["player_name"] == "Home Star"
 
 
-def test_api_box_fallback(settings, identity_views):
+def test_api_box_fallback(settings):
     source = FakeSource([_game()], api_only={"0022400001"})
     result = run_backfill(
         settings,
@@ -530,6 +546,282 @@ def test_api_box_fallback(settings, identity_views):
     assert logs[0]["player_name"] == "Api Player"
     assert logs[0]["started"] is False
     assert source.api_calls == ["0022400001"]
+
+
+def test_progress_line_every_25_games(settings, capsys):
+    games = [_game(game_id=f"002240{index:04d}") for index in range(1, 26)]
+    source = FakeSource(games)
+    result = run_backfill(
+        settings,
+        ["2024-25"],
+        season_types=["Regular Season"],
+        source=source,
+    )
+    assert result.stored_games == 25
+    assert result.failed_games == []
+    captured = capsys.readouterr()
+    assert "2024-25 Regular Season: 25/25 games, failures 0" in captured.out
+
+
+def test_playbyplay_v3_builds_the_same_rate_rows():
+    players = _players() + [
+        {
+            "player_id": 12,
+            "name": "Home Sub",
+            "team_id": 1610612738,
+            "starter": "0",
+            "minutes": 10,
+        }
+    ]
+    actions = [
+        {"actionType": "period", "subType": "start", "period": 1, "description": "Start of 1st Period"},
+        {
+            "actionType": "Jump Ball",
+            "period": 1,
+            "teamId": 1610612738,
+            "personId": 10,
+            "description": "Jump Ball Home Star vs. Away Big: Tip to Away Wing",
+        },
+        {
+            "actionType": "Missed Shot",
+            "period": 1,
+            "teamId": 1610612752,
+            "personId": 20,
+            "shotResult": "Missed",
+            "isFieldGoal": 1,
+            "shotValue": 2,
+            "shotDistance": 2,
+            "xLegacy": -8,
+            "yLegacy": 5,
+            "description": "MISS Away Wing 2' Layup",
+        },
+        {
+            "actionType": "Rebound",
+            "period": 1,
+            "teamId": 1610612738,
+            "personId": 10,
+            "description": "Home Star REBOUND (Off:0 Def:1)",
+        },
+        {
+            "actionType": "Substitution",
+            "period": 1,
+            "teamId": 1610612738,
+            "personId": 11,
+            "description": "SUB: Home Sub FOR Home Mate",
+        },
+        {
+            "actionType": "Made Shot",
+            "period": 1,
+            "teamId": 1610612738,
+            "personId": 12,
+            "shotResult": "Made",
+            "isFieldGoal": 1,
+            "shotValue": 3,
+            "shotDistance": 23,
+            "xLegacy": -230,
+            "yLegacy": 10,
+            "description": "Home Sub 23' 3PT Jump Shot",
+        },
+        {
+            "actionType": "Foul",
+            "period": 1,
+            "teamId": 1610612752,
+            "personId": 20,
+            "subType": "Shooting",
+            "description": "Away Wing S.FOUL",
+        },
+        {
+            "actionType": "Free Throw",
+            "period": 1,
+            "teamId": 1610612738,
+            "personId": 12,
+            "subType": "Free Throw 1 of 1",
+            "shotResult": "",
+            "description": "Home Sub Free Throw 1 of 1 (4 PTS)",
+        },
+    ]
+    views = views_from_playbyplay_v3(actions, players)
+    assert len(views) == 2
+    assert views[0].offense_team_id == 1610612752
+    assert views[1].offense_team_id == 1610612738
+    assert views[1].events[-1].kind == "free_throw"
+    rate_rows, pace, overtime = rates_from_possessions("2015-16", _game(game_id="0021500001"), players, views)
+    by_player = {row["player_id"]: row for row in rate_rows}
+    assert by_player[20]["usage"] == pytest.approx(1.0)
+    assert by_player[10]["dreb_chances"] == pytest.approx(1.0)
+    assert by_player[12]["left_corner_3_fgm"] == pytest.approx(1.0)
+    assert by_player[12]["fta"] == pytest.approx(1.0)
+    assert by_player[12]["ftm"] == pytest.approx(1.0)
+    made = [
+        event
+        for view in views_from_playbyplay_v3(actions[:1] + actions[4:], players)
+        for event in view.events
+        if event.kind == "field_goal" and event.made
+    ]
+    assert made[0].shot_zone == "left_corner_3"
+    assert made[0].player_id == 12
+    assert 11 not in made[0].lineup[1610612738]
+    assert 12 in made[0].lineup[1610612738]
+    and_one = views_from_playbyplay_v3(
+        [
+            {
+                "actionType": "Jump Ball",
+                "period": 1,
+                "description": "Jump Ball Home Star vs. Away Big: Tip to Home Star",
+            },
+            {
+                "actionType": "Made Shot",
+                "period": 1,
+                "teamId": 1610612738,
+                "personId": 10,
+                "shotResult": "Made",
+                "shotValue": 2,
+                "shotDistance": 2,
+                "xLegacy": 0,
+                "yLegacy": 1,
+                "description": "Home Star 2' Layup",
+            },
+            {
+                "actionType": "Free Throw",
+                "period": 1,
+                "teamId": 1610612738,
+                "personId": 10,
+                "subType": "Free Throw 1 of 1",
+                "description": "Home Star Free Throw 1 of 1 (3 PTS)",
+            },
+        ],
+        _players(),
+    )
+    assert len(and_one) == 1
+    assert and_one[0].events[-1].kind == "free_throw"
+    assert and_one[0].events[-1].made is True
+    assert pace[1610612752] == pytest.approx(1.0)
+    assert overtime == 0
+    assert _name_is("Schroder", "Dennis Schröder")
+    assert _name_is("Marc Morris", "Marcus Morris Sr.")
+    assert _name_is("Caldwell-Pope", "Kentavious Caldwell-Pope")
+    assert _name_is("Bullock", "Reggie Bullock Jr.")
+    assert not _name_is("Mike", "Mike Muscala")
+
+
+def test_older_box_scores_keep_five_starters_per_team():
+    from ingest.source import _players_from_traditional
+
+    rows = []
+    for index, position in enumerate(["G", "F", "C", "G", "F", "G", "C"]):
+        rows.append(
+            {
+                "TEAM_ID": 1610612738,
+                "PTS": 0,
+                "PLAYER_ID": index + 1,
+                "PLAYER_NAME": f"Player {index}",
+                "TEAM_ABBREVIATION": "BOS",
+                "START_POSITION": position,
+                "MIN": "10:00",
+                "REB": 0,
+                "AST": 0,
+                "FG3M": 0,
+                "STL": 0,
+                "BLK": 0,
+                "TO": 0,
+                "FGM": 0,
+                "FGA": 0,
+                "FG3A": 0,
+                "FTM": 0,
+                "FTA": 0,
+                "OREB": 0,
+                "DREB": 0,
+                "PLUS_MINUS": 0,
+            }
+        )
+    players, _points = _players_from_traditional(rows)
+    assert [player["starter"] for player in players] == ["1", "1", "1", "1", "1", "0", "0"]
+    assert players[5]["position"] == "G"
+
+
+def test_non_json_response_is_not_retried():
+    calls = {"n": 0}
+
+    def _load():
+        calls["n"] += 1
+        raise NonJsonResponse("PlayByPlayV3 returned a non-JSON response")
+
+    source = NbaSource(
+        delay_seconds=0,
+        max_retries=5,
+        backoff_seconds=0,
+        timeout_seconds=1,
+        log=lambda _message: None,
+    )
+    with pytest.raises(NonJsonResponse):
+        source._retry("PlayByPlayV3 0021500001", _load)
+    assert calls["n"] == 1
+
+
+def test_historical_possessions_try_playbyplay_v3_then_the_live_feed():
+    logs: list[str] = []
+    source = NbaSource(
+        delay_seconds=0,
+        max_retries=5,
+        backoff_seconds=0,
+        timeout_seconds=1,
+        log=logs.append,
+    )
+    calls: list[str] = []
+
+    def v3(game_id: str):
+        calls.append("v3")
+        raise NonJsonResponse(f"PlayByPlayV3 {game_id} returned a non-JSON response")
+
+    def live(game_id: str, provider: str):
+        calls.append(provider)
+        raise NonJsonResponse(f"live feed {game_id} returned a non-JSON response")
+
+    source._playbyplay_v3 = v3
+    source._pbpstats_possessions = live
+    with pytest.raises(PossessionsMissing):
+        source.possession_views("0021500001", _players(), historical=True)
+    assert calls == ["v3", "live"]
+    assert len(logs) == 1
+    assert "0021500001 possessions missing" in logs[0]
+    assert logs[0].count("non-JSON") == 2
+
+    calls.clear()
+    logs.clear()
+
+    def v3_ok(game_id: str):
+        calls.append("v3")
+        return [
+            {"actionType": "period", "subType": "start", "period": 1},
+            {
+                "actionType": "Made Shot",
+                "period": 1,
+                "teamId": 1610612738,
+                "personId": 10,
+                "shotResult": "Made",
+                "shotValue": 2,
+                "shotDistance": 2,
+                "description": "Home Star 2' Layup",
+            },
+        ]
+
+    source._playbyplay_v3 = v3_ok
+    views = source.possession_views("0021500001", _players(), historical=True)
+    assert calls == ["v3"]
+    assert views[0].offense_team_id == 1610612738
+    assert logs == []
+
+    calls.clear()
+
+    def live_first(game_id: str, provider: str):
+        calls.append(provider)
+        raise NonJsonResponse(f"live feed {game_id} returned a non-JSON response")
+
+    source._pbpstats_possessions = live_first
+    source._playbyplay_v3 = v3_ok
+    views = source.possession_views("0021500001", _players(), historical=False)
+    assert calls == ["live", "v3"]
+    assert views
 
 
 def test_cli_rejects_a_full_and_a_single_season_together():

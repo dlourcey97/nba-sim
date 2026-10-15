@@ -111,7 +111,7 @@ Key: `game_id`
 
 ## player_game_rates
 
-Per-player, per-game rates derived from play-by-play. Shot zones map from pbpstats types: AtRim, ShortMidRange, LongMidRange, Corner3 split by court side, and Arc3. The season file is rewritten in place when new games are added, not appended as a new copy.
+Per-player, per-game rates derived from play-by-play. Historical seasons use PlayByPlayV3; the current season uses the live feed, which is also the fallback. Shot zones use the same cutoffs either way: at the rim inside 4 feet, short midrange inside 14 feet, long midrange, corner threes at or below 8.7 feet split by court side, and above-the-break threes. The season file is rewritten in place when new games are added, not appended as a new copy.
 
 Policy: `replace`
 

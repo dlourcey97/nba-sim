@@ -304,6 +304,26 @@ def store_rows(
     return WriteResult(table, season, written, skipped, path if path.is_file() else None)
 
 
+def rewrite_unfrozen_rows(
+    settings: Settings,
+    table: str,
+    season: str,
+    rows: Sequence[Mapping[str, object]],
+    *,
+    allow_historical: bool = False,
+) -> int:
+    """Replace an unfrozen season file. Backfill uses this to fill a null pace."""
+    spec = TABLES[table]
+    active = settings.current_season
+    _prepare_data_dir(settings)
+    directory = partition_dir(settings.data_dir, table, season)
+    path = directory / _DATA_FILE
+    _reject_frozen_or_historical(directory, spec, season, active, allow_historical)
+    incoming = _rows_to_table(rows, spec, season)
+    _commit_table(settings, directory, path, incoming, replace_directory=False)
+    return incoming.num_rows
+
+
 def _prepare_data_dir(settings: Settings) -> None:
     assert_outside_repo(settings.data_dir, settings.repo_root)
     if settings.archive_dir is not None:

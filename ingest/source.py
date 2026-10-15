@@ -5,16 +5,21 @@ LeagueGameLog for the schedule, and BoxScoreTraditional for each final game.
 If that host does not answer, the season file on data.nba.com supplies the
 schedule and the live box score supplies player lines. The current season
 uses the cdn.nba.com schedule when that file matches the requested season.
-Possessions stay on the pbpstats live feed; the stats.nba.com play-by-play
-response is not JSON.
+
+Historical possessions come from stats.nba.com PlayByPlayV3. The live feed
+is the source for the current season and the fallback when PlayByPlayV3
+does not answer. A body that is not JSON is logged once and not retried.
 """
 
 from __future__ import annotations
 
+import json
 import time
 
 import requests
 from nba_api.stats.library.http import STATS_HEADERS
+
+from ingest.pbp import possessions_to_views, views_from_playbyplay_v3
 
 from ingest.parse import (
     ScheduleGame,
@@ -29,6 +34,14 @@ _SEASON_TYPES = ("Regular Season", "Playoffs", "PlayIn")
 
 class SourceUnavailable(Exception):
     """A feed did not have this game. Another feed may."""
+
+
+class NonJsonResponse(Exception):
+    """HTML, an empty body, or an error page. Callers must not retry it."""
+
+
+class PossessionsMissing(Exception):
+    """Play-by-play was unusable. The box score can still be stored."""
 
 
 class NbaSource:
@@ -98,17 +111,39 @@ class NbaSource:
         )
         return _players_and_points(payload)
 
-    def possessions(self, game_id: str):
-        """pbpstats possession objects. Live feed first, then stats.nba.com."""
-        try:
-            return self._pbpstats_possessions(game_id, "live")
-        except SourceUnavailable:
-            pass
-        except Exception as exc:
-            self.log(f"live possessions failed for {game_id}: {exc}")
-        if self._stats_nba_ok is False:
-            raise SourceUnavailable(f"no possession feed for {game_id}")
-        return self._retry(f"possessions {game_id}", lambda: self._pbpstats_possessions(game_id, "stats_nba"))
+    def possession_views(self, game_id: str, players: list[dict], *, historical: bool):
+        """Possession views for one game.
+
+        Historical seasons read PlayByPlayV3 first. The current season reads
+        the live feed first. The other feed is a single fallback attempt.
+        """
+        order = ("playbyplayv3", "live") if historical else ("live", "playbyplayv3")
+        problems: list[str] = []
+        for kind in order:
+            try:
+                views = self._possession_views_from(kind, game_id, players)
+            except NonJsonResponse as exc:
+                problems.append(str(exc))
+                continue
+            except SourceUnavailable as exc:
+                problems.append(str(exc))
+                continue
+            except Exception as exc:
+                if _is_non_json(exc):
+                    problems.append(f"{kind} {game_id} returned a non-JSON response")
+                else:
+                    problems.append(f"{kind} {game_id} failed: {exc}")
+                continue
+            if views:
+                return views
+            problems.append(f"{kind} {game_id} had no possessions")
+        self.log(f"{game_id} possessions missing: {'; '.join(problems)}")
+        raise PossessionsMissing(game_id)
+
+    def _possession_views_from(self, kind: str, game_id: str, players: list[dict]):
+        if kind == "playbyplayv3":
+            return views_from_playbyplay_v3(self._playbyplay_v3(game_id), players)
+        return possessions_to_views(self._pbpstats_possessions(game_id, "live"))
 
     def _load_schedule(self, season: str, season_type: str) -> None:
         if season == self.current_season:
@@ -193,6 +228,26 @@ class NbaSource:
             grouped.setdefault(str(record["GAME_ID"]), []).append(record)
         return grouped
 
+    def _playbyplay_v3(self, game_id: str) -> list[dict]:
+        def _load() -> list[dict]:
+            self._pause()
+            response = requests.get(
+                "https://stats.nba.com/stats/playbyplayv3",
+                params=_playbyplay_params(game_id),
+                headers=dict(STATS_HEADERS),
+                timeout=self.timeout_seconds,
+            )
+            if response.status_code in {403, 404}:
+                raise SourceUnavailable(f"PlayByPlayV3 {game_id} returned {response.status_code}")
+            response.raise_for_status()
+            payload = _load_json(response, f"PlayByPlayV3 {game_id}")
+            actions = (payload.get("game") or {}).get("actions") if isinstance(payload.get("game"), dict) else None
+            if not isinstance(actions, list) or not actions:
+                raise SourceUnavailable(f"PlayByPlayV3 {game_id} had no actions")
+            return actions
+
+        return self._retry(f"PlayByPlayV3 {game_id}", _load)
+
     def _pbpstats_possessions(self, game_id: str, provider: str):
         from pbpstats.client import Client
 
@@ -205,6 +260,8 @@ class NbaSource:
             if status in {403, 404}:
                 raise SourceUnavailable(str(exc)) from exc
             raise
+        except json.JSONDecodeError as exc:
+            raise NonJsonResponse(f"live feed {game_id} returned a non-JSON response") from exc
 
     def _request_json(self, url: str, *, label: str, headers: dict[str, str] | None = None) -> dict:
         def _load():
@@ -217,7 +274,7 @@ class NbaSource:
             if response.status_code in {403, 404}:
                 raise SourceUnavailable(f"{label} returned {response.status_code}")
             response.raise_for_status()
-            return response.json()
+            return _load_json(response, label)
 
         return self._retry(label, _load)
 
@@ -235,10 +292,7 @@ class NbaSource:
             if response.status_code in {403, 404}:
                 raise SourceUnavailable(f"{label} returned {response.status_code}")
             response.raise_for_status()
-            body = response.text.lstrip()
-            if body.startswith("<"):
-                raise requests.RequestException(f"{label} returned HTML instead of JSON")
-            payload = response.json()
+            payload = _load_json(response, label)
             return _result_rows(payload, result_name)
 
         rows = self._retry(label, _load)
@@ -260,12 +314,14 @@ class NbaSource:
         for attempt in range(1, self.max_retries + 1):
             try:
                 return fn()
-            except SourceUnavailable:
+            except (SourceUnavailable, NonJsonResponse):
                 raise
             except requests.Timeout:
                 self.log(f"{label} timed out after {self.timeout_seconds:g}s with no response.")
                 raise
             except Exception as exc:
+                if _is_non_json(exc):
+                    raise NonJsonResponse(f"{label} returned a non-JSON response") from exc
                 last = exc
                 self.log(f"{label} attempt {attempt} failed: {exc}")
                 if attempt == self.max_retries:
@@ -307,6 +363,34 @@ def _league_game_log_params(season: str, season_type: str, *, player_or_team: st
         ("Direction", "ASC"),
         ("Sorter", "DATE"),
     ]
+
+
+def _playbyplay_params(game_id: str) -> list[tuple[str, str]]:
+    return [("GameID", game_id), ("StartPeriod", "0"), ("EndPeriod", "0")]
+
+
+def _load_json(response: requests.Response, label: str) -> dict:
+    """Parse a body that must be a JSON object. HTML, empty, and error pages raise."""
+    stripped = response.text.lstrip("\ufeff \t\r\n")
+    if not stripped or stripped[0] not in "{[":
+        raise NonJsonResponse(f"{label} returned a non-JSON response")
+    try:
+        payload = json.loads(stripped)
+    except json.JSONDecodeError as exc:
+        raise NonJsonResponse(f"{label} returned a non-JSON response") from exc
+    if not isinstance(payload, dict):
+        raise NonJsonResponse(f"{label} returned a non-JSON response")
+    message = payload.get("Message")
+    if message and "game" not in payload and "resultSets" not in payload and "resultSet" not in payload:
+        raise NonJsonResponse(f"{label} returned an error page")
+    return payload
+
+
+def _is_non_json(exc: BaseException) -> bool:
+    if isinstance(exc, json.JSONDecodeError):
+        return True
+    text = str(exc)
+    return "Expecting value" in text or "JSONDecodeError" in text
 
 
 def _boxscore_params(game_id: str) -> list[tuple[str, str]]:
@@ -380,7 +464,23 @@ def _players_from_traditional(rows: list[dict]) -> tuple[list[dict], dict[int, i
                 "plusMinusPoints": record.get("PLUS_MINUS"),
             }
         )
+    _limit_starters(players)
     return players, points
+
+
+def _limit_starters(players: list[dict]) -> None:
+    """Older box scores put a position on every player. Only the first five count as starters."""
+    by_team: dict[int, list[int]] = {}
+    for index, player in enumerate(players):
+        by_team.setdefault(int(player["team_id"]), []).append(index)
+    for indexes in by_team.values():
+        flagged = [index for index in indexes if players[index]["starter"] == "1"]
+        if len(flagged) <= 5:
+            continue
+        keep = set(flagged[:5])
+        for index in flagged:
+            if index not in keep:
+                players[index]["starter"] = "0"
 
 
 def _players_and_points(payload: dict) -> tuple[list[dict], dict[int, int]]:
