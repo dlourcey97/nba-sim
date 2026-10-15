@@ -1,6 +1,6 @@
 # Progress
 
-Last updated after Phase 2.
+Last updated after the local Mac setup and the 2024-10-22 to 2024-10-29 backfill.
 
 | Phase | Status | Notes |
 | --- | --- | --- |
@@ -32,13 +32,16 @@ Open issues: none.
 
 `backfill.py` writes compact logs, team results, rates, and a schedule row. Raw JSON is not stored. `ARCHIVE_DIR` is unused while `archive.save_play_by_play` is false.
 
-Schedule order:
+This checkout now runs on the local Mac, not the cloud VM. Python 3.13.12 is installed. The virtualenv is `.venv`. `.env` points at `DATA_DIR=/Users/deanlourcey/nba_data` and `ARCHIVE_DIR=/Users/deanlourcey/nba_archive`.
 
-- The current season is read from `cdn.nba.com/static/json/staticData/scheduleLeagueV2.json`. The request includes browser client hints (`sec-ch-ua`, `sec-fetch-*`). Without those headers the CDN returns 403. On 2026-10-14 that file is the 2026-27 season.
-- Other seasons try `stats.nba.com` `LeagueGameLog`, then `LeagueGameFinder`, with nba_api's browser headers, a 60 second timeout, and exponential backoff for errors that return a response. A read that returns no bytes is not repeated five times.
-- When `stats.nba.com` times out, the season file on `data.nba.com` is used. With the same browser headers that file returns 200. A headerless client gets 403.
+Source order for a historical season:
 
-Player logs prefer the live box score. `stats.nba.com` is not called again in a run after it has timed out, so the live feed is used directly. Possessions come from the pbpstats live feed.
+- `stats.nba.com` is primary. The schedule uses `LeagueGameLog`, then `LeagueGameFinder`. Each final game uses `BoxScoreTraditional` (that response includes `START_POSITION`), then the season player `LeagueGameLog`.
+- If `stats.nba.com` does not answer, the season file on `data.nba.com` supplies the schedule and the live box score supplies player lines. The current season still reads `cdn.nba.com/static/json/staticData/scheduleLeagueV2.json` when that file matches `season.current`. Those CDN requests send browser client hints (`sec-ch-ua`, `sec-fetch-*`).
+- Possessions stay on the pbpstats live feed. A `stats.nba.com` play-by-play read from this Mac returned a non-JSON body (`JSONDecodeError`), so that feed is not the possession source.
+- Requests use nba_api's browser headers, a 60 second timeout, and exponential backoff for errors that return a response. A read that returns no bytes is not repeated five times. After one failed `stats.nba.com` call, the rest of that run uses the fallbacks.
+
+Storage rules are unchanged:
 
 - Final games write `player_game_logs`, `team_game_results` (pace is offensive possessions), `player_game_rates`, and a schedule row.
 - Scheduled games upsert the schedule row only.
@@ -46,13 +49,10 @@ Player logs prefer the live box score. `stats.nba.com` is not called again in a 
 - Logs and team results are written before rates.
 - Derived aggregates and zone defense are replaced from the stored season at the end of each season.
 - `_COMPLETE` is written only for an older season after a full run with no failures. Date filters and `--max-games` keep the season unfrozen.
-- `http.timeout_seconds` is 60. `http.max_retries` is 5.
 
-`LeagueGameLog` for 2024-25 Regular Season was called with those headers and a 60 second timeout. Five attempts, then one more during backfill, all timed out with 0 bytes (`ReadTimeout`).
+`LeagueGameLog` for 2024-25 Regular Season succeeded from this Mac: 2460 team rows, inside the 60 second timeout.
 
-One game, `2024-10-22`, `--max-games 1`: stored `0022400061` (NYK at BOS). `DATA_DIR` 24529 bytes. Exit 0.
-
-One week, `2024-10-22` through `2024-10-29`: stored 56 games, 1264 player rows, 560 starters, pace from 90 to 115. `DATA_DIR` 97589 bytes. No `.json`, no `_tmp`, and no `_COMPLETE`. Exit 0. The full `2015-2025` pull was not run.
+One week, `2024-10-22` through `2024-10-29`: stored 56 games from `BoxScoreTraditional`, 1264 player rows, 560 starters, pace from 90 to 115. `DATA_DIR` 94325 bytes. No `.json`, no `_tmp`, and no `_COMPLETE`. Exit 0. The full `2015-2025` pull was not run.
 
 ## Next
 
@@ -61,5 +61,5 @@ Phase 3: official injury PDF and `overrides.yaml`.
 Overnight full backfill, from the repo root after the data directories exist:
 
 ```bash
-python3 backfill.py --seasons 2015-2025 --log-file /var/lib/nba-sim/backfill.log
+.venv/bin/python backfill.py --seasons 2015-2025 --log-file /Users/deanlourcey/nba_archive/backfill.log
 ```

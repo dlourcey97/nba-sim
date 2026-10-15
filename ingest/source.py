@@ -1,10 +1,12 @@
 """Download schedule, box scores, and possessions.
 
-Raw responses stay in memory. Historical schedules try stats.nba.com first.
-When that host sends no bytes, the season file on data.nba.com is used.
-The current season uses the cdn.nba.com schedule when that file matches
-the requested season. Live box scores fill player logs when stats.nba.com
-does not answer.
+Raw responses stay in memory. Historical seasons use stats.nba.com first:
+LeagueGameLog for the schedule, and BoxScoreTraditional for each final game.
+If that host does not answer, the season file on data.nba.com supplies the
+schedule and the live box score supplies player lines. The current season
+uses the cdn.nba.com schedule when that file matches the requested season.
+Possessions stay on the pbpstats live feed; the stats.nba.com play-by-play
+response is not JSON.
 """
 
 from __future__ import annotations
@@ -74,6 +76,20 @@ class NbaSource:
         if key not in self._api_players:
             self._api_players[key] = self._league_game_log(season, season_type)
         return self._api_players[key].get(game_id)
+
+    def stats_boxscore(self, game_id: str) -> tuple[list[dict], dict[int, int]]:
+        """Player lines from stats.nba.com. Raises SourceUnavailable when that host cannot serve the game."""
+        if self._stats_nba_ok is False:
+            raise SourceUnavailable(f"stats.nba.com skipped for {game_id}")
+        rows = self._stats_rows(
+            "boxscoretraditionalv2",
+            _boxscore_params(game_id),
+            "PlayerStats",
+            label=f"BoxScoreTraditional {game_id}",
+        )
+        if not rows:
+            raise SourceUnavailable(f"BoxScoreTraditional {game_id} had no players")
+        return _players_from_traditional(rows)
 
     def live_boxscore(self, game_id: str) -> tuple[list[dict], dict[int, int]]:
         payload = self._request_json(
@@ -293,6 +309,17 @@ def _league_game_log_params(season: str, season_type: str, *, player_or_team: st
     ]
 
 
+def _boxscore_params(game_id: str) -> list[tuple[str, str]]:
+    return [
+        ("GameID", game_id),
+        ("StartPeriod", "0"),
+        ("EndPeriod", "0"),
+        ("StartRange", "0"),
+        ("EndRange", "0"),
+        ("RangeType", "0"),
+    ]
+
+
 def _league_game_finder_params(season: str, season_type: str) -> list[tuple[str, str]]:
     return [
         ("LeagueID", "00"),
@@ -316,6 +343,44 @@ def _result_rows(payload: dict, result_name: str) -> list[dict]:
         headers = item.get("headers") or []
         return [dict(zip(headers, row)) for row in item.get("rowSet") or []]
     raise requests.RequestException(f"stats.nba.com response has no {result_name}")
+
+
+def _players_from_traditional(rows: list[dict]) -> tuple[list[dict], dict[int, int]]:
+    players: list[dict] = []
+    points: dict[int, int] = {}
+    for record in rows:
+        team_id = int(record["TEAM_ID"])
+        points[team_id] = points.get(team_id, 0) + int(record.get("PTS") or 0)
+        start = str(record.get("START_POSITION") or "").strip()
+        minutes = record.get("MIN")
+        players.append(
+            {
+                "player_id": int(record["PLAYER_ID"]),
+                "name": record.get("PLAYER_NAME"),
+                "team_id": team_id,
+                "team_abbreviation": record.get("TEAM_ABBREVIATION"),
+                "played": "0" if minutes in (None, "", "0", "0:00") else "1",
+                "starter": "1" if start else "0",
+                "position": start or None,
+                "minutes": minutes,
+                "points": record.get("PTS"),
+                "reboundsTotal": record.get("REB"),
+                "assists": record.get("AST"),
+                "threePointersMade": record.get("FG3M"),
+                "steals": record.get("STL"),
+                "blocks": record.get("BLK"),
+                "turnovers": record.get("TO"),
+                "fieldGoalsMade": record.get("FGM"),
+                "fieldGoalsAttempted": record.get("FGA"),
+                "threePointersAttempted": record.get("FG3A"),
+                "freeThrowsMade": record.get("FTM"),
+                "freeThrowsAttempted": record.get("FTA"),
+                "reboundsOffensive": record.get("OREB"),
+                "reboundsDefensive": record.get("DREB"),
+                "plusMinusPoints": record.get("PLUS_MINUS"),
+            }
+        )
+    return players, points
 
 
 def _players_and_points(payload: dict) -> tuple[list[dict], dict[int, int]]:

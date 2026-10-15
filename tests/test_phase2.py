@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date
+from pathlib import Path
 
 import pytest
 
@@ -490,6 +491,31 @@ def test_full_older_season_freezes_fact_tables(settings, identity_views):
     assert source.box_calls == ["0022400001"]
 
 
+def test_historical_stats_box_is_used_before_the_live_feed(settings, identity_views):
+    source = FakeSource([_game()])
+    source.current_season = "2025-26"
+    source.stats_calls = []
+
+    def stats_boxscore(game_id: str):
+        source.stats_calls.append(game_id)
+        game = _game()
+        return _players(), {game.home_team_id: game.home_pts or 0, game.away_team_id: game.away_pts or 0}
+
+    source.stats_boxscore = stats_boxscore
+    result = run_backfill(
+        settings,
+        ["2024-25"],
+        season_types=["Regular Season"],
+        max_games=1,
+        source=source,
+    )
+    assert result.stored_games == 1
+    assert source.stats_calls == ["0022400001"]
+    assert source.box_calls == []
+    assert source.api_calls == []
+    assert read_rows(settings, "player_game_logs", "2024-25")[0]["player_name"] == "Home Star"
+
+
 def test_api_box_fallback(settings, identity_views):
     source = FakeSource([_game()], api_only={"0022400001"})
     result = run_backfill(
@@ -518,4 +544,5 @@ def test_cli_log_file_must_stay_outside_the_repo(monkeypatch):
     )
     with pytest.raises(SystemExit):
         main(["--season", "2024-25", "--log-file", "backfill.log"])
-    assert main(["--season", "2024-25", "--log-file", "/workspace/backfill.log"]) == 1
+    inside = str(Path(__file__).resolve().parents[1] / "backfill.log")
+    assert main(["--season", "2024-25", "--log-file", inside]) == 1

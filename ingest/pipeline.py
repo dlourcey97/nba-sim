@@ -232,13 +232,53 @@ def _players_from_logs(settings: Settings, season: str, game_id: str) -> list[di
 
 
 def _load_box(source: NbaSource, season: str, game: ScheduleGame) -> tuple[list[dict], dict[int, int]]:
+    """Historical seasons read stats.nba.com first. The live box score is the fallback."""
+    if _historical(source, season):
+        loaded = _stats_box(source, game)
+        if loaded is not None:
+            return loaded
+        records = _api_records(source, season, game)
+        if records:
+            return _api_records_as_box(game, records)
     try:
         return source.live_boxscore(game.game_id)
     except SourceUnavailable:
-        records = source.api_player_rows(season, game.season_type, game.game_id)
+        if _historical(source, season):
+            raise SourceUnavailable(f"no box score for {game.game_id}") from None
+        records = _api_records(source, season, game)
         if not records:
             raise SourceUnavailable(f"no box score for {game.game_id}") from None
         return _api_records_as_box(game, records)
+
+
+def _historical(source: NbaSource, season: str) -> bool:
+    current = getattr(source, "current_season", None)
+    return current is not None and season != current
+
+
+def _stats_box(source: NbaSource, game: ScheduleGame) -> tuple[list[dict], dict[int, int]] | None:
+    method = getattr(source, "stats_boxscore", None)
+    if method is None:
+        return None
+    try:
+        return method(game.game_id)
+    except SourceUnavailable:
+        return None
+    except Exception as exc:
+        source_log = getattr(source, "log", None)
+        if source_log is not None:
+            source_log(f"stats.nba.com box score failed for {game.game_id}: {exc}")
+        return None
+
+
+def _api_records(source: NbaSource, season: str, game: ScheduleGame) -> list[dict] | None:
+    try:
+        return source.api_player_rows(season, game.season_type, game.game_id)
+    except Exception as exc:
+        source_log = getattr(source, "log", None)
+        if source_log is not None:
+            source_log(f"stats.nba.com player log failed for {game.game_id}: {exc}")
+        return None
 
 
 def _api_records_as_box(game: ScheduleGame, records: list[dict]) -> tuple[list[dict], dict[int, int]]:

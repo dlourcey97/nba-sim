@@ -19,13 +19,13 @@ Table layouts are in `SCHEMA.md`. Phase status is in `PROGRESS.md`. Tunable blen
 Create the data directories from `.env` first. The log file has to sit outside the repo.
 
 ```bash
-mkdir -p /var/lib/nba-sim/data /var/lib/nba-sim/archive
-python3 backfill.py --seasons 2015-2025 --log-file /var/lib/nba-sim/backfill.log
+mkdir -p /Users/deanlourcey/nba_data /Users/deanlourcey/nba_archive
+python3 backfill.py --seasons 2015-2025 --log-file /Users/deanlourcey/nba_archive/backfill.log
 ```
 
 That command is the full historical pull. It is rate-limited and resumable: run the same command again after an interruption. Games already stored in both `player_game_logs` and `player_game_rates` are skipped. A season is frozen only when that run had no date filter, no `--max-games`, and no failed games. Exit status is 1 when any game failed.
 
-`stats.nba.com` is tried first for schedules and player logs. When it does not answer, schedules come from `data.nba.com` and box scores come from the live NBA feed. The current season uses `cdn.nba.com` when that file is for the requested season. The requests send browser client hints; without them the CDN returns 403.
+Historical seasons use `stats.nba.com` first: `LeagueGameLog` for the schedule and `BoxScoreTraditional` for player lines. When that host does not answer, schedules come from `data.nba.com` and box scores come from the live NBA feed. The current season uses `cdn.nba.com` when that file is for the requested season. Possessions use the live play-by-play feed. The requests send browser client hints; without them the CDN returns 403.
 
 A one-day check, which does not freeze the season:
 
