@@ -19,6 +19,10 @@ class MetricReport:
     mae_min: float
     coverage_10_90: float
     calibration_bins: list[dict[str, float]]
+    sim_ppg: float = float("nan")
+    actual_ppg: float = float("nan")
+    sim_possessions: float = float("nan")
+    actual_possessions: float = float("nan")
 
     def as_dict(self) -> dict:
         return {
@@ -31,6 +35,10 @@ class MetricReport:
             "mae_fg3m": _json_float(self.mae_fg3m),
             "mae_min": _json_float(self.mae_min),
             "coverage_10_90": _json_float(self.coverage_10_90),
+            "sim_ppg": _json_float(self.sim_ppg),
+            "actual_ppg": _json_float(self.actual_ppg),
+            "sim_possessions": _json_float(self.sim_possessions),
+            "actual_possessions": _json_float(self.actual_possessions),
             "calibration_bins": [
                 {key: _json_float(value) for key, value in row.items()}
                 for row in self.calibration_bins

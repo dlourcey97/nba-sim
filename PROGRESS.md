@@ -1,6 +1,6 @@
 # Progress
 
-Last updated after end-to-end validation (position defense + full-season backtest + tune).
+Last updated after Step 1 scoring-bias fix (full 2024-25 + 2025-26 backtest).
 
 | Phase | Status | Notes |
 | --- | --- | --- |
@@ -8,10 +8,15 @@ Last updated after end-to-end validation (position defense + full-season backtes
 | 2. Ingestion and backfill | done | nba_api, PlayByPlayV3 possessions, live-feed fallback, backfill.py. |
 | 3. Injury report and overrides | done | Official PDF parse via pypdf, overrides.yaml precedence. |
 | 4. Projections | done | Blend, context, absence redistribution, minutes model, zone + position defense. |
-| 5. Simulation | done | Vectorized possession engine; ~5s for 10k runs. |
+| 5. Simulation | done | Vectorized possession engine; OREB no longer consumes pace budget. |
 | 6. Outputs and daily.py | done | Summaries, results/latest JSON, prediction history, daily.py, run.py. |
-| 7. Backtesting | done | Walk-forward metrics, calibration SVG, blend-parameter tuner. |
+| 7. Backtesting | done | Walk-forward metrics include sim vs actual PPG and possessions. |
 | Validation (post-backfill) | done | Position defense, single-game check, full 2024-25/2025-26 backtest, tune. |
+| Fix 1. Scoring bias | done | Pace exact; PPG within ~2.3% (was ~−12%). |
+| Fix 2. As-of rosters | in progress | Next. |
+| Fix 3. Minutes → 240 | not started | |
+| Fix 4. Variance ~80% | not started | |
+| Fix 5. Team strength / HCA | not started | |
 
 ## Phase 3
 
@@ -82,13 +87,40 @@ Grid on early 2024-25 (`--max-games 24`). Best → `weights [0.40, 0.30, 0.20, 0
 
 ### 5. Biggest weaknesses (fix first)
 
-1. **Minutes / rotation model** — MAE MIN ~5.5; benches often near-zero projected minutes/usage while stars soak minutes. Opening-night and trade/roster lag make this worse. **Fix first:** better minutes prior (recent same-team appearances, role stability, explicit depth chart), and don’t zero out usage for low-minute players who are still in the rotation.
-2. **Too-narrow distributions** — 10–90 coverage ~65% vs ~80% target. Widen minutes variance and possession/shot noise; consider run-level foul/blowout dispersion.
-3. **Scoring level / pace** — single-game and season sims trend low on totals; revisit FT rate, three-point volume, and pace noise.
-4. **Win-prob calibration** — Brier ~0.23; home favorites under-separated. Stronger team strength signal (net rating / prior margin) before possession detail.
-5. **Position labels** — source logs are mostly G/F/C/None; PG–C mapping is heuristic. Improve when a better position source exists.
+1. **Minutes / rotation model** — MAE MIN ~5.5; benches often near-zero projected minutes/usage while stars soak minutes. Opening-night and trade/roster lag make this worse.
+2. **Too-narrow distributions** — 10–90 coverage ~65–67% vs ~80% target.
+3. ~~**Scoring level / pace**~~ — **fixed in Step 1** (see below).
+4. **Win-prob calibration** — Brier ~0.23; home favorites under-separated.
+5. **Position labels** — source logs are mostly G/F/C/None; PG–C mapping is heuristic.
 
 Storage cap and storage report remain in place.
+
+## Fix Step 1 — Scoring bias (2026-10-16)
+
+Root causes and fixes:
+
+1. **OREB consumed pace trips** — possession endings were ~10% short. Engine now only advances the ending budget on dead balls / makes / FT / DREB; OREB retries without consuming pace.
+2. **Rate denominators** — `used = usage * (possessions/2)` because stored possessions are off+def; stl/blk use defensive half; non-steal TOV share for the separate steal path.
+3. **FT semantics** — `ft_rate` is FTA/use. Replaced pure FT-trip substitution with shooting fouls / and-ones on FGAs (plus a rare bonus FT trip).
+4. Softened stacked zone+position defense weights (`0.35` / `0.15`).
+
+Full walk-forward `--seasons 2024-2025 --runs 200 --seed 1` (2627 games):
+
+| Metric | Before (validation) | After Step 1 |
+| --- | ---: | ---: |
+| Brier | 0.232 | 0.233 |
+| MAE PTS | 5.75 | 5.88 |
+| MAE REB | 2.52 | 2.68 |
+| MAE AST | 1.85 | 1.77 |
+| MAE 3PM | 0.95 | 0.98 |
+| MAE MIN | 5.47 | 5.47 |
+| 10–90 coverage | 0.651 | 0.669 |
+| Sim PPG | ~94–100 | **116.95** |
+| Actual PPG | ~114 | **114.29** |
+| Sim possessions | — | **98.91** |
+| Actual possessions | — | **98.92** |
+
+PPG delta **+2.3%** (target ~1%; was ~−12%). Pace delta **−0.02%**. Artifacts: `results/backtest/step1_scoring/`.
 
 ## Commands
 

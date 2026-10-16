@@ -69,6 +69,7 @@ class RateVector:
 def empty_accumulator() -> dict[str, float]:
     return {
         "possessions": 0.0,
+        "offensive_possessions": 0.0,
         "used": 0.0,
         "tov": 0.0,
         "fta": 0.0,
@@ -100,9 +101,13 @@ def add_game_to_accumulator(
     if possessions <= 0:
         return
     usage = float(rate_row.get("usage") or 0.0)
-    used = usage * possessions
+    # player_game_rates.possessions is on-court off+def. usage is used/offensive,
+    # so expected uses ≈ usage * (possessions / 2).
+    offensive_possessions = possessions * 0.5
+    used = usage * offensive_possessions
     acc["possessions"] += weight * possessions
     acc["used"] += weight * used
+    acc["offensive_possessions"] += weight * offensive_possessions
     acc["games"] += weight
     acc["fta"] += weight * float(rate_row.get("fta") or 0.0)
     acc["ftm"] += weight * float(rate_row.get("ftm") or 0.0)
@@ -126,6 +131,8 @@ def vector_from_accumulator(acc: dict[str, float]) -> RateVector:
     if possessions <= 0:
         return RateVector()
     used = acc["used"]
+    # Defensive half of on-court possessions for steal/block rates.
+    defensive_possessions = max(possessions - acc.get("offensive_possessions", possessions * 0.5), possessions * 0.5)
     fga_total = sum(acc[f"{zone}_fga"] for zone in ZONES)
     shares = {}
     pcts = {}
@@ -138,16 +145,23 @@ def vector_from_accumulator(acc: dict[str, float]) -> RateVector:
     dreb_chances = acc["dreb_chances"]
     ast_chances = acc["ast_chances"]
     fta = acc["fta"]
+    # usage is share of offensive possessions; used/offensive_poss ≈ usage.
+    offensive_possessions = acc.get("offensive_possessions", possessions * 0.5) or (possessions * 0.5)
+    # Steal path runs before TOV in the engine, so tov_rate is non-steal TOVs only.
+    # League TOV ≈ 13.5/100 poss and STL ≈ 8/100, so non-steal ≈ 40% of box TOVs.
+    raw_tov = (acc["tov"] / used) if used > 0 else 0.12
+    tov_rate = max(0.015, min(0.18, raw_tov * 0.32))
     vector = RateVector(
-        usage=used / possessions,
-        tov_rate=(acc["tov"] / used) if used > 0 else 0.12,
+        usage=(used / offensive_possessions) if offensive_possessions > 0 else 0.20,
+        tov_rate=tov_rate,
+        # Expected FTA per use (engine converts to P(FT trip) via / mean FTA per trip).
         ft_rate=(fta / used) if used > 0 else 0.10,
         ft_pct=(acc["ftm"] / fta) if fta > 0 else 0.75,
         oreb_rate=(acc["oreb"] / oreb_chances) if oreb_chances > 0 else 0.05,
         dreb_rate=(acc["dreb"] / dreb_chances) if dreb_chances > 0 else 0.15,
         ast_rate=(acc["ast"] / ast_chances) if ast_chances > 0 else 0.15,
-        stl_rate=acc["stl"] / possessions,
-        blk_rate=acc["blk"] / possessions,
+        stl_rate=(acc["stl"] / defensive_possessions) if defensive_possessions > 0 else 0.015,
+        blk_rate=(acc["blk"] / defensive_possessions) if defensive_possessions > 0 else 0.010,
         foul_rate=0.08,
         sample_possessions=possessions,
         sample_games=acc["games"],

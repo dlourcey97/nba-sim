@@ -56,6 +56,10 @@ def evaluate_seasons(
     pred_min: list[float] = []
     act_min: list[float] = []
     cover_hits: list[float] = []
+    sim_team_pts: list[float] = []
+    act_team_pts: list[float] = []
+    sim_poss: list[float] = []
+    act_poss: list[float] = []
     games = 0
 
     # Cache season bundles once across the whole evaluation so walk-forward does
@@ -80,6 +84,10 @@ def evaluate_seasons(
         logs = {
             (row["game_id"], int(row["player_id"])): row
             for row in read_rows(local, "player_game_logs", season)
+        }
+        team_results = {
+            (row["game_id"], int(row["team_id"])): row
+            for row in read_rows(local, "team_game_results", season)
         }
         window = available_season_window(local, season, seasons_back)
         if season not in window:
@@ -115,6 +123,22 @@ def evaluate_seasons(
             except ValueError:
                 continue
             summary = summarize_game(projection, sim)
+            sim_team_pts.append(float(summary.home_pts.mean))
+            sim_team_pts.append(float(summary.away_pts.mean))
+            act_team_pts.append(float(row["home_pts"]))
+            act_team_pts.append(float(row["away_pts"]))
+            sim_poss.append(float(sim.home_possessions))
+            sim_poss.append(float(sim.away_possessions))
+            home_tr = team_results.get((summary.game_id, int(projection.home_team_id)))
+            away_tr = team_results.get((summary.game_id, int(projection.away_team_id)))
+            if home_tr is not None and home_tr.get("pace") is not None:
+                act_poss.append(float(home_tr["pace"]))
+            else:
+                act_poss.append(float(sim.home_possessions))
+            if away_tr is not None and away_tr.get("pace") is not None:
+                act_poss.append(float(away_tr["pace"]))
+            else:
+                act_poss.append(float(sim.away_possessions))
             del sim
             home_probs.append(summary.home_win_prob)
             home_wins.append(1.0 if int(row["home_pts"]) > int(row["away_pts"]) else 0.0)
@@ -156,6 +180,10 @@ def evaluate_seasons(
         mae_min=mean_abs_error(np.asarray(pred_min), np.asarray(act_min)),
         coverage_10_90=float(np.mean(cover_hits)) if cover_hits else float("nan"),
         calibration_bins=calibration_bins(probs, outcomes),
+        sim_ppg=float(np.mean(sim_team_pts)) if sim_team_pts else float("nan"),
+        actual_ppg=float(np.mean(act_team_pts)) if act_team_pts else float("nan"),
+        sim_possessions=float(np.mean(sim_poss)) if sim_poss else float("nan"),
+        actual_possessions=float(np.mean(act_poss)) if act_poss else float("nan"),
     )
 
 

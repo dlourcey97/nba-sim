@@ -44,9 +44,10 @@ context:
     1: 0.000
     2: 0.010
     3: 0.015
-  opponent_defense_weight: 1.0
+  # Softened so stacked zone+position adjustments do not crush league FG%.
+  opponent_defense_weight: 0.35
   # Soft shift from stats allowed to PG/SG/SF/PF/C vs league (stacks lightly with zone).
-  opponent_position_defense_weight: 0.5
+  opponent_position_defense_weight: 0.15
   teammate_absence_usage_share: 0.85
 
 minutes:

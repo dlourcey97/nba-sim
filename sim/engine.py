@@ -36,6 +36,9 @@ class GameSimResult:
     home_pts: np.ndarray
     away_pts: np.ndarray
     overtime: np.ndarray
+    # Mean projected/simulated possession endings per team (pace).
+    home_possessions: float
+    away_possessions: float
 
 
 def simulate_game(
@@ -76,7 +79,9 @@ def simulate_game(
 
     home_poss = np.clip(rng.normal(projection.home_possessions, 3.5, size=n_runs), 80.0, 130.0)
     away_poss = np.clip(rng.normal(projection.away_possessions, 3.5, size=n_runs), 80.0, 130.0)
-    reg_trips = np.clip(np.round(home_poss + away_poss).astype(int), 160, 260)
+    # Pace targets possession *endings* (NBA pace). OREB continuations must not
+    # consume the budget — only dead balls, makes, FT trips, and DREBs count.
+    target_endings = np.clip(np.round(home_poss + away_poss).astype(int), 160, 260)
 
     pts = np.zeros((n_players, n_runs), dtype=float)
     reb = np.zeros((n_players, n_runs), dtype=float)
@@ -89,12 +94,14 @@ def simulate_game(
     away_pts = np.zeros(n_runs, dtype=float)
 
     offense_home = rng.random(n_runs) < 0.5
-    max_trips = int(reg_trips.max())
-    for trip in range(max_trips):
-        active = trip < reg_trips
+    endings = np.zeros(n_runs, dtype=np.int32)
+    # Allow extra iterations for OREB retries (typical OREB rate ~25% of misses).
+    max_iters = int(target_endings.max() * 1.55) + 20
+    for _ in range(max_iters):
+        active = endings < target_endings
         if not np.any(active):
             break
-        home_delta, away_delta, offense_home = _vector_possession(
+        home_delta, away_delta, offense_home, ended = _vector_possession(
             rng,
             packed,
             home_lineups,
@@ -111,6 +118,7 @@ def simulate_game(
         )
         home_pts += home_delta
         away_pts += away_delta
+        endings += ended.astype(np.int32)
 
     overtime = np.zeros(n_runs, dtype=bool)
     tied = home_pts == away_pts
@@ -118,14 +126,19 @@ def simulate_game(
     while np.any(tied) and ot_period < 5:
         overtime |= tied
         ot_period += 1
-        for _ in range(16):
-            home_delta, away_delta, offense_home = _vector_possession(
+        ot_endings = np.zeros(n_runs, dtype=np.int32)
+        ot_target = np.where(tied, 16, 0)
+        for _ in range(28):
+            still = ot_endings < ot_target
+            if not np.any(still):
+                break
+            home_delta, away_delta, offense_home, ended = _vector_possession(
                 rng,
                 packed,
                 home_lineups,
                 away_lineups,
                 offense_home,
-                tied,
+                still,
                 pts,
                 reb,
                 ast,
@@ -136,7 +149,9 @@ def simulate_game(
             )
             home_pts += home_delta
             away_pts += away_delta
+            ot_endings += ended.astype(np.int32)
             tied = home_pts == away_pts
+            ot_target = np.where(tied, ot_target, ot_endings)
 
     return GameSimResult(
         game_id=projection.game_id,
@@ -157,6 +172,8 @@ def simulate_game(
         home_pts=home_pts,
         away_pts=away_pts,
         overtime=overtime,
+        home_possessions=float(np.mean(home_poss)),
+        away_possessions=float(np.mean(away_poss)),
     )
 
 
@@ -208,76 +225,92 @@ def _vector_possession(
     stl: np.ndarray,
     blk: np.ndarray,
     tov: np.ndarray,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Return (home_delta, away_delta, next_offense_home, ended).
+
+    ``ended`` is True when the possession ending counts against pace (not OREB).
+    """
     n_runs = active.shape[0]
     home_delta = np.zeros(n_runs)
     away_delta = np.zeros(n_runs)
     next_offense_home = offense_home.copy()
+    ended = np.zeros(n_runs, dtype=bool)
     if not np.any(active):
-        return home_delta, away_delta, next_offense_home
+        return home_delta, away_delta, next_offense_home, ended
 
     off_lineups = np.where(offense_home[:, None], home_lineups, away_lineups)
     def_lineups = np.where(offense_home[:, None], away_lineups, home_lineups)
 
-    # Steal
+    # Steal. Per-player rates are stl/def_poss; summing five on-court rates
+    # overstates team steals, so scale toward league ~8 STL / 100 possessions.
     stl_w = packed["stl_rate"][def_lineups]
-    stl_prob = np.clip(stl_w.sum(axis=1), 0.0, 0.12)
+    stl_prob = np.clip(stl_w.sum(axis=1) * 0.78, 0.0, 0.095)
     is_stl = active & (rng.random(n_runs) < stl_prob)
     if np.any(is_stl):
         pick = _weighted_choice(rng, stl_w[is_stl])
         runners = np.flatnonzero(is_stl)
         players = def_lineups[is_stl, pick]
         np.add.at(stl, (players, runners), 1)
+        # Credited as a turnover on the offense as well.
+        usage_w_tmp = packed["usage"][off_lineups]
+        user_slot_tmp = _weighted_choice(rng, usage_w_tmp)
+        users_tmp = off_lineups[np.arange(n_runs), user_slot_tmp]
+        np.add.at(tov, (users_tmp[is_stl], runners), 1)
         next_offense_home[is_stl] = ~offense_home[is_stl]
+        ended[is_stl] = True
 
     remaining = active & ~is_stl
     if not np.any(remaining):
-        return home_delta, away_delta, next_offense_home
+        return home_delta, away_delta, next_offense_home, ended
 
     usage_w = packed["usage"][off_lineups]
     user_slot = _weighted_choice(rng, usage_w)
     users = off_lineups[np.arange(n_runs), user_slot]
 
-    # Turnover
-    tov_prob = np.clip(packed["tov_rate"][users], 0.02, 0.35)
+    # Non-steal turnover (stl path already handled)
+    tov_prob = np.clip(packed["tov_rate"][users], 0.02, 0.30)
     is_tov = remaining & (rng.random(n_runs) < tov_prob)
     if np.any(is_tov):
         runners = np.flatnonzero(is_tov)
         np.add.at(tov, (users[is_tov], runners), 1)
         next_offense_home[is_tov] = ~offense_home[is_tov]
+        ended[is_tov] = True
 
     remaining = remaining & ~is_tov
     if not np.any(remaining):
-        return home_delta, away_delta, next_offense_home
+        return home_delta, away_delta, next_offense_home, ended
 
-    # Free throws
-    ft_prob = np.clip(packed["ft_rate"][users], 0.0, 0.60)
-    is_ft = remaining & (rng.random(n_runs) < ft_prob)
-    if np.any(is_ft):
+    # Rare non-shooting foul / bonus FT trip (no FGA). Most FTA come from
+    # shooting fouls attached to an FGA below.
+    bonus_ft_prob = np.clip(packed["ft_rate"][users] / 2.15 * 0.20, 0.0, 0.08)
+    is_bonus_ft = remaining & (rng.random(n_runs) < bonus_ft_prob)
+    if np.any(is_bonus_ft):
         fta = np.where(rng.random(n_runs) < 0.85, 2, 3)
         ft_pct = np.clip(packed["ft_pct"][users], 0.4, 0.95)
-        # binomial per run
         made = np.zeros(n_runs)
-        idx = np.flatnonzero(is_ft)
+        idx = np.flatnonzero(is_bonus_ft)
         made[idx] = rng.binomial(fta[idx], ft_pct[idx])
-        runners = idx
-        np.add.at(pts, (users[is_ft], runners), made[is_ft])
-        home_delta = np.where(is_ft & offense_home, made, home_delta)
-        away_delta = np.where(is_ft & ~offense_home, made, away_delta)
-        next_offense_home[is_ft] = ~offense_home[is_ft]
+        np.add.at(pts, (users[is_bonus_ft], idx), made[is_bonus_ft])
+        home_delta = np.where(is_bonus_ft & offense_home, made, home_delta)
+        away_delta = np.where(is_bonus_ft & ~offense_home, made, away_delta)
+        next_offense_home[is_bonus_ft] = ~offense_home[is_bonus_ft]
+        ended[is_bonus_ft] = True
 
-    remaining = remaining & ~is_ft
+    remaining = remaining & ~is_bonus_ft
     if not np.any(remaining):
-        return home_delta, away_delta, next_offense_home
+        return home_delta, away_delta, next_offense_home, ended
 
     # Shot zone
     zone_share = packed["zone_share"][users]  # (n_runs, 6)
     zone_i = _weighted_choice(rng, zone_share)
     fg_pct = np.clip(packed["zone_fg"][users, zone_i], 0.15, 0.85)
+    # Shooting-foul rate from expected FTA/use (≈2 FTA per foul on average).
+    shoot_foul_prob = np.clip(packed["ft_rate"][users] / 2.05 * 0.80, 0.02, 0.35)
+    ft_pct = np.clip(packed["ft_pct"][users], 0.4, 0.95)
 
     blk_w = packed["blk_rate"][def_lineups]
     blk_scale = np.where(zone_i == 0, 1.4, 0.7)
-    blk_prob = np.clip(blk_w.sum(axis=1) * blk_scale, 0.0, 0.10)
+    blk_prob = np.clip(blk_w.sum(axis=1) * blk_scale * 0.78, 0.0, 0.065)
     is_blk = remaining & (rng.random(n_runs) < blk_prob)
     if np.any(is_blk):
         pick = _weighted_choice(rng, blk_w[is_blk])
@@ -285,9 +318,10 @@ def _vector_possession(
         players = def_lineups[is_blk, pick]
         np.add.at(blk, (players, runners), 1)
 
-    # Miss path: block or natural miss -> rebound
+    # Miss path: block or natural miss -> rebound (unless shooting foul on the miss).
     is_make = remaining & ~is_blk & (rng.random(n_runs) < fg_pct)
     is_miss = remaining & ~is_make
+    is_foul = remaining & ~is_blk & (rng.random(n_runs) < shoot_foul_prob)
 
     if np.any(is_make):
         points = _ZONE_POINTS[zone_i]
@@ -296,10 +330,16 @@ def _vector_possession(
         threes = is_make & (points == 3.0)
         if np.any(threes):
             np.add.at(fg3m, (users[threes], np.flatnonzero(threes)), 1)
+        # And-one
+        and_one = is_make & is_foul
+        if np.any(and_one):
+            ao_made = np.zeros(n_runs)
+            ao_idx = np.flatnonzero(and_one)
+            ao_made[ao_idx] = rng.binomial(1, ft_pct[ao_idx])
+            np.add.at(pts, (users[and_one], ao_idx), ao_made[and_one])
+            points = points + ao_made
         home_delta = np.where(is_make & offense_home, points, home_delta)
         away_delta = np.where(is_make & ~offense_home, points, away_delta)
-        # Assists
-        # Pick a teammate slot != user_slot
         mate_slot = (user_slot + 1 + rng.integers(0, 4, size=n_runs)) % off_lineups.shape[1]
         mates = off_lineups[np.arange(n_runs), mate_slot]
         ast_prob = np.clip(packed["ast_rate"][mates], 0.35, 0.75)
@@ -307,27 +347,44 @@ def _vector_possession(
         if np.any(is_ast):
             np.add.at(ast, (mates[is_ast], np.flatnonzero(is_ast)), 1)
         next_offense_home[is_make] = ~offense_home[is_make]
+        ended[is_make] = True
 
-    if np.any(is_miss):
+    # Shooting foul on a miss: FTs, no rebound.
+    foul_miss = is_miss & is_foul
+    if np.any(foul_miss):
+        fta = np.where(_ZONE_POINTS[zone_i] >= 3.0, 3, 2)
+        made = np.zeros(n_runs)
+        idx = np.flatnonzero(foul_miss)
+        made[idx] = rng.binomial(fta[idx], ft_pct[idx])
+        np.add.at(pts, (users[foul_miss], idx), made[foul_miss])
+        home_delta = np.where(foul_miss & offense_home, made, home_delta)
+        away_delta = np.where(foul_miss & ~offense_home, made, away_delta)
+        next_offense_home[foul_miss] = ~offense_home[foul_miss]
+        ended[foul_miss] = True
+
+    live_miss = is_miss & ~is_foul
+    if np.any(live_miss):
         o_w = packed["oreb"][off_lineups]
         d_w = packed["dreb"][def_lineups]
         p_orb = np.clip(o_w.sum(axis=1) / (o_w.sum(axis=1) + d_w.sum(axis=1) + 1e-9), 0.05, 0.40)
-        is_orb = is_miss & (rng.random(n_runs) < p_orb)
-        is_drb = is_miss & ~is_orb
+        is_orb = live_miss & (rng.random(n_runs) < p_orb)
+        is_drb = live_miss & ~is_orb
         if np.any(is_orb):
             pick = _weighted_choice(rng, o_w[is_orb])
             runners = np.flatnonzero(is_orb)
             players = off_lineups[is_orb, pick]
             np.add.at(reb, (players, runners), 1)
             next_offense_home[is_orb] = offense_home[is_orb]
+            # OREB: possession continues — do NOT mark ended.
         if np.any(is_drb):
             pick = _weighted_choice(rng, d_w[is_drb])
             runners = np.flatnonzero(is_drb)
             players = def_lineups[is_drb, pick]
             np.add.at(reb, (players, runners), 1)
             next_offense_home[is_drb] = ~offense_home[is_drb]
+            ended[is_drb] = True
 
-    return home_delta, away_delta, next_offense_home
+    return home_delta, away_delta, next_offense_home, ended
 
 
 def _weighted_choice(rng: np.random.Generator, weights: np.ndarray) -> np.ndarray:
