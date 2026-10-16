@@ -4,20 +4,47 @@
 # statuses: out, doubtful, questionable, probable, available
 # Optional minutes_cap limits projected minutes for that player.
 
-players: []
-# Example:
-# players:
-#   - player_id: 1628369
-#     player_name: "Jayson Tatum"
-#     team_abbr: BOS
-#     game_date: "2026-10-21"
-#     status: out
-#     reason: "manual override"
-#     minutes_cap: null
-#   - player_id: 203935
-#     player_name: "Marcus Smart"
-#     team_abbr: MEM
-#     game_date: "2026-10-21"
-#     status: available
-#     reason: "cleared"
-#     minutes_cap: 28.0
+players:
+  # DAL @ ATL preseason 2026-10-16 — AAC
+  - player_id: 1630583
+    player_name: "Santi Aldama"
+    team_abbr: DAL
+    game_date: "2026-10-16"
+    status: out
+    reason: "injury"
+    minutes_cap: null
+  - player_id: 1641726
+    player_name: "Dereck Lively II"
+    team_abbr: DAL
+    game_date: "2026-10-16"
+    status: out
+    reason: "injury"
+    minutes_cap: null
+  - player_id: 1641844
+    player_name: "Tarik Biberovic"
+    team_abbr: DAL
+    game_date: "2026-10-16"
+    status: out
+    reason: "injury"
+    minutes_cap: null
+  - player_id: 1631108
+    player_name: "Max Christie"
+    team_abbr: DAL
+    game_date: "2026-10-16"
+    status: out
+    reason: "injury"
+    minutes_cap: null
+  - player_id: 1631243
+    player_name: "Mouhamed Gueye"
+    team_abbr: ATL
+    game_date: "2026-10-16"
+    status: out
+    reason: "injury"
+    minutes_cap: null
+  - player_id: 1643539
+    player_name: "Henri Veesaar"
+    team_abbr: ATL
+    game_date: "2026-10-16"
+    status: out
+    reason: "injury"
+    minutes_cap: null

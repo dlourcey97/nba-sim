@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
-from typing import Any
+from typing import Any, Sequence
 
 from nba_sim.settings import Settings
 from nba_sim.storage import read_rows, store_rows
@@ -232,7 +232,12 @@ def rebuild_team_rosters(
         if not team_ids:
             team_ids = list(_NBA_TEAM_IDS)
         api_players: list[dict[str, object]] = []
-        abbr_by_team = _team_abbr_map(logs, settings, season)
+        abbr_by_team = _team_abbr_map(
+            list(logs) + list(preseason_logs), settings, season
+        )
+        # Fill gaps from NBA static team list when schedule/logs lack an abbr.
+        for team_id, abbr in _NBA_TEAM_ABBRS.items():
+            abbr_by_team.setdefault(team_id, abbr)
         for team_id in team_ids:
             try:
                 fetched = source.common_team_roster(team_id, season)
@@ -241,7 +246,10 @@ def rebuild_team_rosters(
                 continue
             for player in fetched:
                 player = dict(player)
-                player.setdefault("team_abbr", abbr_by_team.get(team_id, ""))
+                player["team_id"] = team_id
+                player["team_abbr"] = abbr_by_team.get(team_id, "") or str(
+                    player.get("team_abbr") or ""
+                )
                 api_players.append(player)
         merge_date = as_of or datetime.now(timezone.utc).date()
         stints = merge_common_roster(
@@ -311,3 +319,100 @@ def _team_abbr_map(
 
 # Standard NBA franchise ids (stats.nba.com). Used when schedule/logs are empty.
 _NBA_TEAM_IDS = tuple(range(1610612737, 1610612767))
+_NBA_TEAM_ABBRS = {
+    1610612737: "ATL",
+    1610612738: "BOS",
+    1610612739: "CLE",
+    1610612740: "NOP",
+    1610612741: "CHI",
+    1610612742: "DAL",
+    1610612743: "DEN",
+    1610612744: "GSW",
+    1610612745: "HOU",
+    1610612746: "LAC",
+    1610612747: "LAL",
+    1610612748: "MIA",
+    1610612749: "MIL",
+    1610612750: "MIN",
+    1610612751: "BKN",
+    1610612752: "NYK",
+    1610612753: "ORL",
+    1610612754: "IND",
+    1610612755: "PHI",
+    1610612756: "PHX",
+    1610612757: "POR",
+    1610612758: "SAC",
+    1610612759: "SAS",
+    1610612760: "OKC",
+    1610612761: "TOR",
+    1610612762: "UTA",
+    1610612763: "MEM",
+    1610612764: "WAS",
+    1610612765: "DET",
+    1610612766: "CHA",
+}
+
+
+def refresh_current_rosters(
+    settings: Settings,
+    *,
+    source: Any,
+    season: str | None = None,
+    team_ids: Sequence[int] | None = None,
+    log=print,
+) -> int:
+    """Replace ``current_rosters`` from CommonTeamRoster for every team.
+
+    Cross-checks Preseason box scores so ``preseason_appeared`` is set. Call on
+    every daily.py run. Current-season projections must use this table only.
+    """
+    active_season = season or settings.current_season
+    ids = list(team_ids) if team_ids is not None else list(_NBA_TEAM_IDS)
+    pre_logs = read_rows(
+        settings, "player_game_logs", active_season, season_type="Preseason"
+    )
+    appeared: set[tuple[int, int]] = {
+        (int(row["team_id"]), int(row["player_id"])) for row in pre_logs
+    }
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    rows: list[dict[str, object]] = []
+    for team_id in ids:
+        abbr = _NBA_TEAM_ABBRS.get(team_id, "")
+        try:
+            fetched = source.common_team_roster(team_id, active_season)
+        except Exception as exc:
+            log(f"CommonTeamRoster failed for {abbr or team_id} {active_season}: {exc}")
+            continue
+        for player in fetched:
+            pid = int(player["player_id"])
+            rows.append(
+                {
+                    "season": active_season,
+                    "team_id": team_id,
+                    "team_abbr": abbr or str(player.get("team_abbr") or ""),
+                    "player_id": pid,
+                    "player_name": str(player.get("player_name") or f"player:{pid}"),
+                    "position": None
+                    if player.get("position") is None
+                    else str(player["position"]),
+                    "jersey": None if player.get("jersey") is None else str(player["jersey"]),
+                    "preseason_appeared": (team_id, pid) in appeared,
+                    "refreshed_at": now,
+                }
+            )
+    store_rows(settings, "current_rosters", active_season, rows, allow_historical=True)
+    log(f"Refreshed current_rosters for {active_season}: {len(rows)} players.")
+    return len(rows)
+
+
+def current_roster_player_ids(
+    rows: list[dict[str, object]],
+    *,
+    team_id: int,
+) -> list[int]:
+    """Player ids on a team's live current_rosters snapshot."""
+    return [
+        int(row["player_id"])
+        for row in rows
+        if int(row["team_id"]) == team_id
+    ]

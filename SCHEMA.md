@@ -7,6 +7,10 @@ Partition path: `{DATA_DIR}/{table}/season={season}/data.parquet` for Regular Se
 Preseason is isolated: `{DATA_DIR}/{table}/season={season}/season_type=Preseason/data.parquet`.
 `season` looks like `2025-26`. `list_seasons` / default `read_rows` only see the Regular Season path, so Preseason never enters projections or backtests unless `season_type=Preseason` is passed explicitly.
 
+## current_rosters
+
+Live CommonTeamRoster snapshot for `season.current`. Policy: `replace`. Key: `team_id`, `player_id`. Refreshed every `daily.py` run. Columns: season, team_id, team_abbr, player_id, player_name, position, jersey, preseason_appeared, refreshed_at. Current-season projections must use this table only (no prior-season last-known fallthrough).
+
 Write policies:
 
 - `incremental_current`: add rows whose key is not already stored. Existing rows stay as written. Nightly runs may only touch `season.current` in config.yaml. Backfill passes `allow_historical` and, when a season is done, calls `mark_season_complete`. The `_COMPLETE` marker freezes that partition.

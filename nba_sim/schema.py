@@ -425,6 +425,31 @@ def _tables() -> dict[str, Table]:
             _col("source", "VARCHAR", False, "game_log or common_roster."),
         ),
     )
+    current_rosters = Table(
+        name="current_rosters",
+        policy="replace",
+        key=("team_id", "player_id"),
+        grain="one row per player on a team's live CommonTeamRoster",
+        description=(
+            "Live snapshot of every team's roster for season.current from "
+            "stats.nba.com CommonTeamRoster. Refreshed on every daily.py run. "
+            "Also notes whether the player has appeared in that team's Preseason "
+            "box scores this season (preseason_appeared). Current-season projections "
+            "must use this table and must not include anyone absent from it. "
+            "Historical walk-forward continues to use team_rosters stints."
+        ),
+        columns=_season_cols()
+        + (
+            _col("team_id", "INTEGER", False, "Team id."),
+            _col("team_abbr", "VARCHAR", False, "Team abbreviation."),
+            _col("player_id", "INTEGER", False, "NBA player id."),
+            _col("player_name", "VARCHAR", False, "Player display name."),
+            _col("position", "VARCHAR", True, "Listed position when known."),
+            _col("jersey", "VARCHAR", True, "Jersey number when known."),
+            _col("preseason_appeared", "BOOLEAN", False, "True if the player logged minutes for this team in a 2026-27 Preseason box score."),
+            _col("refreshed_at", "TIMESTAMP", False, "UTC time this snapshot was written."),
+        ),
+    )
     prediction_history = Table(
         name="prediction_history",
         policy="upsert_current",
@@ -469,6 +494,7 @@ def _tables() -> dict[str, Table]:
         team_zone_defense,
         team_position_defense,
         team_rosters,
+        current_rosters,
         prediction_history,
     )
     return {table.name: table for table in tables}

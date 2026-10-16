@@ -160,7 +160,9 @@ PPG delta **+2.3%** (target ~1%; was ~−12%). Pace delta **−0.02%**. Artifact
 
 ## Preseason sim — ATL @ DAL 2026-10-16 (0012600008)
 
-Ingested 2026-27 Preseason finals for DAL/ATL into `season_type=Preseason` (7 games). Current-season CommonTeamRoster for 2026-27. Minutes/rotation from preseason logs (recent decay 0.45); efficiency/usage from Regular Season history; rookies on position priors. `overrides.yaml` empty. 10k runs, seed 42: DAL win P **0.606**, ATL 116.0 / DAL 120.6, total 236.6 (p10–p90 213–261). Artifacts under `results/latest/` (gitignored).
+Ingested 2026-27 Preseason finals for DAL/ATL into `season_type=Preseason` (7 games). Added `current_rosters` (CommonTeamRoster refresh every `daily.py`); current-season projections use it only (no prior-season last-known → Klay Thompson correctly excluded). Preseason outs: `overrides.yaml` + sit-out-all-preseason. Minutes from preseason logs; rates from RS history.
+
+10k runs seed 42 (after roster/injury fix): DAL win P **0.524**, ATL 118.4 / DAL 119.5, total 237.9 (p10–p90 215–261). Outs: DAL Aldama/Lively/Christie/Biberovic (+ Sasser sitout); ATL Gueye/Veesaar.
 
 API note: stats.nba.com SeasonType for exhibition is `Pre Season` (space), mapped to internal `Preseason`.
 

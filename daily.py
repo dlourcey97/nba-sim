@@ -16,6 +16,8 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from ingest.pipeline import run_backfill
+from ingest.rosters import refresh_current_rosters
+from ingest.source import NbaSource
 from nba_sim.errors import NbaSimError
 from nba_sim.settings import assert_outside_repo, load_settings
 from nba_sim.storage import finish_run
@@ -53,6 +55,18 @@ def main(argv: list[str] | None = None) -> int:
                 f"ingest done stored={ingest.stored_games} skipped={ingest.skipped_games} "
                 f"failed={len(ingest.failed_games)} missing_pbp={len(ingest.possessions_missing)}"
             )
+
+        http = settings.config["http"]
+        source = NbaSource(
+            delay_seconds=float(http["delay_seconds"]),
+            max_retries=int(http["max_retries"]),
+            backoff_seconds=float(http["backoff_seconds"]),
+            timeout_seconds=float(http["timeout_seconds"]),
+            log=log,
+            current_season=season,
+        )
+        log("refresh current_rosters from CommonTeamRoster")
+        refresh_current_rosters(settings, source=source, season=season, log=log)
 
         injuries = injuries_for_date(
             settings,

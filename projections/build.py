@@ -7,9 +7,14 @@ from datetime import date
 from typing import Any, Sequence
 
 from ingest.injuries import InjuryEntry, active_absences, minutes_caps
-from ingest.rosters import active_roster_player_ids, prior_season_label
+from ingest.rosters import (
+    active_roster_player_ids,
+    current_roster_player_ids,
+    prior_season_label,
+)
+from nba_sim.schema import SEASON_TYPE_PRESEASON
 from nba_sim.settings import Settings
-from nba_sim.storage import read_rows
+from nba_sim.storage import is_isolated_season_type, read_rows
 
 from projections.blend import (
     available_season_window,
@@ -86,6 +91,7 @@ class ProjectionCache:
     pos_by_team: dict[int, dict[str, dict[str, float]]] = field(default_factory=dict)
     # Season roster stints — reused across the whole slate (not cleared on as_of).
     roster_rows_by_season: dict[str, list] = field(default_factory=dict)
+    current_roster_rows: list | None = None
     # as_of-scoped indexes built once per date for all teams
     appearances_by_team: dict[int, dict[int, int]] | None = None
     last_team_by_player: dict[int, int] | None = None
@@ -106,6 +112,11 @@ class ProjectionCache:
         if season not in self.roster_rows_by_season:
             self.roster_rows_by_season[season] = read_rows(settings, "team_rosters", season)
         return self.roster_rows_by_season[season]
+
+    def current_rosters(self, settings: Settings, season: str) -> list:
+        if self.current_roster_rows is None:
+            self.current_roster_rows = read_rows(settings, "current_rosters", season)
+        return self.current_roster_rows
 
     def ensure_roster_indexes(self, bundles: list, as_of: date) -> None:
         if self.appearances_by_team is not None and self.last_team_by_player is not None:
@@ -175,6 +186,7 @@ def build_game_projections(
         minutes_bundles=minutes_bundles,
         cache=cache,
         minutes_recent_decay=minutes_recent_decay,
+        season_type=season_type,
     )
 
 
@@ -218,6 +230,7 @@ def _build(
     minutes_bundles: list | None = None,
     cache: ProjectionCache | None = None,
     minutes_recent_decay: float | None = None,
+    season_type: str | None = None,
 ) -> GameProjection:
     config = settings.config
     seasons_back = list(config["blending"]["season_weights"]["seasons_back"])
@@ -247,7 +260,28 @@ def _build(
         cache.meta = load_player_meta(bundles, as_of=as_of)
     priors = cache.priors
     meta = cache.meta
+    # Ensure current-roster names/positions exist for rookies with no RS history.
+    if season == settings.current_season:
+        for row in cache.current_rosters(settings, season):
+            pid = int(row["player_id"])
+            info = meta.setdefault(pid, {})
+            info.setdefault("player_name", str(row["player_name"]))
+            if row.get("position") and not info.get("position"):
+                info["position"] = str(row["position"])
     injuries = match_injury_player_ids(injuries, meta)
+    # Preseason: official PDF is empty — also mark roster players who sat out
+    # every team preseason game unless overrides.yaml says available.
+    if is_isolated_season_type(season_type) or season_type == SEASON_TYPE_PRESEASON:
+        injuries = _merge_preseason_sitouts(
+            settings,
+            season=season,
+            game_date=game_date,
+            home_team_id=home_team_id,
+            away_team_id=away_team_id,
+            injuries=injuries,
+            cache=cache,
+            meta=meta,
+        )
     injury_by_id = {
         int(entry.player_id): entry
         for entry in injuries
@@ -310,8 +344,12 @@ def _build(
     play_threshold = float(config["minutes"].get("play_threshold", 1.0))
     recent_window = int(config["minutes"].get("recent_window", 10))
 
-    home_ids = _roster_for_team(settings, season, bundles, home_team_id, as_of, cache=cache)
-    away_ids = _roster_for_team(settings, season, bundles, away_team_id, as_of, cache=cache)
+    home_ids = _roster_for_team(
+        settings, season, bundles, home_team_id, as_of, cache=cache, minute_source=minute_source
+    )
+    away_ids = _roster_for_team(
+        settings, season, bundles, away_team_id, as_of, cache=cache, minute_source=minute_source
+    )
 
     def project_side(
         team_id: int,
@@ -495,27 +533,35 @@ def _roster_for_team(
     as_of: date,
     *,
     cache: ProjectionCache | None = None,
+    minute_source: list | None = None,
 ) -> list[int]:
     """Team roster as of ``as_of`` with no future leakage.
 
-    Prefer ``team_rosters`` stints active on the date (from_date < as_of and
-    open or to_date > as_of). Fall back to the prior season's open stints for
-    opening night, then to last-known team from game logs before as_of.
-    Historical appearances alone do not keep a traded player on their old team.
+    For ``season.current``, ``current_rosters`` (CommonTeamRoster) is the only
+    membership set — prior-season last-known never re-adds waived players.
+    Historical seasons use ``team_rosters`` stints. Appearance counts prefer
+    ``minute_source`` (preseason logs) when provided.
     """
+    count_bundles = minute_source if minute_source is not None else bundles
     if cache is not None:
-        cache.ensure_roster_indexes(bundles, as_of)
+        cache.ensure_roster_indexes(count_bundles, as_of)
         counts = (cache.appearances_by_team or {}).get(team_id, {})
-        last_known = [
-            pid
-            for pid, tid in (cache.last_team_by_player or {}).items()
-            if tid == team_id
-        ]
         season_rows = cache.roster_rows(settings, season)
     else:
-        counts = _appearance_counts(bundles, team_id, as_of)
-        last_known = _last_known_team_roster(bundles, team_id, as_of)
+        counts = _appearance_counts(count_bundles, team_id, as_of)
         season_rows = read_rows(settings, "team_rosters", season)
+
+    if season == settings.current_season:
+        live = (
+            cache.current_rosters(settings, season)
+            if cache is not None
+            else read_rows(settings, "current_rosters", season)
+        )
+        live_ids = current_roster_player_ids(live, team_id=team_id)
+        if live_ids:
+            # Keep the full live roster; minutes allocation / outs shrink the rotation.
+            return sorted(live_ids, key=lambda pid: (-counts.get(pid, 0), pid))
+
     has_team_stints = any(int(row["team_id"]) == team_id for row in season_rows)
     roster_ids = active_roster_player_ids(
         season_rows,
@@ -525,11 +571,11 @@ def _roster_for_team(
     if not roster_ids and not has_team_stints:
         prior = prior_season_label(season)
         if prior:
-            if cache is not None:
-                prior_rows = cache.roster_rows(settings, prior)
-            else:
-                prior_rows = read_rows(settings, "team_rosters", prior)
-            # Ending roster: open stints only (still on the team at season end).
+            prior_rows = (
+                cache.roster_rows(settings, prior)
+                if cache is not None
+                else read_rows(settings, "team_rosters", prior)
+            )
             roster_ids = [
                 int(row["player_id"])
                 for row in prior_rows
@@ -541,21 +587,67 @@ def _roster_for_team(
                     else date.fromisoformat(str(row["from_date"])) < as_of
                 )
             ]
-    # Stints are authoritative for anyone they cover. last_known only fills gaps
-    # for players with no stint row (avoids re-adding trade leavers on/after the
-    # exclusive to_date when the active set is empty for that team).
-    covered = {int(row["player_id"]) for row in season_rows}
-    if roster_ids or has_team_stints:
-        combined = set(roster_ids) | {pid for pid in last_known if pid not in covered}
-    else:
-        combined = set(last_known)
+    combined = set(roster_ids)
     if not combined:
         return []
-    ranked = sorted(
-        combined,
-        key=lambda pid: (-counts.get(pid, 0), pid),
-    )
-    return ranked[:15]
+    return sorted(combined, key=lambda pid: (-counts.get(pid, 0), pid))[:15]
+
+
+def _merge_preseason_sitouts(
+    settings: Settings,
+    *,
+    season: str,
+    game_date: date,
+    home_team_id: int,
+    away_team_id: int,
+    injuries: list[InjuryEntry],
+    cache: ProjectionCache,
+    meta: dict,
+) -> list[InjuryEntry]:
+    """Mark current-roster players who never appeared in team preseason as Out."""
+    live = cache.current_rosters(settings, season)
+    by_team: dict[int, list[dict]] = {}
+    for row in live:
+        by_team.setdefault(int(row["team_id"]), []).append(row)
+    override_by_id = {
+        int(entry.player_id): entry
+        for entry in injuries
+        if entry.player_id is not None and entry.source == "override"
+    }
+    merged = list(injuries)
+    seen = {
+        int(entry.player_id)
+        for entry in injuries
+        if entry.player_id is not None and entry.game_date == game_date
+    }
+    for team_id in (home_team_id, away_team_id):
+        for row in by_team.get(team_id, []):
+            pid = int(row["player_id"])
+            if bool(row.get("preseason_appeared")):
+                continue
+            if pid in override_by_id or pid in seen:
+                continue
+            name = str(
+                row.get("player_name")
+                or meta.get(pid, {}).get("player_name")
+                or f"player:{pid}"
+            )
+            merged.append(
+                InjuryEntry(
+                    game_date=game_date,
+                    matchup=None,
+                    team_name=None,
+                    team_abbr=str(row.get("team_abbr") or "") or None,
+                    player_name=name,
+                    player_id=pid,
+                    status="Out",
+                    reason="sat out all preseason games",
+                    minutes_cap=None,
+                    source="preseason_sitout",
+                )
+            )
+            seen.add(pid)
+    return merged
 
 
 def _appearance_counts(bundles: list, team_id: int, as_of: date) -> dict[int, int]:
