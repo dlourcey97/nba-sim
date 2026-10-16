@@ -16,6 +16,7 @@ from ingest.parse import (
     team_season_aggregates,
     team_zone_defense,
 )
+from ingest.rosters import rebuild_team_rosters
 from ingest.source import NbaSource, PossessionsMissing, SourceUnavailable
 from nba_sim.errors import SeasonFrozenError
 from nba_sim.settings import Settings
@@ -78,7 +79,7 @@ def run_backfill(
                 result,
                 log,
             )
-        _rewrite_derived(settings, season, log)
+        _rewrite_derived(settings, season, log, source=active)
         failed_here = len(result.failed_games) - failed_before
         missing_here = len(result.possessions_missing) - missing_before
         if (
@@ -401,7 +402,13 @@ def _api_records_as_box(game: ScheduleGame, records: list[dict]) -> tuple[list[d
     return players, points
 
 
-def _rewrite_derived(settings: Settings, season: str, log) -> None:
+def _rewrite_derived(
+    settings: Settings,
+    season: str,
+    log,
+    *,
+    source: NbaSource | None = None,
+) -> None:
     logs = read_rows(settings, "player_game_logs", season)
     rates = read_rows(settings, "player_game_rates", season)
     teams = read_rows(settings, "team_game_results", season)
@@ -411,6 +418,13 @@ def _rewrite_derived(settings: Settings, season: str, log) -> None:
     store_rows(settings, "team_season_aggregates", season, team_season_aggregates(teams))
     store_rows(settings, "team_zone_defense", season, team_zone_defense(season, logs, rates, teams))
     store_rows(settings, "team_position_defense", season, team_position_defense(season, logs))
+    rebuild_team_rosters(
+        settings,
+        season,
+        source=source,
+        refresh_common=season == settings.current_season and source is not None,
+        log=log,
+    )
     log(f"Rewrote derived tables for {season}.")
 
 

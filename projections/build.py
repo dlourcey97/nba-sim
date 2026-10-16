@@ -7,6 +7,7 @@ from datetime import date
 from typing import Any, Sequence
 
 from ingest.injuries import InjuryEntry, active_absences, minutes_caps
+from ingest.rosters import active_roster_player_ids, prior_season_label
 from nba_sim.settings import Settings
 from nba_sim.storage import read_rows
 
@@ -77,6 +78,11 @@ class ProjectionCache:
     league_pos: dict[str, dict[str, float]] | None = None
     zone_by_team: dict[int, dict[str, float]] = field(default_factory=dict)
     pos_by_team: dict[int, dict[str, dict[str, float]]] = field(default_factory=dict)
+    # Season roster stints — reused across the whole slate (not cleared on as_of).
+    roster_rows_by_season: dict[str, list] = field(default_factory=dict)
+    # as_of-scoped indexes built once per date for all teams
+    appearances_by_team: dict[int, dict[int, int]] | None = None
+    last_team_by_player: dict[int, int] | None = None
 
     def reset_if_needed(self, as_of: date) -> None:
         if self.as_of != as_of:
@@ -87,6 +93,33 @@ class ProjectionCache:
             self.league_pos = None
             self.zone_by_team.clear()
             self.pos_by_team.clear()
+            self.appearances_by_team = None
+            self.last_team_by_player = None
+
+    def roster_rows(self, settings: Settings, season: str) -> list:
+        if season not in self.roster_rows_by_season:
+            self.roster_rows_by_season[season] = read_rows(settings, "team_rosters", season)
+        return self.roster_rows_by_season[season]
+
+    def ensure_roster_indexes(self, bundles: list, as_of: date) -> None:
+        if self.appearances_by_team is not None and self.last_team_by_player is not None:
+            return
+        appearances: dict[int, dict[int, int]] = {}
+        last: dict[int, tuple[date, int]] = {}
+        for bundle in bundles:
+            for player_id, rows in bundle.logs_by_player.items():
+                for row in rows:
+                    game_date = row["game_date"]
+                    if game_date >= as_of:
+                        break  # logs are date-sorted
+                    team_id = int(row["team_id"])
+                    team_counts = appearances.setdefault(team_id, {})
+                    team_counts[player_id] = team_counts.get(player_id, 0) + 1
+                    prev = last.get(player_id)
+                    if prev is None or game_date >= prev[0]:
+                        last[player_id] = (game_date, team_id)
+        self.appearances_by_team = appearances
+        self.last_team_by_player = {pid: tid for pid, (_when, tid) in last.items()}
 
 
 def build_game_projections(
@@ -246,8 +279,8 @@ def _build(
     )
     usage_share = float(config["context"]["teammate_absence_usage_share"])
 
-    home_ids = _roster_for_team(bundles, home_team_id, as_of)
-    away_ids = _roster_for_team(bundles, away_team_id, as_of)
+    home_ids = _roster_for_team(settings, season, bundles, home_team_id, as_of, cache=cache)
+    away_ids = _roster_for_team(settings, season, bundles, away_team_id, as_of, cache=cache)
 
     def project_side(
         team_id: int,
@@ -399,22 +432,100 @@ def _build(
     )
 
 
-def _roster_for_team(bundles: list, team_id: int, as_of: date) -> list[int]:
-    """Players who appeared for the team before as_of.
+def _roster_for_team(
+    settings: Settings,
+    season: str,
+    bundles: list,
+    team_id: int,
+    as_of: date,
+    *,
+    cache: ProjectionCache | None = None,
+) -> list[int]:
+    """Team roster as of ``as_of`` with no future leakage.
 
-    Prefer the newest season that has appearances so a partial current season
-    is not diluted by ancient roster leftovers from sample backfills.
+    Prefer ``team_rosters`` stints active on the date (from_date < as_of and
+    open or to_date > as_of). Fall back to the prior season's open stints for
+    opening night, then to last-known team from game logs before as_of.
+    Historical appearances alone do not keep a traded player on their old team.
     """
-    for bundle in sorted(bundles, key=lambda item: item.season, reverse=True):
-        counts: dict[int, int] = {}
+    if cache is not None:
+        cache.ensure_roster_indexes(bundles, as_of)
+        counts = (cache.appearances_by_team or {}).get(team_id, {})
+        last_known = [
+            pid
+            for pid, tid in (cache.last_team_by_player or {}).items()
+            if tid == team_id
+        ]
+        season_rows = cache.roster_rows(settings, season)
+    else:
+        counts = _appearance_counts(bundles, team_id, as_of)
+        last_known = _last_known_team_roster(bundles, team_id, as_of)
+        season_rows = read_rows(settings, "team_rosters", season)
+    has_team_stints = any(int(row["team_id"]) == team_id for row in season_rows)
+    roster_ids = active_roster_player_ids(
+        season_rows,
+        team_id=team_id,
+        as_of=as_of,
+    )
+    if not roster_ids and not has_team_stints:
+        prior = prior_season_label(season)
+        if prior:
+            if cache is not None:
+                prior_rows = cache.roster_rows(settings, prior)
+            else:
+                prior_rows = read_rows(settings, "team_rosters", prior)
+            # Ending roster: open stints only (still on the team at season end).
+            roster_ids = [
+                int(row["player_id"])
+                for row in prior_rows
+                if int(row["team_id"]) == team_id
+                and row.get("to_date") is None
+                and (
+                    row["from_date"] < as_of
+                    if isinstance(row["from_date"], date)
+                    else date.fromisoformat(str(row["from_date"])) < as_of
+                )
+            ]
+    # Stints are authoritative for anyone they cover. last_known only fills gaps
+    # for players with no stint row (avoids re-adding trade leavers on/after the
+    # exclusive to_date when the active set is empty for that team).
+    covered = {int(row["player_id"]) for row in season_rows}
+    if roster_ids or has_team_stints:
+        combined = set(roster_ids) | {pid for pid in last_known if pid not in covered}
+    else:
+        combined = set(last_known)
+    if not combined:
+        return []
+    ranked = sorted(
+        combined,
+        key=lambda pid: (-counts.get(pid, 0), pid),
+    )
+    return ranked[:15]
+
+
+def _appearance_counts(bundles: list, team_id: int, as_of: date) -> dict[int, int]:
+    counts: dict[int, int] = {}
+    for bundle in bundles:
         for player_id, rows in bundle.logs_by_player.items():
             for row in rows:
                 if int(row["team_id"]) == team_id and row["game_date"] < as_of:
                     counts[player_id] = counts.get(player_id, 0) + 1
-        if counts:
-            ranked = sorted(counts, key=lambda pid: (-counts[pid], pid))
-            return ranked[:15]
-    return []
+    return counts
+
+
+def _last_known_team_roster(bundles: list, team_id: int, as_of: date) -> list[int]:
+    """Players whose most recent appearance before as_of was for ``team_id``."""
+    last: dict[int, tuple[date, int]] = {}
+    for bundle in bundles:
+        for player_id, rows in bundle.logs_by_player.items():
+            for row in rows:
+                game_date = row["game_date"]
+                if game_date >= as_of:
+                    continue
+                prev = last.get(player_id)
+                if prev is None or game_date >= prev[0]:
+                    last[player_id] = (game_date, int(row["team_id"]))
+    return [pid for pid, (_when, tid) in last.items() if tid == team_id]
 
 
 def _usually_starts(bundles: list, player_id: int, team_id: int, as_of: date) -> bool:

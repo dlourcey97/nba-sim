@@ -259,6 +259,30 @@ Key: `team_id`, `position`
 | blk | DOUBLE | no | Blocks allowed to this position. |
 | tov | DOUBLE | no | Turnovers forced from this position. |
 
+## team_rosters
+
+As-of-date team membership for projections and walk-forward backtests. Built primarily from player_game_logs: consecutive appearances for the same team become a stint with from_date equal to the first game date and to_date equal to the first game date on a different team (exclusive end), or null when the player is still on that team at season rebuild time. The current season may also merge CommonTeamRoster so signed/traded players appear before their first box score. Roster as of date D uses only rows with from_date < D and (to_date is null or D < to_date); never use future game logs. CommonTeamRoster is a current snapshot only — historical accuracy comes from game-log stints. Overwritten each derived rewrite.
+
+Policy: `replace`
+
+Grain: one row per player stint on a team within a season
+
+Key: `team_id`, `player_id`, `from_date`
+
+| column | type | null | description |
+| --- | --- | --- | --- |
+| season | VARCHAR | no | NBA season label, such as 2025-26. Partition key. |
+| team_id | INTEGER | no | Team id for this stint. |
+| team_abbr | VARCHAR | no | Team abbreviation. |
+| player_id | INTEGER | no | NBA player id. |
+| player_name | VARCHAR | no | Player display name. |
+| position | VARCHAR | yes | Listed position when known. |
+| from_date | DATE | no | First date the player is known on this team (exclusive lower bound for as-of: from_date < D). |
+| to_date | DATE | yes | First date no longer on this team (exclusive). Null if still on the team. |
+| jersey | VARCHAR | yes | Jersey number when known from CommonTeamRoster. |
+| roster_status | VARCHAR | yes | Optional roster status from the API when available. |
+| source | VARCHAR | no | game_log or common_roster. |
+
 ## prediction_history
 
 Summary of a simulation, not the raw runs. row_kind is player or game. Player rows leave the game distribution null. Game rows leave player_id and the player distributions null. Actuals are filled by a later upsert. Only the current season is writable unless a backfill passes allow_historical. A _COMPLETE marker freezes the season.

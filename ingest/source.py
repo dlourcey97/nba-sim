@@ -104,6 +104,40 @@ class NbaSource:
             raise SourceUnavailable(f"BoxScoreTraditional {game_id} had no players")
         return _players_from_traditional(rows)
 
+    def common_team_roster(self, team_id: int, season: str) -> list[dict]:
+        """Current CommonTeamRoster snapshot for one team.
+
+        Historical seasons are not reliable: the endpoint returns the current
+        roster for the requested season label, not a dated archive. Prefer
+        game-log stints for as-of history; use this for the live season so
+        signed players appear before their first box score.
+        """
+        if self._stats_nba_ok is False:
+            raise SourceUnavailable(f"stats.nba.com skipped for CommonTeamRoster {team_id}")
+        rows = self._stats_rows(
+            "commonteamroster",
+            _common_team_roster_params(team_id, season),
+            "CommonTeamRoster",
+            label=f"CommonTeamRoster {team_id} {season}",
+        )
+        players = []
+        for row in rows:
+            player_id = row.get("PLAYER_ID")
+            if player_id is None:
+                continue
+            jersey = row.get("NUM")
+            players.append(
+                {
+                    "team_id": int(row.get("TeamID") or team_id),
+                    "player_id": int(player_id),
+                    "player_name": row.get("PLAYER") or f"player:{player_id}",
+                    "position": row.get("POSITION"),
+                    "jersey": None if jersey is None or jersey == "" else str(jersey),
+                    "roster_status": None,
+                }
+            )
+        return players
+
     def live_boxscore(self, game_id: str) -> tuple[list[dict], dict[int, int]]:
         payload = self._request_json(
             f"https://nba-prod-us-east-1-mediaops-stats.s3.amazonaws.com/NBA/liveData/boxscore/boxscore_{game_id}.json",
@@ -401,6 +435,14 @@ def _boxscore_params(game_id: str) -> list[tuple[str, str]]:
         ("StartRange", "0"),
         ("EndRange", "0"),
         ("RangeType", "0"),
+    ]
+
+
+def _common_team_roster_params(team_id: int, season: str) -> list[tuple[str, str]]:
+    return [
+        ("LeagueID", "00"),
+        ("Season", season),
+        ("TeamID", str(team_id)),
     ]
 
 

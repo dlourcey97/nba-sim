@@ -1,6 +1,6 @@
 # Progress
 
-Last updated after Step 1 scoring-bias fix (full 2024-25 + 2025-26 backtest).
+Last updated after Fix 2 as-of rosters backtest (2024-25 + 2025-26).
 
 | Phase | Status | Notes |
 | --- | --- | --- |
@@ -13,8 +13,8 @@ Last updated after Step 1 scoring-bias fix (full 2024-25 + 2025-26 backtest).
 | 7. Backtesting | done | Walk-forward metrics include sim vs actual PPG and possessions. |
 | Validation (post-backfill) | done | Position defense, single-game check, full 2024-25/2025-26 backtest, tune. |
 | Fix 1. Scoring bias | done | Pace exact; PPG within ~2.3% (was ~−12%). |
-| Fix 2. As-of rosters | in progress | Next. |
-| Fix 3. Minutes → 240 | not started | |
+| Fix 2. As-of rosters | done | `team_rosters` stints; MIN MAE 5.41; coverage 0.70. |
+| Fix 3. Minutes → 240 | in progress | Next. |
 | Fix 4. Variance ~80% | not started | |
 | Fix 5. Team strength / HCA | not started | |
 
@@ -94,6 +94,31 @@ Grid on early 2024-25 (`--max-games 24`). Best → `weights [0.40, 0.30, 0.20, 0
 5. **Position labels** — source logs are mostly G/F/C/None; PG–C mapping is heuristic.
 
 Storage cap and storage report remain in place.
+
+## Fix Step 2 — As-of rosters (2026-10-16)
+
+`team_rosters` (replace policy) stores player stints per season: `from_date` / exclusive `to_date` built from `player_game_logs`, plus optional `CommonTeamRoster` merge for the current season (players signed/traded before their first box score).
+
+- Rebuild: `rebuild_team_rosters(settings, season)` (also called from `_rewrite_derived` / backfill/daily). Historical seasons need no network (`refresh_common=False`).
+- Projections: `_roster_for_team` uses active stints with `from_date < as_of` and open/`to_date > as_of`; opening night falls back to prior season open stints; then last-known team from logs only for players with no stint row (stints win so leavers are not re-added on debut day).
+- ProjectionCache caches roster Parquet + as_of appearance indexes so walk-forward stays fast.
+- Limitation: `CommonTeamRoster` is a live snapshot, not a historical archive — mid-season backtest accuracy comes from game-log stints (trade debut night has a one-day gap by design to avoid leakage). Summer trades before opening night still look like the prior-season roster until the first box score (or a current-season CommonTeamRoster refresh).
+
+Full walk-forward vs Step 1 (`--seasons 2024-2025 --runs 200 --seed 1`):
+
+| Metric | Step 1 | Step 2 |
+| --- | ---: | ---: |
+| Brier | 0.233 | 0.238 |
+| MAE PTS | 5.88 | 6.02 |
+| MAE REB | 2.68 | 2.74 |
+| MAE AST | 1.77 | 1.82 |
+| MAE 3PM | 0.98 | 1.02 |
+| MAE MIN | 5.47 | **5.41** |
+| 10–90 coverage | 0.669 | **0.699** |
+| Sim / actual PPG | 116.95 / 114.29 | 117.05 / 114.29 |
+| Sim / actual poss | 98.91 / 98.92 | 98.91 / 98.92 |
+
+Artifacts: `results/backtest/step2_rosters/`.
 
 ## Fix Step 1 — Scoring bias (2026-10-16)
 

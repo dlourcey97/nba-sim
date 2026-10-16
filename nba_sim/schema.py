@@ -374,6 +374,38 @@ def _tables() -> dict[str, Table]:
             _col("tov", "DOUBLE", False, "Turnovers forced from this position."),
         ),
     )
+    team_rosters = Table(
+        name="team_rosters",
+        policy="replace",
+        key=("team_id", "player_id", "from_date"),
+        grain="one row per player stint on a team within a season",
+        description=(
+            "As-of-date team membership for projections and walk-forward backtests. "
+            "Built primarily from player_game_logs: consecutive appearances for the "
+            "same team become a stint with from_date equal to the first game date and "
+            "to_date equal to the first game date on a different team (exclusive end), "
+            "or null when the player is still on that team at season rebuild time. "
+            "The current season may also merge CommonTeamRoster so signed/traded "
+            "players appear before their first box score. "
+            "Roster as of date D uses only rows with from_date < D and "
+            "(to_date is null or D < to_date); never use future game logs. "
+            "CommonTeamRoster is a current snapshot only — historical accuracy comes "
+            "from game-log stints. Overwritten each derived rewrite."
+        ),
+        columns=_season_cols()
+        + (
+            _col("team_id", "INTEGER", False, "Team id for this stint."),
+            _col("team_abbr", "VARCHAR", False, "Team abbreviation."),
+            _col("player_id", "INTEGER", False, "NBA player id."),
+            _col("player_name", "VARCHAR", False, "Player display name."),
+            _col("position", "VARCHAR", True, "Listed position when known."),
+            _col("from_date", "DATE", False, "First date the player is known on this team (exclusive lower bound for as-of: from_date < D)."),
+            _col("to_date", "DATE", True, "First date no longer on this team (exclusive). Null if still on the team."),
+            _col("jersey", "VARCHAR", True, "Jersey number when known from CommonTeamRoster."),
+            _col("roster_status", "VARCHAR", True, "Optional roster status from the API when available."),
+            _col("source", "VARCHAR", False, "game_log or common_roster."),
+        ),
+    )
     prediction_history = Table(
         name="prediction_history",
         policy="upsert_current",
@@ -417,6 +449,7 @@ def _tables() -> dict[str, Table]:
         team_season_aggregates,
         team_zone_defense,
         team_position_defense,
+        team_rosters,
         prediction_history,
     )
     return {table.name: table for table in tables}
