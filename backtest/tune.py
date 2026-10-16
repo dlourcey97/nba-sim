@@ -28,6 +28,7 @@ def score_report(report) -> float:
         0.05 * float(report.mae_pts),
         0.03 * float(report.mae_reb),
         0.03 * float(report.mae_ast),
+        0.04 * float(report.mae_fg3m),
         0.01 * float(report.mae_min),
         abs(float(report.coverage_10_90) - 0.80),
     ]

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
 
-from nba_sim.schema import ZONES
+from nba_sim.schema import POSITIONS_5, ZONES
 
 RATE_FIELDS = (
     "usage",
@@ -196,3 +196,47 @@ def position_bucket(position: str | None) -> str:
     if value.startswith("F") or value in {"F", "F-G", "G-F", "SF", "PF"}:
         return "F"
     return "G"
+
+
+def five_position(
+    position: str | None,
+    *,
+    reb: float = 0.0,
+    ast: float = 0.0,
+    minutes: float = 0.0,
+) -> str:
+    """Map listed position (often G/F/C) onto PG/SG/SF/PF/C.
+
+    Box scores usually only stamp starters as G/F/C. When the label is coarse
+    or missing, reb/ast from that appearance pick the five-position bucket used
+    for opponent defense allowed-to-position stats.
+    """
+    raw = (position or "").strip().upper()
+    if raw in POSITIONS_5:
+        return raw
+    if raw in {"POINT GUARD", "PG"}:
+        return "PG"
+    if raw in {"SHOOTING GUARD", "SG"}:
+        return "SG"
+    if raw in {"SMALL FORWARD", "SF"}:
+        return "SF"
+    if raw in {"POWER FORWARD", "PF"}:
+        return "PF"
+    if raw in {"CENTER", "C"} or raw.startswith("C"):
+        return "C"
+    if raw in {"G", "G-F", "F-G"} or raw.startswith("G"):
+        return "PG" if float(ast) >= max(float(reb), 3.0) else "SG"
+    if raw in {"F", "F-C", "C-F"} or raw.startswith("F"):
+        return "PF" if float(reb) >= 6.0 else "SF"
+    # No listed position: infer from the box line.
+    if float(minutes) <= 0:
+        return "SF"
+    if float(reb) >= 10.0 and float(ast) <= 3.0:
+        return "C"
+    if float(ast) >= 5.0:
+        return "PG"
+    if float(reb) >= 7.0:
+        return "PF"
+    if float(reb) >= 5.0:
+        return "SF"
+    return "SG"

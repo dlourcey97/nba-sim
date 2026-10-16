@@ -19,7 +19,6 @@ from backtest.metrics import (
     brier_score,
     calibration_bins,
     mean_abs_error,
-    percentile_coverage,
     write_calibration_svg,
 )
 from ingest.parse import parse_seasons
@@ -27,7 +26,8 @@ from nba_sim.errors import NbaSimError
 from nba_sim.settings import load_settings
 from nba_sim.storage import finish_run, read_rows
 from outputs.summarize import summarize_game
-from projections.build import build_game_projections
+from projections.blend import available_season_window, load_season_bundle
+from projections.build import ProjectionCache, build_game_projections
 from sim.engine import simulate_game
 
 
@@ -39,6 +39,7 @@ def evaluate_seasons(
     seed: int = 0,
     max_games: int | None = None,
     config_override: dict | None = None,
+    progress_every: int = 50,
 ) -> MetricReport:
     config = settings.config if config_override is None else config_override
     local = replace(settings, config=config)
@@ -50,10 +51,24 @@ def evaluate_seasons(
     act_reb: list[float] = []
     pred_ast: list[float] = []
     act_ast: list[float] = []
+    pred_fg3m: list[float] = []
+    act_fg3m: list[float] = []
     pred_min: list[float] = []
     act_min: list[float] = []
     cover_hits: list[float] = []
     games = 0
+
+    # Cache season bundles once across the whole evaluation so walk-forward does
+    # not re-read Parquet for every game.
+    seasons_back = list(config["blending"]["season_weights"]["seasons_back"])
+    needed: set[str] = set()
+    for season in seasons:
+        window = available_season_window(local, season, seasons_back)
+        needed.update(window)
+        needed.add(season)
+    bundle_cache = {
+        label: load_season_bundle(local, label) for label in sorted(needed)
+    }
 
     for season in seasons:
         schedule = [
@@ -66,6 +81,11 @@ def evaluate_seasons(
             (row["game_id"], int(row["player_id"])): row
             for row in read_rows(local, "player_game_logs", season)
         }
+        window = available_season_window(local, season, seasons_back)
+        if season not in window:
+            window = [season] + window
+        bundles = [bundle_cache[label] for label in window if label in bundle_cache]
+        proj_cache = ProjectionCache()
         for row in schedule:
             if max_games is not None and games >= max_games:
                 break
@@ -81,6 +101,8 @@ def evaluate_seasons(
                     season=season,
                     game_id=str(row["game_id"]),
                     as_of=row["game_date"],
+                    bundles=bundles,
+                    cache=proj_cache,
                 )
             except ValueError:
                 continue
@@ -106,6 +128,8 @@ def evaluate_seasons(
                 act_reb.append(float(actual["reb"]))
                 pred_ast.append(player.stats["ast"].mean)
                 act_ast.append(float(actual["ast"]))
+                pred_fg3m.append(player.stats["fg3m"].mean)
+                act_fg3m.append(float(actual["fg3m"]))
                 pred_min.append(player.stats["min"].mean)
                 act_min.append(float(actual["minutes"]))
                 inside = (
@@ -114,6 +138,8 @@ def evaluate_seasons(
                 )
                 cover_hits.append(1.0 if inside else 0.0)
             games += 1
+            if progress_every and games % progress_every == 0:
+                print(f"evaluated {games} games...", flush=True)
         if max_games is not None and games >= max_games:
             break
 
@@ -126,6 +152,7 @@ def evaluate_seasons(
         mae_pts=mean_abs_error(np.asarray(pred_pts), np.asarray(act_pts)),
         mae_reb=mean_abs_error(np.asarray(pred_reb), np.asarray(act_reb)),
         mae_ast=mean_abs_error(np.asarray(pred_ast), np.asarray(act_ast)),
+        mae_fg3m=mean_abs_error(np.asarray(pred_fg3m), np.asarray(act_fg3m)),
         mae_min=mean_abs_error(np.asarray(pred_min), np.asarray(act_min)),
         coverage_10_90=float(np.mean(cover_hits)) if cover_hits else float("nan"),
         calibration_bins=calibration_bins(probs, outcomes),

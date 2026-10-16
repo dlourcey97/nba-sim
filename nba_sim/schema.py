@@ -20,6 +20,8 @@ ZONES = (
     "right_corner_3",
     "above_break_3",
 )
+# Traditional positions for opponent defense allowed-to-position stats.
+POSITIONS_5 = ("PG", "SG", "SF", "PF", "C")
 PLAYER_STATS = (
     "pts",
     "reb",
@@ -346,6 +348,32 @@ def _tables() -> dict[str, Table]:
             _col("possessions", "DOUBLE", False, "Defensive possessions in the sample."),
         ),
     )
+    team_position_defense = Table(
+        name="team_position_defense",
+        policy="replace",
+        key=("team_id", "position"),
+        grain="one row per team per position (PG/SG/SF/PF/C) per season",
+        description=(
+            "Opponent defense by position: box-score stats allowed to opposing "
+            "PG/SG/SF/PF/C, derived from player game logs. Position labels are "
+            "normalized from listed G/F/C (and None) using that game's reb/ast. "
+            "Overwritten each run."
+        ),
+        columns=_season_cols()
+        + (
+            _col("team_id", "INTEGER", False, "Defending team id."),
+            _col("position", "VARCHAR", False, "Opponent position: PG, SG, SF, PF, or C."),
+            _col("player_games", "INTEGER", False, "Opponent player-games at this position."),
+            _col("minutes", "DOUBLE", False, "Opponent minutes at this position."),
+            _col("pts", "DOUBLE", False, "Points allowed to this position."),
+            _col("reb", "DOUBLE", False, "Rebounds allowed to this position."),
+            _col("ast", "DOUBLE", False, "Assists allowed to this position."),
+            _col("fg3m", "DOUBLE", False, "Threes made allowed to this position."),
+            _col("stl", "DOUBLE", False, "Steals allowed to this position."),
+            _col("blk", "DOUBLE", False, "Blocks allowed to this position."),
+            _col("tov", "DOUBLE", False, "Turnovers forced from this position."),
+        ),
+    )
     prediction_history = Table(
         name="prediction_history",
         policy="upsert_current",
@@ -388,6 +416,7 @@ def _tables() -> dict[str, Table]:
         player_season_aggregates,
         team_season_aggregates,
         team_zone_defense,
+        team_position_defense,
         prediction_history,
     )
     return {table.name: table for table in tables}

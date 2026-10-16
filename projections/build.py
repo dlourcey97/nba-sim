@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from typing import Any, Sequence
 
@@ -19,13 +19,16 @@ from projections.blend import (
 )
 from projections.context import (
     apply_opponent_defense,
+    apply_opponent_position_defense,
     expected_possessions,
     league_zone_fg_pct,
     match_injury_player_ids,
     opponent_zone_fg_pct,
+    position_defense_from_bundles,
     redistribute_for_absences,
     rest_days_before,
     team_pace_map,
+    zone_defense_from_bundles,
 )
 from projections.minutes import MinutesProjection, project_minutes, recent_minutes
 from projections.rates import RateVector
@@ -63,6 +66,29 @@ class GameProjection:
     players: list[PlayerProjection]
 
 
+@dataclass
+class ProjectionCache:
+    """Reuse priors / league defense across games that share the same as_of date."""
+
+    as_of: date | None = None
+    priors: dict | None = None
+    meta: dict | None = None
+    league_zones: dict[str, float] | None = None
+    league_pos: dict[str, dict[str, float]] | None = None
+    zone_by_team: dict[int, dict[str, float]] = field(default_factory=dict)
+    pos_by_team: dict[int, dict[str, dict[str, float]]] = field(default_factory=dict)
+
+    def reset_if_needed(self, as_of: date) -> None:
+        if self.as_of != as_of:
+            self.as_of = as_of
+            self.priors = None
+            self.meta = None
+            self.league_zones = None
+            self.league_pos = None
+            self.zone_by_team.clear()
+            self.pos_by_team.clear()
+
+
 def build_game_projections(
     settings: Settings,
     *,
@@ -70,6 +96,8 @@ def build_game_projections(
     game_id: str,
     injuries: Sequence[InjuryEntry] | None = None,
     as_of: date | None = None,
+    bundles: list | None = None,
+    cache: ProjectionCache | None = None,
 ) -> GameProjection:
     """Project both teams for one schedule game using only data before as_of."""
     schedule = next(
@@ -91,6 +119,8 @@ def build_game_projections(
         away_abbr=str(schedule["away_abbr"]),
         injuries=list(injuries or []),
         as_of=cutoff,
+        bundles=bundles,
+        cache=cache,
     )
 
 
@@ -130,15 +160,31 @@ def _build(
     away_abbr: str,
     injuries: list[InjuryEntry],
     as_of: date,
+    bundles: list | None = None,
+    cache: ProjectionCache | None = None,
 ) -> GameProjection:
     config = settings.config
     seasons_back = list(config["blending"]["season_weights"]["seasons_back"])
     window = available_season_window(settings, season, seasons_back)
     if season not in window:
         window = [season] + window
-    bundles = [load_season_bundle(settings, label) for label in window]
-    priors = build_position_priors(bundles)
-    meta = load_player_meta(bundles)
+    if bundles is None:
+        bundles = [load_season_bundle(settings, label) for label in window]
+    else:
+        # Keep only the seasons in the blend window, preserving caller order.
+        wanted = set(window)
+        bundles = [bundle for bundle in bundles if bundle.season in wanted]
+        if not bundles:
+            bundles = [load_season_bundle(settings, label) for label in window]
+    if cache is None:
+        cache = ProjectionCache()
+    cache.reset_if_needed(as_of)
+    if cache.priors is None:
+        cache.priors = build_position_priors(bundles, as_of=as_of)
+    if cache.meta is None:
+        cache.meta = load_player_meta(bundles, as_of=as_of)
+    priors = cache.priors
+    meta = cache.meta
     injuries = match_injury_player_ids(injuries, meta)
     injury_by_id = {
         int(entry.player_id): entry
@@ -157,16 +203,47 @@ def _build(
     if len(pace) < 2:
         for bundle in bundles:
             pace.update(team_pace_map(settings, bundle.season))
-    league_zones = league_zone_fg_pct(settings, season)
-    if not league_zones:
-        for bundle in bundles:
-            league_zones = league_zone_fg_pct(settings, bundle.season)
-            if league_zones:
-                break
+    # Zone + position defense from game logs before as_of (no future leakage).
+    if cache.league_zones is None:
+        cache.league_zones = zone_defense_from_bundles(bundles, as_of=as_of)
+        if not any(cache.league_zones.values()):
+            fallback = league_zone_fg_pct(settings, season)
+            if not fallback:
+                for bundle in bundles:
+                    fallback = league_zone_fg_pct(settings, bundle.season)
+                    if fallback:
+                        break
+            cache.league_zones = fallback or cache.league_zones
+    league_zones = cache.league_zones
 
-    home_opp_zones = opponent_zone_fg_pct(settings, season, away_team_id) or league_zones
-    away_opp_zones = opponent_zone_fg_pct(settings, season, home_team_id) or league_zones
+    def _opp_zones(team_id: int) -> dict[str, float]:
+        if team_id not in cache.zone_by_team:
+            cache.zone_by_team[team_id] = (
+                zone_defense_from_bundles(bundles, as_of=as_of, defender_team_id=team_id)
+                or opponent_zone_fg_pct(settings, season, team_id)
+                or league_zones
+            )
+        return cache.zone_by_team[team_id]
+
+    home_opp_zones = _opp_zones(away_team_id)
+    away_opp_zones = _opp_zones(home_team_id)
+    if cache.league_pos is None:
+        cache.league_pos = position_defense_from_bundles(bundles, as_of=as_of)
+    league_pos = cache.league_pos
+
+    def _opp_pos(team_id: int) -> dict[str, dict[str, float]]:
+        if team_id not in cache.pos_by_team:
+            cache.pos_by_team[team_id] = position_defense_from_bundles(
+                bundles, as_of=as_of, defender_team_id=team_id
+            )
+        return cache.pos_by_team[team_id]
+
+    home_opp_pos = _opp_pos(away_team_id)
+    away_opp_pos = _opp_pos(home_team_id)
     defense_weight = float(config["context"]["opponent_defense_weight"])
+    position_weight = float(
+        config["context"].get("opponent_position_defense_weight", 0.5)
+    )
     usage_share = float(config["context"]["teammate_absence_usage_share"])
 
     home_ids = _roster_for_team(bundles, home_team_id, as_of)
@@ -180,6 +257,7 @@ def _build(
         home_away: str,
         roster: list[int],
         opp_zones: dict[str, float],
+        opp_pos: dict[str, dict[str, float]],
     ) -> tuple[float, dict[int, PlayerProjection]]:
         raw_rates: dict[int, RateVector] = {}
         minute_bases: dict[int, tuple[float, float, list[date], bool, str | None]] = {}
@@ -200,6 +278,13 @@ def _build(
                 opp_zone_pct=opp_zones,
                 league_zone_pct=league_zones,
                 weight=defense_weight,
+            )
+            rates = apply_opponent_position_defense(
+                rates,
+                position=position,
+                opp_allowed=opp_pos,
+                league_allowed=league_pos,
+                weight=position_weight,
             )
             raw_rates[player_id] = rates
             mean_min, sd_min, dates = recent_minutes(
@@ -277,10 +362,24 @@ def _build(
         return team_poss, players
 
     home_poss, home_players = project_side(
-        home_team_id, home_abbr, away_team_id, away_abbr, "H", home_ids, home_opp_zones
+        home_team_id,
+        home_abbr,
+        away_team_id,
+        away_abbr,
+        "H",
+        home_ids,
+        home_opp_zones,
+        home_opp_pos,
     )
     away_poss, away_players = project_side(
-        away_team_id, away_abbr, home_team_id, home_abbr, "A", away_ids, away_opp_zones
+        away_team_id,
+        away_abbr,
+        home_team_id,
+        home_abbr,
+        "A",
+        away_ids,
+        away_opp_zones,
+        away_opp_pos,
     )
     players = sorted(
         list(home_players.values()) + list(away_players.values()),

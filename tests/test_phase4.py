@@ -20,10 +20,80 @@ from projections.rates import RateVector, blend_vectors, position_bucket, vector
 def test_position_bucket_and_blend_vectors():
     assert position_bucket("PG") == "G"
     assert position_bucket("C") == "C"
+    from projections.rates import five_position
+
+    assert five_position("PG") == "PG"
+    assert five_position("G", ast=8, reb=2) == "PG"
+    assert five_position("G", ast=1, reb=4) == "SG"
+    assert five_position("F", reb=8) == "PF"
+    assert five_position("C") == "C"
     a = RateVector(usage=0.30, sample_possessions=100)
     b = RateVector(usage=0.10, sample_possessions=100)
     mixed = blend_vectors([(a, 1.0), (b, 1.0)])
     assert mixed.usage == pytest.approx(0.20)
+
+
+def test_position_defense_from_logs():
+    from ingest.parse import team_position_defense
+    from projections.context import apply_opponent_position_defense, position_defense_from_bundles
+    from projections.blend import SeasonBundle
+
+    logs = [
+        {
+            "season": "2024-25",
+            "game_id": "1",
+            "game_date": date(2024, 11, 1),
+            "player_id": 1,
+            "opponent_team_id": 100,
+            "position": "G",
+            "minutes": 36.0,
+            "pts": 30,
+            "reb": 2,
+            "ast": 8,
+            "fg3m": 3,
+            "stl": 1,
+            "blk": 0,
+            "tov": 2,
+        },
+        {
+            "season": "2024-25",
+            "game_id": "1",
+            "game_date": date(2024, 11, 1),
+            "player_id": 2,
+            "opponent_team_id": 100,
+            "position": "C",
+            "minutes": 30.0,
+            "pts": 12,
+            "reb": 10,
+            "ast": 1,
+            "fg3m": 0,
+            "stl": 0,
+            "blk": 2,
+            "tov": 1,
+        },
+    ]
+    rows = team_position_defense("2024-25", logs)
+    by_pos = {row["position"]: row for row in rows if row["team_id"] == 100}
+    assert by_pos["PG"]["pts"] == 30.0
+    assert by_pos["C"]["reb"] == 10.0
+    bundle = SeasonBundle("2024-25", rates_by_player={}, logs_by_player={1: [logs[0]], 2: [logs[1]]})
+    allowed = position_defense_from_bundles([bundle], as_of=date(2024, 11, 2), defender_team_id=100)
+    assert allowed["PG"]["pts_per_36"] == pytest.approx(30.0)
+    rates = RateVector(restricted_area_fg_pct=0.60)
+    soft = apply_opponent_position_defense(
+        rates,
+        position="PG",
+        opp_allowed=allowed,
+        league_allowed={
+            "PG": {"pts_per_36": 20.0, "reb_per_36": 4.0, "ast_per_36": 6.0, "fg3m_per_36": 2.0},
+            "SG": {"pts_per_36": 20.0, "reb_per_36": 4.0, "ast_per_36": 4.0, "fg3m_per_36": 2.0},
+            "SF": {"pts_per_36": 20.0, "reb_per_36": 5.0, "ast_per_36": 3.0, "fg3m_per_36": 2.0},
+            "PF": {"pts_per_36": 20.0, "reb_per_36": 7.0, "ast_per_36": 2.0, "fg3m_per_36": 1.0},
+            "C": {"pts_per_36": 18.0, "reb_per_36": 10.0, "ast_per_36": 2.0, "fg3m_per_36": 0.5},
+        },
+        weight=1.0,
+    )
+    assert soft.restricted_area_fg_pct > rates.restricted_area_fg_pct
 
 
 def test_rest_and_pace_context():

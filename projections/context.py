@@ -2,16 +2,17 @@
 
 from __future__ import annotations
 
+from collections import defaultdict
 from dataclasses import replace
 from datetime import date
 from typing import Any, Sequence
 
-from nba_sim.schema import ZONES
+from nba_sim.schema import POSITIONS_5, ZONES
 from nba_sim.settings import Settings
 from nba_sim.storage import read_rows
 
 from ingest.injuries import InjuryEntry
-from projections.rates import RateVector
+from projections.rates import RateVector, five_position
 
 
 def rest_days_before(
@@ -60,6 +61,81 @@ def opponent_zone_fg_pct(settings: Settings, season: str, team_id: int) -> dict[
     return out
 
 
+def zone_defense_from_bundles(
+    bundles: Sequence[Any],
+    *,
+    as_of: date,
+    defender_team_id: int | None = None,
+) -> dict[str, float]:
+    """Opponent zone FG% allowed before as_of. League-wide when defender_team_id is None."""
+    fga: dict[str, float] = defaultdict(float)
+    fgm: dict[str, float] = defaultdict(float)
+    for bundle in bundles:
+        log_rows = _defense_log_rows(bundle, defender_team_id)
+        rates_by_key = bundle.rates_by_key or {}
+        for log in log_rows:
+            if log["game_date"] >= as_of:
+                # Indexed defender lists and logs_sorted are date-ordered.
+                if bundle.logs_sorted is not None or bundle.logs_by_defender is not None:
+                    break
+                continue
+            rate = rates_by_key.get((str(log["game_id"]), int(log["player_id"])))
+            if rate is None:
+                continue
+            for zone in ZONES:
+                fga[zone] += float(rate.get(f"{zone}_fga") or 0.0)
+                fgm[zone] += float(rate.get(f"{zone}_fgm") or 0.0)
+    out: dict[str, float] = {}
+    for zone in ZONES:
+        attempts = fga[zone]
+        out[zone] = (fgm[zone] / attempts) if attempts > 0 else getattr(RateVector(), f"{zone}_fg_pct")
+    return out
+
+
+def position_defense_from_bundles(
+    bundles: Sequence[Any],
+    *,
+    as_of: date,
+    defender_team_id: int | None = None,
+) -> dict[str, dict[str, float]]:
+    """Per-36 stats allowed to PG/SG/SF/PF/C before as_of (league or one defender)."""
+    totals: dict[str, dict[str, float]] = {
+        pos: {"minutes": 0.0, "pts": 0.0, "reb": 0.0, "ast": 0.0, "fg3m": 0.0}
+        for pos in POSITIONS_5
+    }
+    for bundle in bundles:
+        log_rows = _defense_log_rows(bundle, defender_team_id)
+        for row in log_rows:
+            if row["game_date"] >= as_of:
+                if bundle.logs_sorted is not None or bundle.logs_by_defender is not None:
+                    break
+                continue
+            position = five_position(
+                None if row.get("position") is None else str(row.get("position")),
+                reb=float(row.get("reb") or 0),
+                ast=float(row.get("ast") or 0),
+                minutes=float(row.get("minutes") or 0),
+            )
+            bucket = totals[position]
+            bucket["minutes"] += float(row.get("minutes") or 0)
+            bucket["pts"] += float(row.get("pts") or 0)
+            bucket["reb"] += float(row.get("reb") or 0)
+            bucket["ast"] += float(row.get("ast") or 0)
+            bucket["fg3m"] += float(row.get("fg3m") or 0)
+    out: dict[str, dict[str, float]] = {}
+    for pos, bucket in totals.items():
+        minutes = bucket["minutes"]
+        scale = 36.0 / minutes if minutes > 0 else 0.0
+        out[pos] = {
+            "pts_per_36": bucket["pts"] * scale,
+            "reb_per_36": bucket["reb"] * scale,
+            "ast_per_36": bucket["ast"] * scale,
+            "fg3m_per_36": bucket["fg3m"] * scale,
+            "minutes": minutes,
+        }
+    return out
+
+
 def expected_possessions(
     *,
     team_pace: float,
@@ -84,6 +160,22 @@ def expected_possessions(
     return pace * (1.0 + factor)
 
 
+def _defense_log_rows(bundle: Any, defender_team_id: int | None) -> list[dict]:
+    """Opponent player-log rows for defense scans; works with partial test bundles."""
+    if defender_team_id is None:
+        if bundle.logs_sorted is not None:
+            return bundle.logs_sorted
+        return [row for rows in bundle.logs_by_player.values() for row in rows]
+    if bundle.logs_by_defender is not None:
+        return bundle.logs_by_defender.get(defender_team_id, [])
+    return [
+        row
+        for rows in bundle.logs_by_player.values()
+        for row in rows
+        if int(row["opponent_team_id"]) == defender_team_id
+    ]
+
+
 def apply_opponent_defense(
     rates: RateVector,
     *,
@@ -103,6 +195,46 @@ def apply_opponent_defense(
         factor = (opp / league) ** weight
         base = getattr(rates, f"{zone}_fg_pct")
         updates[f"{zone}_fg_pct"] = min(0.85, max(0.15, base * factor))
+    return replace(rates, **updates)
+
+
+def apply_opponent_position_defense(
+    rates: RateVector,
+    *,
+    position: str | None,
+    opp_allowed: dict[str, dict[str, float]],
+    league_allowed: dict[str, dict[str, float]],
+    weight: float,
+    reb: float = 0.0,
+    ast: float = 0.0,
+    minutes: float = 0.0,
+) -> RateVector:
+    """Shift FG% / rates from how much the opponent allows to this position vs league."""
+    if weight == 0:
+        return rates
+    pos = five_position(position, reb=reb, ast=ast, minutes=minutes)
+    league = league_allowed.get(pos) or {}
+    opp = opp_allowed.get(pos) or league
+    league_pts = float(league.get("pts_per_36") or 0.0)
+    opp_pts = float(opp.get("pts_per_36") or league_pts)
+    if league_pts <= 0:
+        return rates
+    factor = (opp_pts / league_pts) ** weight
+    updates = {}
+    for zone in ZONES:
+        base = getattr(rates, f"{zone}_fg_pct")
+        updates[f"{zone}_fg_pct"] = min(0.85, max(0.15, base * factor))
+    league_ast = float(league.get("ast_per_36") or 0.0)
+    opp_ast = float(opp.get("ast_per_36") or league_ast)
+    if league_ast > 0:
+        ast_factor = (opp_ast / league_ast) ** (weight * 0.5)
+        updates["ast_rate"] = min(0.45, max(0.02, rates.ast_rate * ast_factor))
+    league_reb = float(league.get("reb_per_36") or 0.0)
+    opp_reb = float(opp.get("reb_per_36") or league_reb)
+    if league_reb > 0:
+        reb_factor = (opp_reb / league_reb) ** (weight * 0.5)
+        updates["oreb_rate"] = min(0.25, max(0.01, rates.oreb_rate * reb_factor))
+        updates["dreb_rate"] = min(0.45, max(0.02, rates.dreb_rate * reb_factor))
     return replace(rates, **updates)
 
 

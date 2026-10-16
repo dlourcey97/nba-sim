@@ -26,6 +26,12 @@ class SeasonBundle:
     season: str
     rates_by_player: dict[int, list[dict]]
     logs_by_player: dict[int, list[dict]]
+    # defender_team_id -> opponent player-log rows (for as_of defense scans)
+    logs_by_defender: dict[int, list[dict]] | None = None
+    # (game_id, player_id) -> rate row
+    rates_by_key: dict[tuple[str, int], dict] | None = None
+    # all logs sorted by game_date (league-wide defense scans)
+    logs_sorted: list[dict] | None = None
 
 
 def available_season_window(settings: Settings, current: str, seasons_back: list[int]) -> list[str]:
@@ -48,38 +54,59 @@ def available_season_window(settings: Settings, current: str, seasons_back: list
         if label in have and label not in preferred:
             preferred.append(label)
     if preferred:
-        # Still attach any older available seasons not already included so
-        # sample datasets spanning distant years remain usable.
-        for season in reversed(have):
-            if season not in preferred:
-                preferred.append(season)
         return preferred
+    # Partial DATA_DIR: no configured offsets on disk yet — use whatever exists.
     return list(reversed(have))
 
 
 def load_season_bundle(settings: Settings, season: str) -> SeasonBundle:
     rates_by_player: dict[int, list[dict]] = defaultdict(list)
+    rates_by_key: dict[tuple[str, int], dict] = {}
     for row in read_rows(settings, "player_game_rates", season):
-        rates_by_player[int(row["player_id"])].append(row)
+        pid = int(row["player_id"])
+        rates_by_player[pid].append(row)
+        rates_by_key[(str(row["game_id"]), pid)] = row
     logs_by_player: dict[int, list[dict]] = defaultdict(list)
+    logs_by_defender: dict[int, list[dict]] = defaultdict(list)
     for row in read_rows(settings, "player_game_logs", season):
         logs_by_player[int(row["player_id"])].append(row)
+        logs_by_defender[int(row["opponent_team_id"])].append(row)
     for mapping in (rates_by_player, logs_by_player):
         for player_id, rows in mapping.items():
             mapping[player_id] = sorted(rows, key=lambda item: item["game_date"])
-    return SeasonBundle(season, dict(rates_by_player), dict(logs_by_player))
+    for defender_id, rows in logs_by_defender.items():
+        logs_by_defender[defender_id] = sorted(rows, key=lambda item: item["game_date"])
+    logs_sorted = sorted(
+        (row for rows in logs_by_player.values() for row in rows),
+        key=lambda item: item["game_date"],
+    )
+    return SeasonBundle(
+        season,
+        dict(rates_by_player),
+        dict(logs_by_player),
+        dict(logs_by_defender),
+        rates_by_key,
+        logs_sorted,
+    )
 
 
-def build_position_priors(bundles: list[SeasonBundle]) -> dict[str, RateVector]:
+def build_position_priors(
+    bundles: list[SeasonBundle],
+    *,
+    as_of: date | None = None,
+) -> dict[str, RateVector]:
     buckets: dict[str, dict[str, float]] = defaultdict(empty_accumulator)
     for bundle in bundles:
         log_index = {
             (row["game_id"], row["player_id"]): row
             for rows in bundle.logs_by_player.values()
             for row in rows
+            if as_of is None or row["game_date"] < as_of
         }
         for player_id, rates in bundle.rates_by_player.items():
             for rate in rates:
+                if as_of is not None and rate["game_date"] >= as_of:
+                    continue
                 log = log_index.get((rate["game_id"], rate["player_id"]))
                 bucket = position_bucket(None if log is None else log.get("position"))
                 add_game_to_accumulator(buckets[bucket], rate_row=rate, log_row=log, weight=1.0)
@@ -148,11 +175,17 @@ def player_baseline_and_form(
     return blend_vectors([(baseline, 1.0 - form_weight), (form, form_weight)])
 
 
-def load_player_meta(bundles: list[SeasonBundle]) -> dict[int, dict[str, Any]]:
+def load_player_meta(
+    bundles: list[SeasonBundle],
+    *,
+    as_of: date | None = None,
+) -> dict[int, dict[str, Any]]:
     meta: dict[int, dict[str, Any]] = {}
     for bundle in bundles:
         for player_id, rows in bundle.logs_by_player.items():
             for row in rows:
+                if as_of is not None and row["game_date"] >= as_of:
+                    continue
                 meta[player_id] = {
                     "player_name": row["player_name"],
                     "position": row.get("position"),

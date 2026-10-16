@@ -234,6 +234,31 @@ Key: `team_id`, `zone`
 | fgm | DOUBLE | no | Opponent makes allowed in this zone. |
 | possessions | DOUBLE | no | Defensive possessions in the sample. |
 
+## team_position_defense
+
+Opponent defense by position: box-score stats allowed to opposing PG/SG/SF/PF/C, derived from player game logs. Position labels are normalized from listed G/F/C (and None) using that game's reb/ast. Overwritten each run.
+
+Policy: `replace`
+
+Grain: one row per team per position (PG/SG/SF/PF/C) per season
+
+Key: `team_id`, `position`
+
+| column | type | null | description |
+| --- | --- | --- | --- |
+| season | VARCHAR | no | NBA season label, such as 2025-26. Partition key. |
+| team_id | INTEGER | no | Defending team id. |
+| position | VARCHAR | no | Opponent position: PG, SG, SF, PF, or C. |
+| player_games | INTEGER | no | Opponent player-games at this position. |
+| minutes | DOUBLE | no | Opponent minutes at this position. |
+| pts | DOUBLE | no | Points allowed to this position. |
+| reb | DOUBLE | no | Rebounds allowed to this position. |
+| ast | DOUBLE | no | Assists allowed to this position. |
+| fg3m | DOUBLE | no | Threes made allowed to this position. |
+| stl | DOUBLE | no | Steals allowed to this position. |
+| blk | DOUBLE | no | Blocks allowed to this position. |
+| tov | DOUBLE | no | Turnovers forced from this position. |
+
 ## prediction_history
 
 Summary of a simulation, not the raw runs. row_kind is player or game. Player rows leave the game distribution null. Game rows leave player_id and the player distributions null. Actuals are filled by a later upsert. Only the current season is writable unless a backfill passes allow_historical. A _COMPLETE marker freezes the season.

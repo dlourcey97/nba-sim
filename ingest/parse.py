@@ -10,7 +10,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import date, datetime
 
-from nba_sim.schema import ZONES
+from nba_sim.schema import POSITIONS_5, ZONES
 
 _MONTHS = {
     "JAN": 1,
@@ -649,6 +649,70 @@ def team_zone_defense(
                     "fga": allowed_fga[team_id][zone],
                     "fgm": allowed_fgm[team_id][zone],
                     "possessions": defensive_possessions[team_id],
+                }
+            )
+    return rows
+
+
+def team_position_defense(
+    season: str,
+    log_rows: list[dict[str, object]],
+) -> list[dict[str, object]]:
+    """Stats allowed to opposing PG/SG/SF/PF/C, derived from player game logs."""
+    from projections.rates import five_position
+
+    totals: dict[tuple[int, str], dict[str, float]] = defaultdict(
+        lambda: {
+            "player_games": 0.0,
+            "minutes": 0.0,
+            "pts": 0.0,
+            "reb": 0.0,
+            "ast": 0.0,
+            "fg3m": 0.0,
+            "stl": 0.0,
+            "blk": 0.0,
+            "tov": 0.0,
+        }
+    )
+    teams: set[int] = set()
+    for row in log_rows:
+        defender = int(row["opponent_team_id"])
+        teams.add(defender)
+        position = five_position(
+            None if row.get("position") is None else str(row.get("position")),
+            reb=float(row.get("reb") or 0),
+            ast=float(row.get("ast") or 0),
+            minutes=float(row.get("minutes") or 0),
+        )
+        key = (defender, position)
+        bucket = totals[key]
+        bucket["player_games"] += 1.0
+        bucket["minutes"] += float(row.get("minutes") or 0)
+        bucket["pts"] += float(row.get("pts") or 0)
+        bucket["reb"] += float(row.get("reb") or 0)
+        bucket["ast"] += float(row.get("ast") or 0)
+        bucket["fg3m"] += float(row.get("fg3m") or 0)
+        bucket["stl"] += float(row.get("stl") or 0)
+        bucket["blk"] += float(row.get("blk") or 0)
+        bucket["tov"] += float(row.get("tov") or 0)
+    rows = []
+    for team_id in sorted(teams):
+        for position in POSITIONS_5:
+            bucket = totals[(team_id, position)]
+            rows.append(
+                {
+                    "season": season,
+                    "team_id": team_id,
+                    "position": position,
+                    "player_games": int(bucket["player_games"]),
+                    "minutes": bucket["minutes"],
+                    "pts": bucket["pts"],
+                    "reb": bucket["reb"],
+                    "ast": bucket["ast"],
+                    "fg3m": bucket["fg3m"],
+                    "stl": bucket["stl"],
+                    "blk": bucket["blk"],
+                    "tov": bucket["tov"],
                 }
             )
     return rows

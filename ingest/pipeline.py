@@ -11,6 +11,7 @@ from ingest.parse import (
     player_season_aggregates,
     rates_from_possessions,
     schedule_row,
+    team_position_defense,
     team_rows,
     team_season_aggregates,
     team_zone_defense,
@@ -409,6 +410,7 @@ def _rewrite_derived(settings: Settings, season: str, log) -> None:
     store_rows(settings, "player_season_aggregates", season, player_season_aggregates(logs, rates))
     store_rows(settings, "team_season_aggregates", season, team_season_aggregates(teams))
     store_rows(settings, "team_zone_defense", season, team_zone_defense(season, logs, rates, teams))
+    store_rows(settings, "team_position_defense", season, team_position_defense(season, logs))
     log(f"Rewrote derived tables for {season}.")
 
 

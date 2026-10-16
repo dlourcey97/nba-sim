@@ -15,6 +15,7 @@ class MetricReport:
     mae_pts: float
     mae_reb: float
     mae_ast: float
+    mae_fg3m: float
     mae_min: float
     coverage_10_90: float
     calibration_bins: list[dict[str, float]]
@@ -27,6 +28,7 @@ class MetricReport:
             "mae_pts": _json_float(self.mae_pts),
             "mae_reb": _json_float(self.mae_reb),
             "mae_ast": _json_float(self.mae_ast),
+            "mae_fg3m": _json_float(self.mae_fg3m),
             "mae_min": _json_float(self.mae_min),
             "coverage_10_90": _json_float(self.coverage_10_90),
             "calibration_bins": [
