@@ -36,8 +36,14 @@ blending:
   min_games_for_form: 5
 
 context:
-  home_pace_factor: 0.010
-  away_pace_factor: -0.005
+  home_pace_factor: 0.012
+  away_pace_factor: -0.006
+  # Soft FG%/FT% edge at home (Fix 5 HCA). Relative multiplicative.
+  home_fg_factor: 0.015
+  away_fg_factor: -0.005
+  # Prior-season ORtg/DRtg vs league (no same-season leakage).
+  team_offense_weight: 0.40
+  team_defense_weight: 0.40
   # Keys are rest days. 0 is a back-to-back.
   rest_day_factors:
     0: -0.030

@@ -1,6 +1,6 @@
 # Progress
 
-Last updated after Fix 3 backtest (2026-10-16).
+Last updated after Fix 5 implementation start (2026-10-16); Fix 5 backtest pending.
 
 | Phase | Status | Notes |
 | --- | --- | --- |
@@ -15,8 +15,8 @@ Last updated after Fix 3 backtest (2026-10-16).
 | Fix 1. Scoring bias | done | Pace exact; PPG within ~2.3% (was ~−12%). Not understated. |
 | Fix 2. As-of rosters | done | `team_rosters` stints; MIN MAE 5.41; coverage 0.70. |
 | Fix 3. Minutes → 240 | done | Coverage **0.79**; MAE MIN 7.14 (worse); PTS MAE improved. |
-| Fix 4. Variance ~80% | next | Coverage already ~0.79 from Fix 3; polish if needed then Fix 5. |
-| Fix 5. Team strength / HCA | not started | |
+| Fix 4. Variance ~80% | done | Met by Fix 3 (10–90 coverage 0.790 vs 0.80 target). |
+| Fix 5. Team strength / HCA | in progress | Prior-season ORtg/DRtg + home FG edge; backtest running. |
 | Preseason storage | done | `season_type=Preseason` hive partition; excluded from `list_seasons` / default reads. |
 
 ## Phase 3

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import date
 from typing import Any, Sequence
 
@@ -158,6 +158,76 @@ def expected_possessions(
     else:
         factor = rest_factors[min(rest_factors)]
     return pace * (1.0 + factor)
+
+
+@dataclass(frozen=True)
+class TeamStrength:
+    ortg: float
+    drtg: float
+
+
+def team_strength_map(settings: Settings, season: str) -> dict[int, TeamStrength]:
+    """Offensive/defensive rating (pts per 100 possessions) from season aggregates."""
+    out: dict[int, TeamStrength] = {}
+    for row in read_rows(settings, "team_season_aggregates", season):
+        pf = float(row.get("points_for") or 0.0)
+        pa = float(row.get("points_against") or 0.0)
+        poss_f = float(row.get("possessions_for") or 0.0)
+        poss_a = float(row.get("possessions_against") or 0.0)
+        if poss_f <= 0 or poss_a <= 0:
+            continue
+        out[int(row["team_id"])] = TeamStrength(
+            ortg=100.0 * pf / poss_f,
+            drtg=100.0 * pa / poss_a,
+        )
+    return out
+
+
+def league_strength(strength: dict[int, TeamStrength]) -> TeamStrength:
+    if not strength:
+        return TeamStrength(ortg=112.0, drtg=112.0)
+    ortg = sum(item.ortg for item in strength.values()) / len(strength)
+    drtg = sum(item.drtg for item in strength.values()) / len(strength)
+    return TeamStrength(ortg=ortg, drtg=drtg)
+
+
+def apply_team_strength_and_hca(
+    rates: RateVector,
+    *,
+    team: TeamStrength | None,
+    opponent: TeamStrength | None,
+    league: TeamStrength,
+    home_away: str,
+    config: dict[str, Any],
+) -> RateVector:
+    """Scale FG%/FT% from team offense, opponent defense, and home-court edge.
+
+    Soft multiplicative shifts so strong offenses / weak defenses / home court
+    separate win probabilities without blowing up scoring level.
+    """
+    ctx = config.get("context", {})
+    off_w = float(ctx.get("team_offense_weight", 0.0))
+    def_w = float(ctx.get("team_defense_weight", 0.0))
+    home_fg = float(ctx.get("home_fg_factor", 0.0))
+    away_fg = float(ctx.get("away_fg_factor", 0.0))
+    factor = 1.0
+    if team is not None and league.ortg > 0 and off_w != 0:
+        factor *= (team.ortg / league.ortg) ** off_w
+    if opponent is not None and league.drtg > 0 and def_w != 0:
+        # Higher opponent DRtg = worse defense = boost our FG%.
+        factor *= (opponent.drtg / league.drtg) ** def_w
+    if home_away == "H":
+        factor *= 1.0 + home_fg
+    else:
+        factor *= 1.0 + away_fg
+    if abs(factor - 1.0) < 1e-9:
+        return rates
+    updates = {}
+    for zone in ZONES:
+        base = getattr(rates, f"{zone}_fg_pct")
+        updates[f"{zone}_fg_pct"] = min(0.85, max(0.15, base * factor))
+    updates["ft_pct"] = min(0.95, max(0.50, rates.ft_pct * (1.0 + (factor - 1.0) * 0.35)))
+    return replace(rates, **updates)
 
 
 def _defense_log_rows(bundle: Any, defender_team_id: int | None) -> list[dict]:
