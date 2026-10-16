@@ -1,6 +1,6 @@
 # Progress
 
-Last updated after ATL@DAL preseason sim (2026-10-16).
+Last updated after Fix 3 backtest (2026-10-16).
 
 | Phase | Status | Notes |
 | --- | --- | --- |
@@ -14,8 +14,8 @@ Last updated after ATL@DAL preseason sim (2026-10-16).
 | Validation (post-backfill) | done | Position defense, single-game check, full 2024-25/2025-26 backtest, tune. |
 | Fix 1. Scoring bias | done | Pace exact; PPG within ~2.3% (was ~−12%). Not understated. |
 | Fix 2. As-of rosters | done | `team_rosters` stints; MIN MAE 5.41; coverage 0.70. |
-| Fix 3. Minutes → 240 | implemented | Team means + sim draws normalize to 240; rotation priors; MAE TBD. |
-| Fix 4. Variance ~80% | not started | |
+| Fix 3. Minutes → 240 | done | Coverage **0.79**; MAE MIN 7.14 (worse); PTS MAE improved. |
+| Fix 4. Variance ~80% | next | Coverage already ~0.79 from Fix 3; polish if needed then Fix 5. |
 | Fix 5. Team strength / HCA | not started | |
 | Preseason storage | done | `season_type=Preseason` hive partition; excluded from `list_seasons` / default reads. |
 
@@ -98,13 +98,29 @@ Storage cap and storage report remain in place.
 
 ## Fix Step 3 — Minutes → 240 (2026-10-16)
 
-Implemented (walk-forward metrics TBD by parent backtest):
+Implemented:
 
 - **Team total:** projected means per side sum to `minutes.team_minutes_target` (240). Sim draws are sampled then renormalized per run to the same target; OT adds 25 team-minutes per period by regulation share.
 - **Rotation priors:** blend recent same-team minutes (before `as_of`) with depth-chart priors from as-of roster rank; starter floor; expand thin rotations to `min_rotation_size`, cap at `max_rotation_size` (~9–11 players).
 - **Usage:** renormalize among players with projected mean minutes > `play_threshold`; invent a small usage only when minutes > 0 but usage was ~0.
 - **Config knobs:** `team_minutes_target`, `min_rotation_size`, `max_rotation_size`, `play_threshold`, `recent_window`, `starter_floor`, `bench_floor`, `depth_minutes`, plus existing variance/max.
 - **Tests:** `tests/test_minutes.py` (allocate sum, draw sum, bench priors, integration). Scoring OREB/FT engine paths unchanged.
+
+Full walk-forward vs Step 2 (`--seasons 2024-2025 --runs 200 --seed 1`, 2626 games):
+
+| Metric | Step 2 | Step 3 |
+| --- | ---: | ---: |
+| Brier | 0.238 | **0.237** |
+| MAE PTS | 6.02 | **5.75** |
+| MAE REB | 2.74 | **2.51** |
+| MAE AST | 1.82 | 1.84 |
+| MAE 3PM | 1.02 | **1.00** |
+| MAE MIN | **5.41** | 7.14 |
+| 10–90 coverage | 0.699 | **0.790** |
+| Sim / actual PPG | 117.05 / 114.29 | 117.16 / 114.29 |
+| Sim / actual poss | 98.91 / 98.92 | 98.91 / 98.92 |
+
+Coverage hit the ~80% Fix 4 target via wider minutes draws, but **MAE MIN regressed** (rotation priors over-spread minutes vs actual star/bench split). Artifacts: `results/backtest/step3_minutes/`.
 
 ## Fix Step 2 — As-of rosters (2026-10-16)
 

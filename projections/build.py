@@ -39,6 +39,7 @@ from projections.context import (
 from projections.minutes import (
     MinutesProjection,
     allocate_team_minutes,
+    depth_prior_minutes,
     project_minutes,
     recent_minutes_detail,
     rotation_base_minutes,
@@ -407,6 +408,22 @@ def _build(
                 started=started,
                 config=config,
             )
+            # Override "available" with no same-team sample (e.g. preseason sitout
+            # cleared for tonight) still gets a mid-rotation minutes prior.
+            entry_preview = injury_by_id.get(player_id)
+            if (
+                entry_preview is not None
+                and entry_preview.source == "override"
+                and entry_preview.status.lower() == "available"
+                and recent_n <= 0
+                and base <= 0
+            ):
+                debut_rank = min(
+                    depth_rank,
+                    int(config["minutes"].get("min_rotation_size", 9)) - 2,
+                )
+                base = max(depth_prior_minutes(max(debut_rank, 6), config), 14.0)
+                sd_min = max(sd_min, 4.0)
             minute_bases[player_id] = (base, sd_min, started, position, depth_rank)
 
         adjusted = redistribute_for_absences(

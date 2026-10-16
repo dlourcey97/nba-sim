@@ -48,3 +48,10 @@ players:
     status: out
     reason: "injury"
     minutes_cap: null
+  - player_id: 1631204
+    player_name: "Marcus Sasser"
+    team_abbr: DAL
+    game_date: "2026-10-16"
+    status: available
+    reason: "active tonight"
+    minutes_cap: null
