@@ -148,8 +148,7 @@ def games_from_team_log(records: list[dict[str, object]]) -> list[ScheduleGame]:
         season_type = season_type_from_game_id(game_id)
         if season_type is None:
             continue
-        home = next((row for row in rows if _matchup_is_home(row.get("MATCHUP"))), None)
-        away = next((row for row in rows if _matchup_is_away(row.get("MATCHUP"))), None)
+        home, away = _home_away_from_team_log(rows)
         if home is None or away is None:
             continue
         home_pts = _optional_int(home.get("PTS"))
@@ -170,6 +169,31 @@ def games_from_team_log(records: list[dict[str, object]]) -> list[ScheduleGame]:
             )
         )
     return games
+
+
+def _home_away_from_team_log(
+    rows: list[dict[str, object]],
+) -> tuple[dict[str, object] | None, dict[str, object] | None]:
+    """Pair home/away team log rows. Neutral-site preseason sometimes labels both `@`."""
+    home = next((row for row in rows if _matchup_is_home(row.get("MATCHUP"))), None)
+    away = next((row for row in rows if _matchup_is_away(row.get("MATCHUP"))), None)
+    if home is not None and away is not None and home is not away:
+        return home, away
+    if len(rows) != 2:
+        return None, None
+    homes = [row for row in rows if _matchup_is_home(row.get("MATCHUP"))]
+    aways = [row for row in rows if _matchup_is_away(row.get("MATCHUP"))]
+    if len(homes) == 1:
+        home = homes[0]
+        away = next(row for row in rows if row is not home)
+        return home, away
+    if len(aways) == 1:
+        away = aways[0]
+        home = next(row for row in rows if row is not away)
+        return home, away
+    # Both same polarity (common in overseas preseason). Stable fallback by team_id.
+    ordered = sorted(rows, key=lambda row: int(row["TEAM_ID"]))
+    return ordered[0], ordered[1]
 
 
 def games_from_cdn_schedule(payload: dict[str, object], season: str) -> list[ScheduleGame]:
@@ -258,7 +282,12 @@ def games_from_data_nba_schedule(payload: dict[str, object], season: str) -> lis
 def season_type_from_game_id(game_id: str) -> str | None:
     if len(game_id) < 3 or not game_id.startswith("00"):
         return None
-    return {"2": "Regular Season", "4": "Playoffs", "5": "PlayIn"}.get(game_id[2])
+    return {
+        "1": "Preseason",
+        "2": "Regular Season",
+        "4": "Playoffs",
+        "5": "PlayIn",
+    }.get(game_id[2])
 
 
 def schedule_row(season: str, game: ScheduleGame) -> dict[str, object]:

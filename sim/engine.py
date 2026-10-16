@@ -12,6 +12,7 @@ import numpy as np
 
 from nba_sim.schema import ZONES
 from projections.build import GameProjection, PlayerProjection
+from projections.minutes import add_overtime_minutes, normalize_team_minute_draws
 
 _ZONE_POINTS = np.array([2.0, 2.0, 2.0, 3.0, 3.0, 3.0])
 
@@ -73,6 +74,24 @@ def simulate_game(
     if home_idx.size == 0 or away_idx.size == 0:
         raise ValueError("both home and away players are required")
 
+    minutes_cfg = cfg.get("minutes", {})
+    team_target = float(minutes_cfg.get("team_minutes_target", 240.0))
+    min_minutes = float(minutes_cfg.get("min_minutes", 0.0))
+    out_mask = np.array([p.minutes.out for p in players], dtype=bool)
+    caps = np.array(
+        [0.0 if p.minutes.out else float(p.minutes.max_minutes) for p in players],
+        dtype=float,
+    )
+    # Regulation: each team's minute draws sum to team_minutes_target.
+    for pool in (home_idx, away_idx):
+        minutes[pool] = normalize_team_minute_draws(
+            minutes[pool],
+            out_mask=out_mask[pool],
+            caps=caps[pool],
+            target=team_target,
+            min_minutes=min_minutes,
+        )
+
     packed = _pack_rates(players)
     home_lineups = _lineups_matrix(rng, home_idx, minutes)
     away_lineups = _lineups_matrix(rng, away_idx, minutes)
@@ -121,11 +140,13 @@ def simulate_game(
         endings += ended.astype(np.int32)
 
     overtime = np.zeros(n_runs, dtype=bool)
+    ot_periods = np.zeros(n_runs, dtype=np.int32)
     tied = home_pts == away_pts
     ot_period = 0
     while np.any(tied) and ot_period < 5:
         overtime |= tied
         ot_period += 1
+        ot_periods = np.where(tied, ot_period, ot_periods)
         ot_endings = np.zeros(n_runs, dtype=np.int32)
         ot_target = np.where(tied, 16, 0)
         for _ in range(28):
@@ -152,6 +173,16 @@ def simulate_game(
             ot_endings += ended.astype(np.int32)
             tied = home_pts == away_pts
             ot_target = np.where(tied, ot_target, ot_endings)
+
+    # OT adds 25 team-minutes per period, split by regulation share.
+    minutes = add_overtime_minutes(
+        minutes,
+        home_idx=home_idx,
+        away_idx=away_idx,
+        ot_periods=ot_periods,
+        out_mask=out_mask,
+        caps=caps,
+    )
 
     return GameSimResult(
         game_id=projection.game_id,

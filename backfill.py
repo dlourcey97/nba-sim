@@ -37,7 +37,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--season-types",
         default="Regular Season,Playoffs,PlayIn",
-        help="Comma-separated season types.",
+        help="Comma-separated season types (include Preseason for exhibition games).",
+    )
+    parser.add_argument(
+        "--teams",
+        help="Optional comma-separated team abbreviations to keep (e.g. DAL,ATL).",
     )
     parser.add_argument(
         "--log-file",
@@ -54,6 +58,9 @@ def main(argv: list[str] | None = None) -> int:
         end = _parse_date(args.end_date, "--end-date")
         if start is not None and end is not None and end < start:
             parser.error("--end-date is before --start-date.")
+        team_abbrs = None
+        if args.teams:
+            team_abbrs = {part.strip().upper() for part in args.teams.split(",") if part.strip()}
         settings = load_settings()
         log = _logger(args.log_file, settings.repo_root)
         result = run_backfill(
@@ -63,6 +70,7 @@ def main(argv: list[str] | None = None) -> int:
             start_date=start,
             end_date=end,
             max_games=args.max_games,
+            team_abbrs=team_abbrs,
             log=log,
         )
     except NbaSimError as exc:
@@ -82,14 +90,15 @@ def _parse_date(value: str | None, flag: str) -> date | None:
 
 def _season_types(value: str) -> list[str]:
     types = [part.strip() for part in value.split(",") if part.strip()]
-    allowed = {"Regular Season", "Playoffs", "PlayIn"}
+    allowed = {"Regular Season", "Playoffs", "PlayIn", "Preseason", "Pre Season"}
     unknown = [item for item in types if item not in allowed]
     if not types or unknown:
         raise SystemExit(
-            "season types must be Regular Season, Playoffs, and/or PlayIn. "
+            "season types must be Regular Season, Playoffs, PlayIn, and/or Preseason. "
             f"Unknown: {', '.join(unknown) or '(none)'}."
         )
-    return types
+    # Normalize API alias onto the internal partition label.
+    return ["Preseason" if item in ("Preseason", "Pre Season") else item for item in types]
 
 
 def _logger(path: str | None, repo_root: Path):

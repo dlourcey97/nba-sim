@@ -6,7 +6,7 @@ storage:
 
 season:
   # Nightly incremental and upsert writes are limited to this season.
-  current: "2025-26"
+  current: "2026-27"
 
 http:
   max_retries: 5
@@ -55,7 +55,22 @@ minutes:
   foul_trouble_rate_prior: 0.08
   minutes_variance: 4.5
   min_minutes: 0.0
-  max_minutes: 44.0
+  max_minutes: 42.0
+  # Regulation team total (5 players × 48). Sim draws are renormalized to this.
+  team_minutes_target: 240.0
+  # Prefer at least this many players with meaningful minutes on a healthy roster.
+  min_rotation_size: 9
+  # Soft cap on how many players receive regulation minutes before scaling to 240.
+  max_rotation_size: 11
+  # Players with projected mean above this share on-court usage.
+  play_threshold: 1.0
+  recent_window: 10
+  # When > 0, recent minutes mean weights newer games more (exp decay by age).
+  recent_decay: 0.45
+  starter_floor: 24.0
+  bench_floor: 6.0
+  # Depth-chart priors by as-of roster rank (0 = most appearances).
+  depth_minutes: [34, 32, 30, 28, 26, 22, 18, 14, 10, 6, 3, 0, 0, 0, 0]
 
 outputs:
   percentiles: [10, 25, 50, 75, 90]

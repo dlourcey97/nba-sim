@@ -207,26 +207,27 @@ def rebuild_team_rosters(
     have not appeared in a box score yet.
     """
     logs = read_rows(settings, "player_game_logs", season)
-    stints = team_rosters_from_logs(season, logs)
+    # Preseason box scores inform current-season stints but stay in their own partition.
+    preseason_logs = read_rows(
+        settings, "player_game_logs", season, season_type="Preseason"
+    )
+    stints = team_rosters_from_logs(season, list(logs) + list(preseason_logs))
     use_common = (
         refresh_common
         if refresh_common is not None
         else season == settings.current_season
     )
     if use_common and source is not None:
+        schedule_rows = list(read_rows(settings, "schedule", season)) + list(
+            read_rows(settings, "schedule", season, season_type="Preseason")
+        )
         team_ids = sorted(
             {
                 int(row["team_id"])
-                for row in logs
+                for row in list(logs) + list(preseason_logs)
             }
-            | {
-                int(row["home_team_id"])
-                for row in read_rows(settings, "schedule", season)
-            }
-            | {
-                int(row["away_team_id"])
-                for row in read_rows(settings, "schedule", season)
-            }
+            | {int(row["home_team_id"]) for row in schedule_rows}
+            | {int(row["away_team_id"]) for row in schedule_rows}
         )
         if not team_ids:
             team_ids = list(_NBA_TEAM_IDS)

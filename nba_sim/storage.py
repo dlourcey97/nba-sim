@@ -16,13 +16,37 @@ import duckdb
 import pyarrow as pa
 
 from nba_sim.errors import SeasonFrozenError, StorageCapExceeded, StorageError
-from nba_sim.schema import SEASON_PATTERN, TABLES, Table
+from nba_sim.schema import (
+    SEASON_PATTERN,
+    SEASON_TYPE_REGULAR,
+    TABLES,
+    Table,
+)
 from nba_sim.settings import Settings, assert_outside_repo
 
 _SEASON = re.compile(SEASON_PATTERN)
 _COMPLETE = "_COMPLETE"
 _DATA_FILE = "data.parquet"
 _TMP_DIR = "_tmp"
+_SEASON_TYPE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9 _-]*$")
+
+
+def normalize_season_type(season_type: str | None) -> str:
+    """Map API / alias labels onto the internal partition value."""
+    if season_type is None or season_type in ("", SEASON_TYPE_REGULAR, "Regular Season"):
+        return SEASON_TYPE_REGULAR
+    if season_type in ("Preseason", "Pre Season", "Pre-Season"):
+        return "Preseason"
+    if season_type == "Playoffs":
+        return "Playoffs"
+    if season_type in ("PlayIn", "Play In"):
+        return "PlayIn"
+    return season_type
+
+
+def is_isolated_season_type(season_type: str | None) -> bool:
+    """True when this type lives under season_type=… and must not mix with RS."""
+    return normalize_season_type(season_type) == "Preseason"
 
 
 @dataclass(frozen=True)
@@ -79,16 +103,35 @@ def directory_size(path: Path) -> int:
     return total
 
 
-def partition_dir(data_dir: Path, table: str, season: str) -> Path:
+def partition_dir(
+    data_dir: Path,
+    table: str,
+    season: str,
+    *,
+    season_type: str | None = None,
+) -> Path:
     if table not in TABLES:
         raise StorageError(f"unknown table {table!r}. See SCHEMA.md.")
     if _SEASON.fullmatch(season) is None:
         raise StorageError(f"invalid season {season!r}. Expected YYYY-YY, for example 2025-26.")
-    return data_dir / table / f"season={season}"
+    base = data_dir / table / f"season={season}"
+    label = normalize_season_type(season_type)
+    # Regular Season keeps the legacy path so existing partitions stay readable.
+    if label == SEASON_TYPE_REGULAR:
+        return base
+    if _SEASON_TYPE_RE.fullmatch(label) is None:
+        raise StorageError(f"invalid season_type {season_type!r}.")
+    return base / f"season_type={label}"
 
 
-def data_file(data_dir: Path, table: str, season: str) -> Path:
-    return partition_dir(data_dir, table, season) / _DATA_FILE
+def data_file(
+    data_dir: Path,
+    table: str,
+    season: str,
+    *,
+    season_type: str | None = None,
+) -> Path:
+    return partition_dir(data_dir, table, season, season_type=season_type) / _DATA_FILE
 
 
 def cleanup_temp(data_dir: Path) -> int:
@@ -202,17 +245,31 @@ def finish_run(settings: Settings) -> StorageReport:
     return report
 
 
-def season_is_complete(settings: Settings, table: str, season: str) -> bool:
+def season_is_complete(
+    settings: Settings,
+    table: str,
+    season: str,
+    *,
+    season_type: str | None = None,
+) -> bool:
     """True when this season partition has been frozen with a _COMPLETE marker."""
     if table not in TABLES:
         raise StorageError(f"unknown table {table!r}. See SCHEMA.md.")
-    return (partition_dir(settings.data_dir, table, season) / _COMPLETE).is_file()
+    return (
+        partition_dir(settings.data_dir, table, season, season_type=season_type) / _COMPLETE
+    ).is_file()
 
 
-def mark_season_complete(settings: Settings, table: str, season: str) -> Path:
+def mark_season_complete(
+    settings: Settings,
+    table: str,
+    season: str,
+    *,
+    season_type: str | None = None,
+) -> Path:
     """Freeze a season so later runs cannot rewrite it."""
     _prepare_data_dir(settings)
-    directory = partition_dir(settings.data_dir, table, season)
+    directory = partition_dir(settings.data_dir, table, season, season_type=season_type)
     if not (directory / _DATA_FILE).is_file():
         raise StorageError(f"cannot freeze {table} season {season}: partition has no data.parquet.")
     marker = directory / _COMPLETE
@@ -221,29 +278,54 @@ def mark_season_complete(settings: Settings, table: str, season: str) -> Path:
     return marker
 
 
-def read_rows(settings: Settings, table: str, season: str) -> list[dict[str, object]]:
-    """Read one season partition through DuckDB. Empty when the file is absent."""
+def read_rows(
+    settings: Settings,
+    table: str,
+    season: str,
+    *,
+    season_type: str | None = None,
+) -> list[dict[str, object]]:
+    """Read one season partition through DuckDB. Empty when the file is absent.
+
+    Default season_type is Regular Season (legacy path). Preseason lives under
+    ``season_type=Preseason`` and is never returned unless requested.
+    """
     spec = TABLES[table]
-    path = data_file(settings.data_dir, table, season)
+    path = data_file(settings.data_dir, table, season, season_type=season_type)
     loaded = _read_partition(path, spec)
     if loaded is None:
         return []
     return loaded.to_pylist()
 
 
-def stored_game_ids(settings: Settings, table: str, season: str) -> set[str]:
+def stored_game_ids(
+    settings: Settings,
+    table: str,
+    season: str,
+    *,
+    season_type: str | None = None,
+) -> set[str]:
     """Game ids already present in a table that uses game_id as part of its key."""
     spec = TABLES[table]
     if "game_id" not in spec.key:
         raise StorageError(f"{table} has no game_id key. See SCHEMA.md.")
     index = spec.key.index("game_id")
-    return {str(key[index]) for key in stored_keys(settings, table, season)}
+    return {
+        str(key[index])
+        for key in stored_keys(settings, table, season, season_type=season_type)
+    }
 
 
-def stored_keys(settings: Settings, table: str, season: str) -> set[tuple[object, ...]]:
+def stored_keys(
+    settings: Settings,
+    table: str,
+    season: str,
+    *,
+    season_type: str | None = None,
+) -> set[tuple[object, ...]]:
     """Keys already stored for a season. Empty when the partition does not exist."""
     spec = TABLES[table]
-    path = data_file(settings.data_dir, table, season)
+    path = data_file(settings.data_dir, table, season, season_type=season_type)
     existing = _read_partition(path, spec)
     if existing is None:
         return set()
@@ -251,7 +333,12 @@ def stored_keys(settings: Settings, table: str, season: str) -> set[tuple[object
 
 
 def list_seasons(data_dir: Path, table: str) -> list[str]:
-    """Season labels present on disk for a table. Does not open Parquet files."""
+    """Regular-season labels present on disk for a table.
+
+    Only seasons with a root ``data.parquet`` (Regular Season path) are listed.
+    Preseason-only partitions under ``season_type=Preseason`` are excluded so
+    projections and backtests never pick them up implicitly.
+    """
     if table not in TABLES:
         raise StorageError(f"unknown table {table!r}. See SCHEMA.md.")
     parent = data_dir / table
@@ -261,7 +348,7 @@ def list_seasons(data_dir: Path, table: str) -> list[str]:
     for child in parent.iterdir():
         if child.is_dir() and child.name.startswith("season="):
             label = child.name.split("=", 1)[1]
-            if _SEASON.fullmatch(label):
+            if _SEASON.fullmatch(label) and (child / _DATA_FILE).is_file():
                 seasons.append(label)
     return sorted(seasons)
 
@@ -274,6 +361,7 @@ def store_rows(
     *,
     current_season: str | None = None,
     allow_historical: bool = False,
+    season_type: str | None = None,
 ) -> WriteResult:
     """Write rows using the table policy from SCHEMA.md."""
     spec = TABLES[table]
@@ -281,7 +369,7 @@ def store_rows(
     if _SEASON.fullmatch(active) is None:
         raise StorageError(f"invalid current season {active!r}.")
     _prepare_data_dir(settings)
-    directory = partition_dir(settings.data_dir, table, season)
+    directory = partition_dir(settings.data_dir, table, season, season_type=season_type)
     path = directory / _DATA_FILE
     if spec.policy != "replace":
         _reject_frozen_or_historical(
@@ -311,12 +399,13 @@ def rewrite_unfrozen_rows(
     rows: Sequence[Mapping[str, object]],
     *,
     allow_historical: bool = False,
+    season_type: str | None = None,
 ) -> int:
     """Replace an unfrozen season file. Backfill uses this to fill a null pace."""
     spec = TABLES[table]
     active = settings.current_season
     _prepare_data_dir(settings)
-    directory = partition_dir(settings.data_dir, table, season)
+    directory = partition_dir(settings.data_dir, table, season, season_type=season_type)
     path = directory / _DATA_FILE
     _reject_frozen_or_historical(directory, spec, season, active, allow_historical)
     incoming = _rows_to_table(rows, spec, season)
@@ -560,7 +649,16 @@ def _season_sizes(table_dir: Path) -> list[SeasonSize]:
             continue
         if child.is_dir() and child.name.startswith("season="):
             label = child.name.split("=", 1)[1]
-            rows.append(SeasonSize(table_dir.name, label, directory_size(child)))
+            nested = 0
+            for sub in child.iterdir():
+                if sub.is_dir() and sub.name.startswith("season_type="):
+                    st_label = sub.name.split("=", 1)[1]
+                    size = directory_size(sub)
+                    rows.append(SeasonSize(table_dir.name, f"{label}/{st_label}", size))
+                    nested += size
+            season_only = directory_size(child) - nested
+            if season_only > 0 or nested == 0:
+                rows.append(SeasonSize(table_dir.name, label, season_only))
         elif child.is_file():
             loose += child.stat().st_size
         elif child.is_dir():

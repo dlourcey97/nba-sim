@@ -31,7 +31,13 @@ from projections.context import (
     team_pace_map,
     zone_defense_from_bundles,
 )
-from projections.minutes import MinutesProjection, project_minutes, recent_minutes
+from projections.minutes import (
+    MinutesProjection,
+    allocate_team_minutes,
+    project_minutes,
+    recent_minutes_detail,
+    rotation_base_minutes,
+)
 from projections.rates import RateVector
 
 
@@ -130,11 +136,24 @@ def build_game_projections(
     injuries: Sequence[InjuryEntry] | None = None,
     as_of: date | None = None,
     bundles: list | None = None,
+    minutes_bundles: list | None = None,
     cache: ProjectionCache | None = None,
+    season_type: str | None = None,
+    minutes_recent_decay: float | None = None,
 ) -> GameProjection:
-    """Project both teams for one schedule game using only data before as_of."""
+    """Project both teams for one schedule game using only data before as_of.
+
+    ``season_type`` selects the schedule partition (e.g. Preseason). Rate
+    blending always uses Regular Season history unless ``bundles`` overrides.
+    When ``minutes_bundles`` is set (typically Preseason logs), minutes and
+    rotation use those games instead of the rate bundles.
+    """
     schedule = next(
-        (row for row in read_rows(settings, "schedule", season) if row["game_id"] == game_id),
+        (
+            row
+            for row in read_rows(settings, "schedule", season, season_type=season_type)
+            if row["game_id"] == game_id
+        ),
         None,
     )
     if schedule is None:
@@ -153,7 +172,9 @@ def build_game_projections(
         injuries=list(injuries or []),
         as_of=cutoff,
         bundles=bundles,
+        minutes_bundles=minutes_bundles,
         cache=cache,
+        minutes_recent_decay=minutes_recent_decay,
     )
 
 
@@ -194,7 +215,9 @@ def _build(
     injuries: list[InjuryEntry],
     as_of: date,
     bundles: list | None = None,
+    minutes_bundles: list | None = None,
     cache: ProjectionCache | None = None,
+    minutes_recent_decay: float | None = None,
 ) -> GameProjection:
     config = settings.config
     seasons_back = list(config["blending"]["season_weights"]["seasons_back"])
@@ -209,6 +232,12 @@ def _build(
         bundles = [bundle for bundle in bundles if bundle.season in wanted]
         if not bundles:
             bundles = [load_season_bundle(settings, label) for label in window]
+    minute_source = minutes_bundles if minutes_bundles is not None else bundles
+    min_decay = (
+        float(minutes_recent_decay)
+        if minutes_recent_decay is not None
+        else float(config["minutes"].get("recent_decay", 0.0))
+    )
     if cache is None:
         cache = ProjectionCache()
     cache.reset_if_needed(as_of)
@@ -278,6 +307,8 @@ def _build(
         config["context"].get("opponent_position_defense_weight", 0.5)
     )
     usage_share = float(config["context"]["teammate_absence_usage_share"])
+    play_threshold = float(config["minutes"].get("play_threshold", 1.0))
+    recent_window = int(config["minutes"].get("recent_window", 10))
 
     home_ids = _roster_for_team(settings, season, bundles, home_team_id, as_of, cache=cache)
     away_ids = _roster_for_team(settings, season, bundles, away_team_id, as_of, cache=cache)
@@ -293,8 +324,9 @@ def _build(
         opp_pos: dict[str, dict[str, float]],
     ) -> tuple[float, dict[int, PlayerProjection]]:
         raw_rates: dict[int, RateVector] = {}
-        minute_bases: dict[int, tuple[float, float, list[date], bool, str | None]] = {}
-        for player_id in roster:
+        # depth_rank follows as-of roster order (appearances / stint priority).
+        minute_bases: dict[int, tuple[float, float, bool, str | None, int]] = {}
+        for depth_rank, player_id in enumerate(roster):
             info = meta.get(player_id, {})
             position = info.get("position")
             rates = player_baseline_and_form(
@@ -320,40 +352,35 @@ def _build(
                 weight=position_weight,
             )
             raw_rates[player_id] = rates
-            mean_min, sd_min, dates = recent_minutes(
-                bundles,
+            mean_min, sd_min, _dates, recent_n = recent_minutes_detail(
+                minute_source,
                 player_id=player_id,
                 team_id=team_id,
                 as_of=as_of,
                 current_season=season,
+                window=recent_window,
+                recent_decay=min_decay,
             )
-            started = _usually_starts(bundles, player_id, team_id, as_of)
-            minute_bases[player_id] = (mean_min, sd_min, dates, started, position)
+            started = _usually_starts(minute_source, player_id, team_id, as_of)
+            base = rotation_base_minutes(
+                recent_mean=mean_min,
+                recent_n=recent_n,
+                depth_rank=depth_rank,
+                started=started,
+                config=config,
+            )
+            minute_bases[player_id] = (base, sd_min, started, position, depth_rank)
 
         adjusted = redistribute_for_absences(
             raw_rates,
             out_player_ids={pid for pid in out_ids if pid in raw_rates},
             usage_share=usage_share,
         )
-        # Normalize on-court usage among players expected to play.
-        playing = {
-            pid: rates
-            for pid, rates in adjusted.items()
-            if pid not in out_ids and minute_bases[pid][0] > 0
-        }
-        usage_total = sum(rates.usage for rates in playing.values())
-        if usage_total > 0:
-            for pid, rates in playing.items():
-                adjusted[pid] = RateVector.from_dict(
-                    {**rates.as_dict(), "usage": rates.usage / usage_total},
-                    sample_possessions=rates.sample_possessions,
-                    sample_games=rates.sample_games,
-                )
 
         team_pace = pace.get(team_id, 100.0)
         opp_pace = pace.get(opp_id, 100.0)
         # Rest from the busiest recent rotation player dates; use team game dates.
-        team_dates = _team_game_dates(bundles, team_id, as_of)
+        team_dates = _team_game_dates(minute_source, team_id, as_of)
         rest = rest_days_before(team_dates, game_date)
         team_poss = expected_possessions(
             team_pace=team_pace,
@@ -362,19 +389,47 @@ def _build(
             rest_days=rest,
             config=config,
         )
-        players: dict[int, PlayerProjection] = {}
-        for player_id, rates in adjusted.items():
-            mean_min, sd_min, _dates, started, position = minute_bases[player_id]
+
+        # Project minutes, then force the healthy roster to sum to 240.
+        ordered_ids = list(roster)
+        raw_minutes: list[MinutesProjection] = []
+        depth_ranks: list[int] = []
+        for player_id in ordered_ids:
+            base_mean, sd_min, started, _position, depth_rank = minute_bases[player_id]
             entry = injury_by_id.get(player_id)
             status = entry.status if entry is not None else "Available"
-            minutes = project_minutes(
-                base_mean=mean_min,
-                base_sd=sd_min,
-                config=config,
-                status=status,
-                minutes_cap=caps.get(player_id),
-                started=started,
+            raw_minutes.append(
+                project_minutes(
+                    base_mean=base_mean,
+                    base_sd=sd_min,
+                    config=config,
+                    status=status,
+                    minutes_cap=caps.get(player_id),
+                    started=started,
+                )
             )
+            depth_ranks.append(depth_rank)
+        allocated = allocate_team_minutes(
+            raw_minutes,
+            config=config,
+            depth_ranks=depth_ranks,
+        )
+        minutes_by_id = dict(zip(ordered_ids, allocated))
+
+        # Usage among players expected to play (post-allocation minutes).
+        adjusted = _normalize_usage_for_minutes(
+            adjusted,
+            minutes_by_id=minutes_by_id,
+            out_ids=out_ids,
+            play_threshold=play_threshold,
+        )
+
+        players: dict[int, PlayerProjection] = {}
+        for player_id, rates in adjusted.items():
+            _base, _sd, started, position, _depth = minute_bases[player_id]
+            entry = injury_by_id.get(player_id)
+            status = entry.status if entry is not None else "Available"
+            minutes = minutes_by_id[player_id]
             info = meta.get(player_id, {})
             players[player_id] = PlayerProjection(
                 player_id=player_id,
@@ -537,6 +592,53 @@ def _usually_starts(bundles: list, player_id: int, team_id: int, as_of: date) ->
     if not flags:
         return False
     return sum(1 for flag in flags[-5:] if flag) >= 3
+
+
+def _normalize_usage_for_minutes(
+    rates_by_id: dict[int, RateVector],
+    *,
+    minutes_by_id: dict[int, MinutesProjection],
+    out_ids: set[int],
+    play_threshold: float,
+) -> dict[int, RateVector]:
+    """Renormalize usage among players with projected minutes; floor zeros."""
+    playing = {
+        pid: rates
+        for pid, rates in rates_by_id.items()
+        if pid not in out_ids
+        and not minutes_by_id[pid].out
+        and minutes_by_id[pid].mean > play_threshold
+    }
+    if not playing:
+        return rates_by_id
+    updated = dict(rates_by_id)
+    # Only invent usage when a player has minutes but ~zero rate history.
+    floored: dict[int, float] = {}
+    for pid, rates in playing.items():
+        mean_min = minutes_by_id[pid].mean
+        usage = float(rates.usage)
+        if usage <= 1e-6:
+            usage = max(0.02, 0.06 * (mean_min / 36.0))
+        floored[pid] = usage
+    total = sum(floored.values())
+    if total <= 0:
+        return updated
+    for pid, usage in floored.items():
+        rates = updated[pid]
+        updated[pid] = RateVector.from_dict(
+            {**rates.as_dict(), "usage": usage / total},
+            sample_possessions=rates.sample_possessions,
+            sample_games=rates.sample_games,
+        )
+    # Zero usage for players not expected to play.
+    for pid, rates in list(updated.items()):
+        if pid not in playing:
+            updated[pid] = RateVector.from_dict(
+                {**rates.as_dict(), "usage": 0.0},
+                sample_possessions=rates.sample_possessions,
+                sample_games=rates.sample_games,
+            )
+    return updated
 
 
 def _team_game_dates(bundles: list, team_id: int, as_of: date) -> list[date]:

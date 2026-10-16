@@ -12,6 +12,25 @@ from dataclasses import dataclass
 import pyarrow as pa
 
 SEASON_PATTERN = r"^\d{4}-\d{2}$"
+
+# Internal season_type labels (partition values). NBA stats API uses "Pre Season".
+SEASON_TYPE_REGULAR = "Regular Season"
+SEASON_TYPE_PLAYOFFS = "Playoffs"
+SEASON_TYPE_PLAYIN = "PlayIn"
+SEASON_TYPE_PRESEASON = "Preseason"
+SEASON_TYPES = (
+    SEASON_TYPE_REGULAR,
+    SEASON_TYPE_PLAYOFFS,
+    SEASON_TYPE_PLAYIN,
+    SEASON_TYPE_PRESEASON,
+)
+# Map internal label -> stats.nba.com SeasonType query value.
+API_SEASON_TYPE = {
+    SEASON_TYPE_REGULAR: "Regular Season",
+    SEASON_TYPE_PLAYOFFS: "Playoffs",
+    SEASON_TYPE_PLAYIN: "PlayIn",
+    SEASON_TYPE_PRESEASON: "Pre Season",
+}
 ZONES = (
     "restricted_area",
     "paint_non_ra",

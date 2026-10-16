@@ -59,16 +59,21 @@ def available_season_window(settings: Settings, current: str, seasons_back: list
     return list(reversed(have))
 
 
-def load_season_bundle(settings: Settings, season: str) -> SeasonBundle:
+def load_season_bundle(
+    settings: Settings,
+    season: str,
+    *,
+    season_type: str | None = None,
+) -> SeasonBundle:
     rates_by_player: dict[int, list[dict]] = defaultdict(list)
     rates_by_key: dict[tuple[str, int], dict] = {}
-    for row in read_rows(settings, "player_game_rates", season):
+    for row in read_rows(settings, "player_game_rates", season, season_type=season_type):
         pid = int(row["player_id"])
         rates_by_player[pid].append(row)
         rates_by_key[(str(row["game_id"]), pid)] = row
     logs_by_player: dict[int, list[dict]] = defaultdict(list)
     logs_by_defender: dict[int, list[dict]] = defaultdict(list)
-    for row in read_rows(settings, "player_game_logs", season):
+    for row in read_rows(settings, "player_game_logs", season, season_type=season_type):
         logs_by_player[int(row["player_id"])].append(row)
         logs_by_defender[int(row["opponent_team_id"])].append(row)
     for mapping in (rates_by_player, logs_by_player):

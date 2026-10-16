@@ -27,9 +27,11 @@ from ingest.parse import (
     games_from_data_nba_schedule,
     games_from_team_log,
 )
+from nba_sim.schema import API_SEASON_TYPE, SEASON_TYPE_PRESEASON, SEASON_TYPES
+from nba_sim.storage import normalize_season_type
 
 _CDN_SCHEDULE = "https://cdn.nba.com/static/json/staticData/scheduleLeagueV2.json"
-_SEASON_TYPES = ("Regular Season", "Playoffs", "PlayIn")
+_SEASON_TYPES = tuple(t for t in SEASON_TYPES if t != SEASON_TYPE_PRESEASON)
 
 
 class SourceUnavailable(Exception):
@@ -180,6 +182,21 @@ class NbaSource:
         return possessions_to_views(self._pbpstats_possessions(game_id, "live"))
 
     def _load_schedule(self, season: str, season_type: str) -> None:
+        internal = normalize_season_type(season_type)
+        # Preseason is stats.nba.com-only (CDN/data feeds omit or mix poorly).
+        if internal == SEASON_TYPE_PRESEASON:
+            if self._stats_nba_ok is False:
+                self._schedule_cache[(season, season_type)] = []
+                return
+            try:
+                records = self._team_schedule_rows(season, internal)
+            except Exception as exc:
+                self._stats_nba_ok = False
+                self.log(f"stats.nba.com Preseason schedule failed ({exc}).")
+                self._schedule_cache[(season, season_type)] = []
+                return
+            self._schedule_cache[(season, season_type)] = games_from_team_log(records)
+            return
         if season == self.current_season:
             try:
                 self._remember_schedule(season, self._cdn_schedule(season))
@@ -188,7 +205,7 @@ class NbaSource:
                 self.log(f"CDN schedule unavailable for {season}: {exc}. Using stats.nba.com.")
         if self._stats_nba_ok is not False:
             try:
-                records = self._team_schedule_rows(season, season_type)
+                records = self._team_schedule_rows(season, internal)
             except Exception as exc:
                 self._stats_nba_ok = False
                 self.log(f"stats.nba.com schedule failed ({exc}). Using data.nba.com for {season}.")
@@ -386,10 +403,11 @@ _BROWSER_HEADERS = {
 
 def _league_game_log_params(season: str, season_type: str, *, player_or_team: str) -> list[tuple[str, str]]:
     # LeagueID stays first. Alphabetical order has been answered with an HTML block page.
+    api_type = API_SEASON_TYPE.get(normalize_season_type(season_type), season_type)
     return [
         ("LeagueID", "00"),
         ("Season", season),
-        ("SeasonType", season_type),
+        ("SeasonType", api_type),
         ("PlayerOrTeam", player_or_team),
         ("DateFrom", ""),
         ("DateTo", ""),
@@ -447,10 +465,11 @@ def _common_team_roster_params(team_id: int, season: str) -> list[tuple[str, str
 
 
 def _league_game_finder_params(season: str, season_type: str) -> list[tuple[str, str]]:
+    api_type = API_SEASON_TYPE.get(normalize_season_type(season_type), season_type)
     return [
         ("LeagueID", "00"),
         ("Season", season),
-        ("SeasonType", season_type),
+        ("SeasonType", api_type),
         ("PlayerOrTeam", "T"),
         ("DateFrom", ""),
         ("DateTo", ""),

@@ -1,22 +1,23 @@
 # Progress
 
-Last updated after Fix 2 as-of rosters backtest (2024-25 + 2025-26).
+Last updated after ATL@DAL preseason sim (2026-10-16).
 
 | Phase | Status | Notes |
 | --- | --- | --- |
 | 1. Project setup and storage | done | Config, schema, ignore files, cap, and storage report. |
-| 2. Ingestion and backfill | done | nba_api, PlayByPlayV3 possessions, live-feed fallback, backfill.py. |
+| 2. Ingestion and backfill | done | nba_api, PlayByPlayV3 possessions, live-feed fallback, backfill.py. Preseason supported. |
 | 3. Injury report and overrides | done | Official PDF parse via pypdf, overrides.yaml precedence. |
 | 4. Projections | done | Blend, context, absence redistribution, minutes model, zone + position defense. |
 | 5. Simulation | done | Vectorized possession engine; OREB no longer consumes pace budget. |
 | 6. Outputs and daily.py | done | Summaries, results/latest JSON, prediction history, daily.py, run.py. |
 | 7. Backtesting | done | Walk-forward metrics include sim vs actual PPG and possessions. |
 | Validation (post-backfill) | done | Position defense, single-game check, full 2024-25/2025-26 backtest, tune. |
-| Fix 1. Scoring bias | done | Pace exact; PPG within ~2.3% (was ~−12%). |
+| Fix 1. Scoring bias | done | Pace exact; PPG within ~2.3% (was ~−12%). Not understated. |
 | Fix 2. As-of rosters | done | `team_rosters` stints; MIN MAE 5.41; coverage 0.70. |
-| Fix 3. Minutes → 240 | in progress | Next. |
+| Fix 3. Minutes → 240 | implemented | Team means + sim draws normalize to 240; rotation priors; MAE TBD. |
 | Fix 4. Variance ~80% | not started | |
 | Fix 5. Team strength / HCA | not started | |
+| Preseason storage | done | `season_type=Preseason` hive partition; excluded from `list_seasons` / default reads. |
 
 ## Phase 3
 
@@ -95,6 +96,16 @@ Grid on early 2024-25 (`--max-games 24`). Best → `weights [0.40, 0.30, 0.20, 0
 
 Storage cap and storage report remain in place.
 
+## Fix Step 3 — Minutes → 240 (2026-10-16)
+
+Implemented (walk-forward metrics TBD by parent backtest):
+
+- **Team total:** projected means per side sum to `minutes.team_minutes_target` (240). Sim draws are sampled then renormalized per run to the same target; OT adds 25 team-minutes per period by regulation share.
+- **Rotation priors:** blend recent same-team minutes (before `as_of`) with depth-chart priors from as-of roster rank; starter floor; expand thin rotations to `min_rotation_size`, cap at `max_rotation_size` (~9–11 players).
+- **Usage:** renormalize among players with projected mean minutes > `play_threshold`; invent a small usage only when minutes > 0 but usage was ~0.
+- **Config knobs:** `team_minutes_target`, `min_rotation_size`, `max_rotation_size`, `play_threshold`, `recent_window`, `starter_floor`, `bench_floor`, `depth_minutes`, plus existing variance/max.
+- **Tests:** `tests/test_minutes.py` (allocate sum, draw sum, bench priors, integration). Scoring OREB/FT engine paths unchanged.
+
 ## Fix Step 2 — As-of rosters (2026-10-16)
 
 `team_rosters` (replace policy) stores player stints per season: `from_date` / exclusive `to_date` built from `player_game_logs`, plus optional `CommonTeamRoster` merge for the current season (players signed/traded before their first box score).
@@ -147,10 +158,17 @@ Full walk-forward `--seasons 2024-2025 --runs 200 --seed 1` (2627 games):
 
 PPG delta **+2.3%** (target ~1%; was ~−12%). Pace delta **−0.02%**. Artifacts: `results/backtest/step1_scoring/`.
 
+## Preseason sim — ATL @ DAL 2026-10-16 (0012600008)
+
+Ingested 2026-27 Preseason finals for DAL/ATL into `season_type=Preseason` (7 games). Current-season CommonTeamRoster for 2026-27. Minutes/rotation from preseason logs (recent decay 0.45); efficiency/usage from Regular Season history; rookies on position priors. `overrides.yaml` empty. 10k runs, seed 42: DAL win P **0.606**, ATL 116.0 / DAL 120.6, total 236.6 (p10–p90 213–261). Artifacts under `results/latest/` (gitignored).
+
+API note: stats.nba.com SeasonType for exhibition is `Pre Season` (space), mapped to internal `Preseason`.
+
 ## Commands
 
 ```bash
 python backfill.py --seasons 2015-2025 --log-file /Users/deanlourcey/nba_archive/backfill.log
+python backfill.py --season 2026-27 --season-types Preseason --teams DAL,ATL
 python daily.py --log-file /Users/deanlourcey/nba_archive/daily.log
 python run.py --date 2026-10-21 --game BOS-NYK --runs 10000
 python run.py --date 2026-10-21 --all

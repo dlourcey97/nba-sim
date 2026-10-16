@@ -22,7 +22,9 @@ from nba_sim.errors import SeasonFrozenError
 from nba_sim.settings import Settings
 from nba_sim.storage import (
     finish_run,
+    is_isolated_season_type,
     mark_season_complete,
+    normalize_season_type,
     read_rows,
     rewrite_unfrozen_rows,
     season_is_complete,
@@ -50,6 +52,7 @@ def run_backfill(
     start_date: date | None = None,
     end_date: date | None = None,
     max_games: int | None = None,
+    team_abbrs: set[str] | None = None,
     source: NbaSource | None = None,
     log=print,
 ) -> BackfillResult:
@@ -67,19 +70,26 @@ def run_backfill(
     for season in seasons:
         failed_before = len(result.failed_games)
         missing_before = len(result.possessions_missing)
+        touched_regular = False
         for season_type in season_types:
+            internal = normalize_season_type(season_type)
             _run_season_type(
                 settings,
                 active,
                 season,
-                season_type,
+                internal,
                 start_date,
                 end_date,
                 max_games,
                 result,
                 log,
+                team_abbrs=team_abbrs,
             )
-        _rewrite_derived(settings, season, log, source=active)
+            if not is_isolated_season_type(internal):
+                touched_regular = True
+        # Preseason partitions must never rewrite Regular Season derived tables.
+        if touched_regular:
+            _rewrite_derived(settings, season, log, source=active)
         failed_here = len(result.failed_games) - failed_before
         missing_here = len(result.possessions_missing) - missing_before
         if (
@@ -87,6 +97,7 @@ def run_backfill(
             and failed_here == 0
             and missing_here == 0
             and _season_is_older(season, settings.current_season)
+            and any(not is_isolated_season_type(st) for st in season_types)
         ):
             for table in _FREEZE_TABLES:
                 if stored_game_ids(settings, table, season) or table == "schedule":
@@ -117,8 +128,14 @@ def _run_season_type(
     max_games: int | None,
     result: BackfillResult,
     log,
+    *,
+    team_abbrs: set[str] | None = None,
 ) -> None:
-    if all(season_is_complete(settings, table, season) for table in _FREEZE_TABLES):
+    isolated = is_isolated_season_type(season_type)
+    # Preseason is never frozen with Regular Season markers.
+    if not isolated and all(
+        season_is_complete(settings, table, season) for table in _FREEZE_TABLES
+    ):
         log(f"{season} {season_type}: frozen, skipping.")
         return
     try:
@@ -127,6 +144,13 @@ def _run_season_type(
         log(f"{season} {season_type}: schedule failed: {exc}")
         result.failed_games.append(f"{season}:{season_type}")
         return
+    if team_abbrs:
+        wanted = {abbr.upper() for abbr in team_abbrs}
+        games = [
+            game
+            for game in games
+            if game.home_abbr.upper() in wanted or game.away_abbr.upper() in wanted
+        ]
     selected = [
         game
         for game in games
@@ -139,28 +163,53 @@ def _run_season_type(
         finals = finals[:max_games]
         keep = {game.game_id for game in finals}
         selected = [game for game in selected if game.game_id in keep or not game.is_final]
-    logged = stored_game_ids(settings, "player_game_logs", season)
-    rated = stored_game_ids(settings, "player_game_rates", season)
+    st = season_type if isolated else None
+    logged = stored_game_ids(settings, "player_game_logs", season, season_type=st)
+    rated = stored_game_ids(settings, "player_game_rates", season, season_type=st)
     log(
         f"{season} {season_type}: {len(finals)} final games in range, "
         f"{sum(game.game_id in logged and game.game_id in rated for game in finals)} already stored."
     )
-    rate_memory = read_rows(settings, "player_game_rates", season)
+    rate_memory = read_rows(settings, "player_game_rates", season, season_type=st)
     done = 0
     failures = 0
     total = len(finals)
     for game in selected:
         if not game.is_final:
-            _store_open(settings, "schedule", season, [schedule_row(season, game)], log)
+            _store_open(
+                settings,
+                "schedule",
+                season,
+                [schedule_row(season, game)],
+                log,
+                season_type=st,
+            )
             continue
         if game.game_id in logged and game.game_id in rated:
-            _store_open(settings, "schedule", season, [schedule_row(season, game)], log)
+            _store_open(
+                settings,
+                "schedule",
+                season,
+                [schedule_row(season, game)],
+                log,
+                season_type=st,
+            )
             result.skipped_games += 1
             done += 1
             _log_progress(log, season, season_type, done, total, failures)
             continue
         try:
-            status = _store_game(settings, source, season, game, logged, rated, rate_memory, log)
+            status = _store_game(
+                settings,
+                source,
+                season,
+                game,
+                logged,
+                rated,
+                rate_memory,
+                log,
+                season_type=st,
+            )
         except SeasonFrozenError:
             result.skipped_games += 1
             done += 1
@@ -195,6 +244,8 @@ def _store_game(
     rated: set[str],
     rate_memory: list[dict],
     log,
+    *,
+    season_type: str | None = None,
 ) -> str:
     """Store one game. Returns complete, logged, or missing."""
     need_logs = game.game_id not in logged
@@ -204,7 +255,7 @@ def _store_game(
     if need_logs:
         players, team_points = _load_box(source, season, game)
     elif need_rates:
-        players = _players_from_logs(settings, season, game.game_id)
+        players = _players_from_logs(settings, season, game.game_id, season_type=season_type)
         team_points = {
             game.home_team_id: game.home_pts or 0,
             game.away_team_id: game.away_pts or 0,
@@ -236,6 +287,7 @@ def _store_game(
             season,
             player_rows_from_box(season, game, players, team_points),
             log,
+            season_type=season_type,
         )
         _store_open(
             settings,
@@ -243,14 +295,31 @@ def _store_game(
             season,
             team_rows(season, game, team_points, pace, overtime),
             log,
+            season_type=season_type,
         )
     elif players and not missing:
-        _fill_team_pace(settings, season, game, team_points, pace, overtime, log)
+        _fill_team_pace(
+            settings, season, game, team_points, pace, overtime, log, season_type=season_type
+        )
     if need_rates and not missing:
         rate_memory[:] = [row for row in rate_memory if str(row["game_id"]) != game.game_id]
         rate_memory.extend(rate_rows)
-        store_rows(settings, "player_game_rates", season, rate_memory)
-    _store_open(settings, "schedule", season, [schedule_row(season, game)], log)
+        store_rows(
+            settings,
+            "player_game_rates",
+            season,
+            rate_memory,
+            season_type=season_type,
+            allow_historical=True,
+        )
+    _store_open(
+        settings,
+        "schedule",
+        season,
+        [schedule_row(season, game)],
+        log,
+        season_type=season_type,
+    )
     if missing:
         log(
             f"Stored {game.game_id} {game.game_date} {game.away_abbr} at {game.home_abbr}. "
@@ -266,20 +335,33 @@ def _log_progress(log, season: str, season_type: str, done: int, total: int, fai
         log(f"{season} {season_type}: {done}/{total} games, failures {failures}")
 
 
-def _fill_team_pace(settings, season: str, game: ScheduleGame, team_points, pace, overtime, log) -> None:
+def _fill_team_pace(
+    settings,
+    season: str,
+    game: ScheduleGame,
+    team_points,
+    pace,
+    overtime,
+    log,
+    *,
+    season_type: str | None = None,
+) -> None:
     """Write team rows, or fill pace when an earlier run stored the score without play-by-play."""
-    if game.game_id not in stored_game_ids(settings, "team_game_results", season):
+    if game.game_id not in stored_game_ids(
+        settings, "team_game_results", season, season_type=season_type
+    ):
         _store_open(
             settings,
             "team_game_results",
             season,
             team_rows(season, game, team_points, pace, overtime),
             log,
+            season_type=season_type,
         )
         return
     if not pace:
         return
-    existing = read_rows(settings, "team_game_results", season)
+    existing = read_rows(settings, "team_game_results", season, season_type=season_type)
     if not any(str(row["game_id"]) == game.game_id and row.get("pace") is None for row in existing):
         return
     fresh = {int(row["team_id"]): row for row in team_rows(season, game, team_points, pace, overtime)}
@@ -290,17 +372,45 @@ def _fill_team_pace(settings, season: str, game: ScheduleGame, team_points, pace
             updated.append(replacement if replacement is not None else row)
         else:
             updated.append(row)
-    rewrite_unfrozen_rows(settings, "team_game_results", season, updated, allow_historical=True)
+    rewrite_unfrozen_rows(
+        settings,
+        "team_game_results",
+        season,
+        updated,
+        allow_historical=True,
+        season_type=season_type,
+    )
 
 
-def _store_open(settings: Settings, table: str, season: str, rows: list[dict], log) -> None:
+def _store_open(
+    settings: Settings,
+    table: str,
+    season: str,
+    rows: list[dict],
+    log,
+    *,
+    season_type: str | None = None,
+) -> None:
     try:
-        store_rows(settings, table, season, rows, allow_historical=True)
+        store_rows(
+            settings,
+            table,
+            season,
+            rows,
+            allow_historical=True,
+            season_type=season_type,
+        )
     except SeasonFrozenError as exc:
         log(str(exc))
 
 
-def _players_from_logs(settings: Settings, season: str, game_id: str) -> list[dict]:
+def _players_from_logs(
+    settings: Settings,
+    season: str,
+    game_id: str,
+    *,
+    season_type: str | None = None,
+) -> list[dict]:
     return [
         {
             "player_id": row["player_id"],
@@ -310,7 +420,7 @@ def _players_from_logs(settings: Settings, season: str, game_id: str) -> list[di
             "starter": "1" if row.get("started") else "0",
             "played": "1",
         }
-        for row in read_rows(settings, "player_game_logs", season)
+        for row in read_rows(settings, "player_game_logs", season, season_type=season_type)
         if str(row["game_id"]) == game_id
     ]
 

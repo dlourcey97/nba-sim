@@ -69,8 +69,11 @@ def run_slate(
     allow_historical: bool = False,
     clear_json_first: bool = False,
     finish: bool = False,
+    season_type: str | None = None,
+    minutes_bundles: list | None = None,
+    minutes_recent_decay: float | None = None,
 ) -> SlateResult:
-    schedule = read_rows(settings, "schedule", season)
+    schedule = read_rows(settings, "schedule", season, season_type=season_type)
     selected = []
     for row in schedule:
         if game_ids is not None and str(row["game_id"]) not in set(game_ids):
@@ -93,6 +96,9 @@ def run_slate(
             game_id=str(row["game_id"]),
             injuries=injury_rows,
             as_of=row["game_date"],
+            season_type=season_type,
+            minutes_bundles=minutes_bundles,
+            minutes_recent_decay=minutes_recent_decay,
         )
         sim = simulate_game(
             projection,

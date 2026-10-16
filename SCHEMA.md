@@ -3,8 +3,9 @@
 All analytical data is DuckDB-readable Parquet under `DATA_DIR`.
 Do not open data files to remember the layout. Use this document.
 
-Partition path: `{DATA_DIR}/{table}/season={season}/data.parquet`.
-One Parquet file per season. `season` looks like `2025-26`.
+Partition path: `{DATA_DIR}/{table}/season={season}/data.parquet` for Regular Season / Playoffs / PlayIn (same season file as before).
+Preseason is isolated: `{DATA_DIR}/{table}/season={season}/season_type=Preseason/data.parquet`.
+`season` looks like `2025-26`. `list_seasons` / default `read_rows` only see the Regular Season path, so Preseason never enters projections or backtests unless `season_type=Preseason` is passed explicitly.
 
 Write policies:
 
