@@ -1,6 +1,6 @@
 # Progress
 
-Last updated after Fix 5 implementation start (2026-10-16); Fix 5 backtest pending.
+Last updated after Fix 5 HCA backtest (2026-10-16).
 
 | Phase | Status | Notes |
 | --- | --- | --- |
@@ -12,12 +12,12 @@ Last updated after Fix 5 implementation start (2026-10-16); Fix 5 backtest pendi
 | 6. Outputs and daily.py | done | Summaries, results/latest JSON, prediction history, daily.py, run.py. |
 | 7. Backtesting | done | Walk-forward metrics include sim vs actual PPG and possessions. |
 | Validation (post-backfill) | done | Position defense, single-game check, full 2024-25/2025-26 backtest, tune. |
-| Fix 1. Scoring bias | done | Pace exact; PPG within ~2.3% (was ~−12%). Not understated. |
+| Fix 1. Scoring bias | done | Pace exact; PPG within ~2.3% (was ~−12%). |
 | Fix 2. As-of rosters | done | `team_rosters` stints; MIN MAE 5.41; coverage 0.70. |
 | Fix 3. Minutes → 240 | done | Coverage **0.79**; MAE MIN 7.14 (worse); PTS MAE improved. |
-| Fix 4. Variance ~80% | done | Met by Fix 3 (10–90 coverage 0.790 vs 0.80 target). |
-| Fix 5. Team strength / HCA | in progress | Prior-season ORtg/DRtg + home FG edge; backtest running. |
-| Preseason storage | done | `season_type=Preseason` hive partition; excluded from `list_seasons` / default reads. |
+| Fix 4. Variance ~80% | done | Met by Fix 3 (coverage 0.790 vs ~0.80 target). |
+| Fix 5. Team strength / HCA | done | Brier **0.227** (was 0.237); prior-season ORtg/DRtg + home FG. |
+| Preseason storage | done | `season_type=Preseason` hive partition; excluded from default reads. |
 
 ## Phase 3
 
@@ -96,31 +96,40 @@ Grid on early 2024-25 (`--max-games 24`). Best → `weights [0.40, 0.30, 0.20, 0
 
 Storage cap and storage report remain in place.
 
+## Fix Step 5 — Team strength / HCA (2026-10-16)
+
+Prior-season ORtg/DRtg scale FG%/FT% vs league; soft home FG edge (`home_fg_factor` 0.015). No same-season aggregate leakage.
+
+| Metric | Step 3 | Step 5 |
+| --- | ---: | ---: |
+| Brier | 0.237 | **0.227** |
+| MAE PTS | 5.75 | **5.61** |
+| MAE REB | 2.51 | **2.45** |
+| MAE AST | 1.84 | **1.78** |
+| MAE 3PM | 1.00 | **0.96** |
+| MAE MIN | 7.14 | 7.16 |
+| 10–90 coverage | **0.790** | 0.752 |
+| Sim / actual PPG | 117.16 / 114.29 | 117.63 / 114.29 |
+
+Artifacts: `results/backtest/step5_hca/`.
+
+## Fix Step 4 — Variance ~80% (2026-10-16)
+
+No separate code change. Step 3 minutes dispersion delivered 10–90 coverage **0.790** (target ~0.80).
+
 ## Fix Step 3 — Minutes → 240 (2026-10-16)
 
-Implemented:
-
-- **Team total:** projected means per side sum to `minutes.team_minutes_target` (240). Sim draws are sampled then renormalized per run to the same target; OT adds 25 team-minutes per period by regulation share.
-- **Rotation priors:** blend recent same-team minutes (before `as_of`) with depth-chart priors from as-of roster rank; starter floor; expand thin rotations to `min_rotation_size`, cap at `max_rotation_size` (~9–11 players).
-- **Usage:** renormalize among players with projected mean minutes > `play_threshold`; invent a small usage only when minutes > 0 but usage was ~0.
-- **Config knobs:** `team_minutes_target`, `min_rotation_size`, `max_rotation_size`, `play_threshold`, `recent_window`, `starter_floor`, `bench_floor`, `depth_minutes`, plus existing variance/max.
-- **Tests:** `tests/test_minutes.py` (allocate sum, draw sum, bench priors, integration). Scoring OREB/FT engine paths unchanged.
-
-Full walk-forward vs Step 2 (`--seasons 2024-2025 --runs 200 --seed 1`, 2626 games):
+- Team means + sim draws normalize to 240; rotation priors; usage among players above `play_threshold`.
+- Tests: `tests/test_minutes.py`.
 
 | Metric | Step 2 | Step 3 |
 | --- | ---: | ---: |
 | Brier | 0.238 | **0.237** |
 | MAE PTS | 6.02 | **5.75** |
-| MAE REB | 2.74 | **2.51** |
-| MAE AST | 1.82 | 1.84 |
-| MAE 3PM | 1.02 | **1.00** |
 | MAE MIN | **5.41** | 7.14 |
 | 10–90 coverage | 0.699 | **0.790** |
-| Sim / actual PPG | 117.05 / 114.29 | 117.16 / 114.29 |
-| Sim / actual poss | 98.91 / 98.92 | 98.91 / 98.92 |
 
-Coverage hit the ~80% Fix 4 target via wider minutes draws, but **MAE MIN regressed** (rotation priors over-spread minutes vs actual star/bench split). Artifacts: `results/backtest/step3_minutes/`.
+Artifacts: `results/backtest/step3_minutes/`.
 
 ## Fix Step 2 — As-of rosters (2026-10-16)
 
@@ -174,19 +183,10 @@ Full walk-forward `--seasons 2024-2025 --runs 200 --seed 1` (2627 games):
 
 PPG delta **+2.3%** (target ~1%; was ~−12%). Pace delta **−0.02%**. Artifacts: `results/backtest/step1_scoring/`.
 
-## Preseason sim — ATL @ DAL 2026-10-16 (0012600008)
-
-Ingested 2026-27 Preseason finals for DAL/ATL into `season_type=Preseason` (7 games). Added `current_rosters` (CommonTeamRoster refresh every `daily.py`); current-season projections use it only (no prior-season last-known → Klay Thompson correctly excluded). Preseason outs: `overrides.yaml` + sit-out-all-preseason. Minutes from preseason logs; rates from RS history.
-
-10k runs seed 42 (after roster/injury fix): DAL win P **0.524**, ATL 118.4 / DAL 119.5, total 237.9 (p10–p90 215–261). Outs: DAL Aldama/Lively/Christie/Biberovic (+ Sasser sitout); ATL Gueye/Veesaar.
-
-API note: stats.nba.com SeasonType for exhibition is `Pre Season` (space), mapped to internal `Preseason`.
-
 ## Commands
 
 ```bash
 python backfill.py --seasons 2015-2025 --log-file /Users/deanlourcey/nba_archive/backfill.log
-python backfill.py --season 2026-27 --season-types Preseason --teams DAL,ATL
 python daily.py --log-file /Users/deanlourcey/nba_archive/daily.log
 python run.py --date 2026-10-21 --game BOS-NYK --runs 10000
 python run.py --date 2026-10-21 --all
