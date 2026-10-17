@@ -12,11 +12,14 @@ class MetricReport:
     games: int
     player_rows: int
     brier_win: float
+    log_loss_win: float
     mae_pts: float
     mae_reb: float
     mae_ast: float
     mae_fg3m: float
     mae_min: float
+    crps_pts: float
+    pit_pts_mean: float
     coverage_10_90: float
     calibration_bins: list[dict[str, float]]
     sim_ppg: float = float("nan")
@@ -29,11 +32,14 @@ class MetricReport:
             "games": self.games,
             "player_rows": self.player_rows,
             "brier_win": _json_float(self.brier_win),
+            "log_loss_win": _json_float(self.log_loss_win),
             "mae_pts": _json_float(self.mae_pts),
             "mae_reb": _json_float(self.mae_reb),
             "mae_ast": _json_float(self.mae_ast),
             "mae_fg3m": _json_float(self.mae_fg3m),
             "mae_min": _json_float(self.mae_min),
+            "crps_pts": _json_float(self.crps_pts),
+            "pit_pts_mean": _json_float(self.pit_pts_mean),
             "coverage_10_90": _json_float(self.coverage_10_90),
             "sim_ppg": _json_float(self.sim_ppg),
             "actual_ppg": _json_float(self.actual_ppg),
@@ -58,10 +64,44 @@ def brier_score(probs: np.ndarray, outcomes: np.ndarray) -> float:
     return float(np.mean((probs - outcomes) ** 2))
 
 
+def log_loss(probs: np.ndarray, outcomes: np.ndarray, *, eps: float = 1e-15) -> float:
+    """Binary cross-entropy for home-win probability."""
+    if probs.size == 0:
+        return float("nan")
+    p = np.clip(np.asarray(probs, dtype=float), eps, 1.0 - eps)
+    y = np.asarray(outcomes, dtype=float)
+    return float(-np.mean(y * np.log(p) + (1.0 - y) * np.log(1.0 - p)))
+
+
 def mean_abs_error(pred: np.ndarray, actual: np.ndarray) -> float:
     if pred.size == 0:
         return float("nan")
     return float(np.mean(np.abs(pred - actual)))
+
+
+def crps_from_samples(samples: np.ndarray, actual: float) -> float:
+    """Empirical CRPS for one observation given Monte Carlo samples.
+
+    CRPS = E|X - y| - 0.5 E|X - X'|. Lower is better.
+    """
+    xs = np.asarray(samples, dtype=float).ravel()
+    n = xs.size
+    if n == 0:
+        return float("nan")
+    mae = float(np.mean(np.abs(xs - float(actual))))
+    ordered = np.sort(xs)
+    # sum_{i,j} |x_i - x_j| / n^2  with 1-based ranks
+    ranks = np.arange(1, n + 1, dtype=float)
+    pairwise = (2.0 / (n * n)) * float(np.sum((2.0 * ranks - n - 1.0) * ordered))
+    return mae - 0.5 * pairwise
+
+
+def pit_from_samples(samples: np.ndarray, actual: float) -> float:
+    """Probability integral transform F_hat(y). Calibrated ⇒ ~Uniform(0,1)."""
+    xs = np.asarray(samples, dtype=float).ravel()
+    if xs.size == 0:
+        return float("nan")
+    return float(np.mean(xs <= float(actual)))
 
 
 def percentile_coverage(actual: np.ndarray, p10: np.ndarray, p90: np.ndarray) -> float:

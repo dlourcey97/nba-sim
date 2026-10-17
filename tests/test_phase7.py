@@ -11,8 +11,11 @@ from backtest.evaluate import evaluate_seasons
 from backtest.metrics import (
     brier_score,
     calibration_bins,
+    crps_from_samples,
+    log_loss,
     mean_abs_error,
     percentile_coverage,
+    pit_from_samples,
     write_calibration_svg,
 )
 from backtest.tune import candidate_configs, score_report
@@ -23,12 +26,16 @@ def test_metric_helpers(tmp_path: Path):
     probs = np.array([0.2, 0.4, 0.6, 0.8])
     outcomes = np.array([0.0, 0.0, 1.0, 1.0])
     assert brier_score(probs, outcomes) == np.mean((probs - outcomes) ** 2)
+    assert log_loss(probs, outcomes) > 0.0
     assert mean_abs_error(np.array([10.0, 20.0]), np.array([12.0, 18.0])) == 2.0
     assert percentile_coverage(
         np.array([5.0, 15.0, 25.0]),
         np.array([0.0, 10.0, 20.0]),
         np.array([10.0, 20.0, 30.0]),
     ) == np.mean([True, True, True])
+    samples = np.array([8.0, 10.0, 12.0, 14.0, 16.0])
+    assert crps_from_samples(samples, 12.0) < crps_from_samples(samples, 30.0)
+    assert 0.0 <= pit_from_samples(samples, 12.0) <= 1.0
     bins = calibration_bins(probs, outcomes, n_bins=4)
     assert len(bins) == 4
     svg = tmp_path / "cal.svg"
@@ -48,11 +55,16 @@ def test_walk_forward_on_data_dir(tmp_path: Path):
     assert report.games == 3
     assert report.player_rows > 0
     assert 0.0 <= report.brier_win <= 1.0
+    assert report.log_loss_win >= 0.0
     assert report.mae_pts >= 0.0
+    assert report.crps_pts >= 0.0
+    assert 0.0 <= report.pit_pts_mean <= 1.0
     assert 0.0 <= report.coverage_10_90 <= 1.0
     out = tmp_path / "metrics.json"
     out.write_text(json.dumps(report.as_dict()), encoding="utf-8")
     assert out.is_file()
+    payload = json.loads(out.read_text(encoding="utf-8"))
+    assert "log_loss_win" in payload and "crps_pts" in payload
 
 
 def test_tune_candidates_and_score():

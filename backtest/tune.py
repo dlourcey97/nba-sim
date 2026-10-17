@@ -22,15 +22,21 @@ from nba_sim.storage import finish_run
 
 
 def score_report(report) -> float:
-    """Lower is better. Emphasize Brier and points MAE."""
+    """Lower is better. Optimize calibration, not MAE alone.
+
+    Primary: log loss (win prob), CRPS (PTS distributions), 10–90 coverage
+    near 80%, PIT mean near 0.5. MAE is a light tiebreaker only.
+    """
+    log_loss_win = getattr(report, "log_loss_win", float("nan"))
+    crps_pts = getattr(report, "crps_pts", float("nan"))
+    pit_mean = getattr(report, "pit_pts_mean", float("nan"))
     parts = [
-        2.0 * float(report.brier_win),
-        0.05 * float(report.mae_pts),
-        0.03 * float(report.mae_reb),
-        0.03 * float(report.mae_ast),
-        0.04 * float(report.mae_fg3m),
-        0.01 * float(report.mae_min),
-        abs(float(report.coverage_10_90) - 0.80),
+        1.50 * float(log_loss_win),
+        0.10 * float(crps_pts),
+        2.00 * abs(float(report.coverage_10_90) - 0.80),
+        1.00 * abs(float(pit_mean) - 0.50),
+        0.50 * float(report.brier_win),
+        0.01 * float(report.mae_pts),
     ]
     if any(value != value for value in parts):  # NaN check
         return 1e9
@@ -102,8 +108,10 @@ def main(argv: list[str] | None = None) -> int:
             trials.append(trial)
             print(
                 f"trial {index}: score={value:.4f} form={trial['form_decay']} "
-                f"reg={trial['regression_strength']} brier={report.brier_win:.4f} "
-                f"mae_pts={report.mae_pts:.2f}"
+                f"reg={trial['regression_strength']} "
+                f"logloss={getattr(report, 'log_loss_win', float('nan')):.4f} "
+                f"crps_pts={getattr(report, 'crps_pts', float('nan')):.3f} "
+                f"cov={report.coverage_10_90:.3f}"
             )
             if value < best_score:
                 best_score = value

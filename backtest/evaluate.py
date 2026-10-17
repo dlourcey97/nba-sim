@@ -18,7 +18,10 @@ from backtest.metrics import (
     MetricReport,
     brier_score,
     calibration_bins,
+    crps_from_samples,
+    log_loss,
     mean_abs_error,
+    pit_from_samples,
     write_calibration_svg,
 )
 from ingest.parse import parse_seasons
@@ -56,6 +59,8 @@ def evaluate_seasons(
     pred_min: list[float] = []
     act_min: list[float] = []
     cover_hits: list[float] = []
+    crps_pts_vals: list[float] = []
+    pit_pts_vals: list[float] = []
     sim_team_pts: list[float] = []
     act_team_pts: list[float] = []
     sim_poss: list[float] = []
@@ -139,9 +144,9 @@ def evaluate_seasons(
                 act_poss.append(float(away_tr["pace"]))
             else:
                 act_poss.append(float(sim.away_possessions))
-            del sim
             home_probs.append(summary.home_win_prob)
             home_wins.append(1.0 if int(row["home_pts"]) > int(row["away_pts"]) else 0.0)
+            id_to_idx = {int(pid): index for index, pid in enumerate(sim.player_ids)}
             for player in summary.players:
                 actual = logs.get((summary.game_id, player.player_id))
                 if actual is None:
@@ -161,6 +166,13 @@ def evaluate_seasons(
                     and float(actual["pts"]) <= player.stats["pts"].p90
                 )
                 cover_hits.append(1.0 if inside else 0.0)
+                idx = id_to_idx.get(int(player.player_id))
+                if idx is not None:
+                    samples = sim.pts[idx]
+                    y_pts = float(actual["pts"])
+                    crps_pts_vals.append(crps_from_samples(samples, y_pts))
+                    pit_pts_vals.append(pit_from_samples(samples, y_pts))
+            del sim
             games += 1
             if progress_every and games % progress_every == 0:
                 print(f"evaluated {games} games...", flush=True)
@@ -173,11 +185,14 @@ def evaluate_seasons(
         games=games,
         player_rows=len(act_pts),
         brier_win=brier_score(probs, outcomes),
+        log_loss_win=log_loss(probs, outcomes),
         mae_pts=mean_abs_error(np.asarray(pred_pts), np.asarray(act_pts)),
         mae_reb=mean_abs_error(np.asarray(pred_reb), np.asarray(act_reb)),
         mae_ast=mean_abs_error(np.asarray(pred_ast), np.asarray(act_ast)),
         mae_fg3m=mean_abs_error(np.asarray(pred_fg3m), np.asarray(act_fg3m)),
         mae_min=mean_abs_error(np.asarray(pred_min), np.asarray(act_min)),
+        crps_pts=float(np.mean(crps_pts_vals)) if crps_pts_vals else float("nan"),
+        pit_pts_mean=float(np.mean(pit_pts_vals)) if pit_pts_vals else float("nan"),
         coverage_10_90=float(np.mean(cover_hits)) if cover_hits else float("nan"),
         calibration_bins=calibration_bins(probs, outcomes),
         sim_ppg=float(np.mean(sim_team_pts)) if sim_team_pts else float("nan"),
