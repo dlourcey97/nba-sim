@@ -1,6 +1,6 @@
 # Progress
 
-Last updated after Upgrade 1 calibration metrics (in progress 2026-10-17).
+Last updated after Upgrade 1 calibration backtest (2026-10-17).
 
 | Phase | Status | Notes |
 | --- | --- | --- |
@@ -10,7 +10,7 @@ Last updated after Upgrade 1 calibration metrics (in progress 2026-10-17).
 | 4. Projections | done | Blend, context, absence redistribution, minutes model, zone + position defense. |
 | 5. Simulation | done | Vectorized possession engine; OREB no longer consumes pace budget. |
 | 6. Outputs and daily.py | done | Summaries, results/latest JSON, prediction history, daily.py, run.py. |
-| 7. Backtesting | done | Walk-forward metrics include sim vs actual PPG and possessions. |
+| 7. Backtesting | done | Walk-forward includes log loss, CRPS, PIT alongside MAE/Brier. |
 | Validation (post-backfill) | done | Position defense, single-game check, full 2024-25/2025-26 backtest, tune. |
 | Fix 1. Scoring bias | done | Pace exact; PPG within ~2.3% (was ~−12%). |
 | Fix 2. As-of rosters | done | `team_rosters` stints; MIN MAE 5.41; coverage 0.70. |
@@ -18,7 +18,9 @@ Last updated after Upgrade 1 calibration metrics (in progress 2026-10-17).
 | Fix 4. Variance ~80% | done | Met by Fix 3 (coverage 0.790 vs ~0.80 target). |
 | Fix 5. Team strength / HCA | done | Brier **0.227** (was 0.237); prior-season ORtg/DRtg + home FG. |
 | Fix 6. Minutes MAE + roster strength | done | MIN MAE **5.61** (was 7.16); roster-weighted ORtg/DRtg; usage pseudo-possessions. |
-| U1. Tuning → calibration | in progress | Log loss, CRPS, PIT; tune objective no longer MAE-first. |
+| U1. Tuning → calibration | done | Log loss / CRPS / PIT metrics; tune scores calibration not MAE. |
+| U2. Stint-based rotations | not started | Needs compact PBP lineup-stint table (not stored today). |
+| U3–U8 | not started | Game-state, RAPM, overdispersion, Kalman, clusters, incentives. |
 | Preseason storage | done | `season_type=Preseason` hive partition; excluded from default reads. |
 
 ## Phase 3
@@ -41,12 +43,6 @@ Opponent defense:
 ## Phase 6
 
 Summaries → `results/latest/*.json` and `prediction_history` (actuals filled after finals). `run.py` for single games/slates. `daily.py` for ingest → injuries → sim → storage report.
-
-## Phase 7
-
-- `backtest/metrics.py`: Brier (home win), MAE for PTS/REB/AST/3PM/MIN, 10th–90th coverage, calibration bins, SVG plot.
-- `backtest/evaluate.py`: walk-forward over finals with prior same-season games only; caches season bundles and same-`as_of` priors/defense.
-- `backtest/tune.py`: small grid over `form_decay`, `regression_strength`, and season weights; optional `--write` into `config.yaml`.
 
 ## Validation (2026-10-16)
 
@@ -102,7 +98,25 @@ Storage cap and storage report remain in place.
 
 - Metrics: `log_loss_win`, `crps_pts` (empirical CRPS from sim draws), `pit_pts_mean`.
 - `backtest/tune.py` `score_report` optimizes log loss + CRPS + coverage≈0.80 + PIT≈0.5 (MAE tiebreaker only).
-- Full backtest artifacts: `results/backtest/upgrade1_calibration/` (pending).
+- Same model as Fix 6; this step adds calibration metrics and retargets the tuner.
+
+| Metric | Fix 6 (no logloss/CRPS) | Upgrade 1 |
+| --- | ---: | ---: |
+| Brier | 0.222 | 0.222 |
+| Log loss | — | **0.634** |
+| CRPS PTS | — | **4.38** |
+| PIT mean | — | **0.669** (ideal ~0.50) |
+| MAE PTS | 5.47 | 5.47 |
+| MAE MIN | 5.61 | 5.61 |
+| 10–90 coverage | 0.750 | 0.750 |
+| Sim / actual PPG | 117.74 / 114.29 | 117.74 / 114.29 |
+
+PIT > 0.5 and coverage ~75% show remaining underdispersion (addressed in U5). Artifacts: `results/backtest/upgrade1_calibration/`.
+
+## Phase 7 (updated)
+
+- `backtest/metrics.py`: Brier, **log loss**, MAE, **CRPS**, **PIT**, 10th–90th coverage, calibration bins.
+- `backtest/tune.py`: calibration objective (log loss + CRPS + coverage/PIT), not MAE-first.
 
 ## Fix Step 6 — Minutes MAE + roster team strength (2026-10-17)
 
