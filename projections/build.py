@@ -50,6 +50,7 @@ from projections.minutes import (
     rotation_base_minutes,
 )
 from projections.rates import RateVector
+from projections.game_state import GameStateModel, load_game_state_model
 from projections.rotations import (
     RotationModel,
     expected_abs_margin_from_strength,
@@ -90,6 +91,7 @@ class GameProjection:
     players: list[PlayerProjection]
     expected_abs_margin: float = 8.0
     rotation: RotationModel | None = None
+    game_state: GameStateModel | None = None
 
 
 @dataclass
@@ -110,6 +112,9 @@ class ProjectionCache:
     appearances_by_team: dict[int, dict[int, int]] | None = None
     last_team_by_player: dict[int, int] | None = None
     rotation: RotationModel | None = None
+    game_state: GameStateModel | None = None
+    # Shared stint rows by season (loaded once; date-filtered by consumers).
+    stint_rows_by_season: dict[str, list] = field(default_factory=dict)
 
     def reset_if_needed(self, as_of: date) -> None:
         if self.as_of != as_of:
@@ -122,8 +127,8 @@ class ProjectionCache:
             self.pos_by_team.clear()
             self.appearances_by_team = None
             self.last_team_by_player = None
-            # Keep rotation across as_of dates: priors are fit from prior-season
-            # stints / box scores and re-fitting every slate date is too slow.
+            # Keep rotation / game_state across as_of dates: priors are fit from
+            # prior-season stints and re-fitting every slate date is too slow.
 
     def roster_rows(self, settings: Settings, season: str) -> list:
         if season not in self.roster_rows_by_season:
@@ -382,9 +387,22 @@ def _build(
     league_str = league_strength(prior_strength) if prior_strength else league_strength({})
     if cache.rotation is None:
         cache.rotation = load_rotation_model(
-            settings, bundles, as_of=as_of, config=config
+            settings,
+            bundles,
+            as_of=as_of,
+            config=config,
+            stint_cache=cache.stint_rows_by_season,
         )
     rotation = cache.rotation
+    if cache.game_state is None:
+        cache.game_state = load_game_state_model(
+            settings,
+            bundles,
+            as_of=as_of,
+            config=config,
+            stint_cache=cache.stint_rows_by_season,
+        )
+    game_state = cache.game_state
     home_prior = prior_strength.get(home_team_id)
     away_prior = prior_strength.get(away_team_id)
     if home_prior is not None and away_prior is not None:
@@ -666,6 +684,7 @@ def _build(
         players=players,
         expected_abs_margin=float(refined_margin),
         rotation=rotation,
+        game_state=game_state,
     )
 
 

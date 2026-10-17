@@ -22,6 +22,10 @@ simulation:
   runs: 10000
   # Null draws a fresh seed per game. Set an integer to reproduce a run.
   seed: null
+  # Late-game intentional foul probability when defense trails in a close Q4.
+  intentional_foul_prob: 0.22
+  # Soft remaining-budget scale applied once when progress crosses 0.70.
+  late_pace_adjust: true
 
 blending:
   season_weights:

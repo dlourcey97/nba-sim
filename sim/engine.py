@@ -129,7 +129,19 @@ def simulate_game(
     away_hot = np.clip(rng.normal(1.0, 0.08, size=n_runs), 0.82, 1.18)
     # Pace targets possession *endings* (NBA pace). OREB continuations must not
     # consume the budget — only dead balls, makes, FT trips, and DREBs count.
-    target_endings = np.clip(np.round(home_poss + away_poss).astype(int), 160, 260)
+    base_target = np.clip(np.round(home_poss + away_poss).astype(int), 160, 260)
+    target_endings = base_target.copy()
+    sim_cfg = cfg.get("simulation", {})
+    late_pace_adjust = bool(sim_cfg.get("late_pace_adjust", True))
+    game_state = getattr(projection, "game_state", None)
+    if game_state is None:
+        from projections.game_state import default_game_state_model
+
+        game_state = default_game_state_model(cfg)
+    foul_prob = float(
+        sim_cfg.get("intentional_foul_prob", game_state.intentional_foul_prob)
+    )
+    pace_adjusted = np.zeros(n_runs, dtype=bool)
 
     pts = np.zeros((n_players, n_runs), dtype=float)
     reb = np.zeros((n_players, n_runs), dtype=float)
@@ -144,7 +156,7 @@ def simulate_game(
     offense_home = rng.random(n_runs) < 0.5
     endings = np.zeros(n_runs, dtype=np.int32)
     # Allow extra iterations for OREB retries (typical OREB rate ~25% of misses).
-    max_iters = int(target_endings.max() * 1.55) + 20
+    max_iters = int(base_target.max() * 1.55) + 20
     run_ids = np.arange(n_runs)
     for _ in range(max_iters):
         active = endings < target_endings
@@ -152,15 +164,38 @@ def simulate_game(
             break
         period_idx, bucket_idx = _period_bucket_indexes(
             endings,
-            target_endings,
+            base_target,
             home_pts,
             away_pts,
             expected_margin=expected_margin,
             close_thr=close_thr,
             blowout_thr=blowout_thr,
         )
+        progress = endings.astype(float) / np.maximum(1.0, base_target.astype(float))
+        # Once past ~70% of regulation, scale remaining endings by game state
+        # (trail haste / lead slowdown / garbage time). Applied once per run.
+        if late_pace_adjust:
+            due = active & ~pace_adjusted & (progress >= 0.70)
+            if np.any(due):
+                factors = game_state.blend_factor_array(
+                    period_idx,
+                    np.abs(home_pts - away_pts),
+                    close_thr=close_thr,
+                    blowout_thr=blowout_thr,
+                )
+                remaining = np.maximum(0, target_endings - endings)
+                target_endings = np.where(
+                    due,
+                    endings
+                    + np.clip(np.round(remaining * factors), 8, 80).astype(np.int32),
+                    target_endings,
+                )
+                target_endings = np.clip(target_endings, 160, 280)
+                pace_adjusted |= due
         home_lineups = home_grid[run_ids, period_idx, bucket_idx]
         away_lineups = away_grid[run_ids, period_idx, bucket_idx]
+        # Intentional fouls only matter in late Q4; skip the branch earlier.
+        foul_p = foul_prob if float(progress.max()) >= 0.85 else 0.0
         home_delta, away_delta, offense_home, ended = _vector_possession(
             rng,
             packed,
@@ -177,6 +212,12 @@ def simulate_game(
             tov,
             home_hot=home_hot,
             away_hot=away_hot,
+            home_pts=home_pts if foul_p > 0 else None,
+            away_pts=away_pts if foul_p > 0 else None,
+            period_idx=period_idx if foul_p > 0 else None,
+            progress=progress if foul_p > 0 else None,
+            close_thr=close_thr,
+            intentional_foul_prob=foul_p,
         )
         home_pts += home_delta
         away_pts += away_delta
@@ -457,6 +498,12 @@ def _vector_possession(
     tov: np.ndarray,
     home_hot: np.ndarray | None = None,
     away_hot: np.ndarray | None = None,
+    home_pts: np.ndarray | None = None,
+    away_pts: np.ndarray | None = None,
+    period_idx: np.ndarray | None = None,
+    progress: np.ndarray | None = None,
+    close_thr: float = 6.0,
+    intentional_foul_prob: float = 0.0,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Return (home_delta, away_delta, next_offense_home, ended).
 
@@ -473,11 +520,53 @@ def _vector_possession(
     off_lineups = np.where(offense_home[:, None], home_lineups, away_lineups)
     def_lineups = np.where(offense_home[:, None], away_lineups, home_lineups)
 
+    # Late-game intentional foul: trailing defense fouls leading offense to
+    # stop the clock (2 FT, then possession flips to the fouling team).
+    is_int_foul = np.zeros(n_runs, dtype=bool)
+    if (
+        intentional_foul_prob > 0
+        and home_pts is not None
+        and away_pts is not None
+        and period_idx is not None
+        and progress is not None
+    ):
+        margin = home_pts - away_pts
+        # Offense is leading (defense trailing) in a close Q4 late game.
+        offense_leading = np.where(offense_home, margin > 0, margin < 0)
+        abs_m = np.abs(margin)
+        eligible = (
+            active
+            & (period_idx >= 3)
+            & (progress >= 0.85)
+            & offense_leading
+            & (abs_m > 0)
+            & (abs_m <= close_thr + 2.0)
+        )
+        is_int_foul = eligible & (rng.random(n_runs) < intentional_foul_prob)
+        if np.any(is_int_foul):
+            # Foul the best FT shooter among the five on offense.
+            ft_w = np.clip(packed["ft_pct"][off_lineups], 0.4, 0.95)
+            slot = _weighted_choice(rng, ft_w)
+            users = off_lineups[np.arange(n_runs), slot]
+            ft_pct = np.clip(packed["ft_pct"][users], 0.4, 0.95)
+            made = np.zeros(n_runs)
+            idx = np.flatnonzero(is_int_foul)
+            made[idx] = rng.binomial(2, ft_pct[idx])
+            np.add.at(pts, (users[is_int_foul], idx), made[is_int_foul])
+            home_delta = np.where(is_int_foul & offense_home, made, home_delta)
+            away_delta = np.where(is_int_foul & ~offense_home, made, away_delta)
+            next_offense_home[is_int_foul] = ~offense_home[is_int_foul]
+            ended[is_int_foul] = True
+
+    remaining_after_foul = active & ~is_int_foul
+    if not np.any(remaining_after_foul):
+        return home_delta, away_delta, next_offense_home, ended
+
     # Steal. Per-player rates are stl/def_poss; summing five on-court rates
     # overstates team steals, so scale toward league ~8 STL / 100 possessions.
     stl_w = packed["stl_rate"][def_lineups]
     stl_prob = np.clip(stl_w.sum(axis=1) * 0.78, 0.0, 0.095)
-    is_stl = active & (rng.random(n_runs) < stl_prob)
+    is_stl = remaining_after_foul & (rng.random(n_runs) < stl_prob)
     if np.any(is_stl):
         pick = _weighted_choice(rng, stl_w[is_stl])
         runners = np.flatnonzero(is_stl)

@@ -123,16 +123,22 @@ def load_rotation_model(
     *,
     as_of: date,
     config: dict[str, Any],
+    stint_cache: dict[str, list] | None = None,
 ) -> RotationModel:
     """Build a rotation model from stints as_of date, with box-score fallback."""
     model = RotationModel()
     stint_rows: list[dict] = []
     seasons_seen: list[str] = []
     for bundle in bundles:
-        try:
-            rows = read_rows(settings, "lineup_stints", bundle.season)
-        except Exception:
-            rows = []
+        if stint_cache is not None and bundle.season in stint_cache:
+            rows = stint_cache[bundle.season]
+        else:
+            try:
+                rows = read_rows(settings, "lineup_stints", bundle.season)
+            except Exception:
+                rows = []
+            if stint_cache is not None:
+                stint_cache[bundle.season] = rows
         if not rows:
             continue
         seasons_seen.append(bundle.season)
@@ -143,6 +149,9 @@ def load_rotation_model(
             stint_rows.append(row)
 
     if stint_rows:
+        if len(stint_rows) > 30000:
+            step = max(1, len(stint_rows) // 30000)
+            stint_rows = stint_rows[::step]
         _fit_from_stints(model, stint_rows)
         model.source = "stints:" + ",".join(seasons_seen)
     else:

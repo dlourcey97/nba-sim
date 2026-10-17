@@ -1,6 +1,6 @@
 # Progress
 
-Last updated after Upgrade 2 stint-rotation backtest (2026-10-17).
+Last updated after Upgrade 3 game-state backtest (2026-10-17).
 
 | Phase | Status | Notes |
 | --- | --- | --- |
@@ -20,7 +20,8 @@ Last updated after Upgrade 2 stint-rotation backtest (2026-10-17).
 | Fix 6. Minutes MAE + roster strength | done | MIN MAE **5.61** (was 7.16); roster-weighted ORtg/DRtg; usage pseudo-possessions. |
 | U1. Tuning → calibration | done | Log loss / CRPS / PIT metrics; tune scores calibration not MAE. |
 | U2. Stint-based rotations | done | PBP `lineup_stints`; margin×period lineups; depth multipliers. |
-| U3–U8 | not started | Game-state, RAPM, overdispersion, Kalman, clusters, incentives. |
+| U3. Game-state behavior | done | Late pace adjust + intentional fouls from stint-learned factors. |
+| U4–U8 | not started | RAPM, overdispersion, Kalman, clusters, incentives. |
 | Preseason storage | done | `season_type=Preseason` hive partition; excluded from default reads. |
 
 ## Phase 3
@@ -133,6 +134,26 @@ PIT > 0.5 and coverage ~75% show remaining underdispersion (addressed in U5). Ar
 | Sim / actual PPG | 117.74 / 114.29 | 117.51 / 114.29 |
 
 Regression vs U1: margin reallocation hurt MIN MAE and narrowed coverage (lineup grid concentrates floor time). Kept as the structural floor for U3–U4 (game-state + RAPM on stints). Artifacts: `results/backtest/upgrade2_stints/`.
+
+## Upgrade 3 — Game-state pace / intentional fouls (2026-10-17)
+
+- `projections/game_state.py`: pace factors by period × trail/lead/blowout from stint poss/sec (defaults if sparse).
+- Sim: at ~70% progress, scale remaining endings by blended pace factor; Q4 late close games allow intentional fouls (2 FT, possession flip).
+- Config: `simulation.intentional_foul_prob`, `late_pace_adjust`.
+
+| Metric | Upgrade 2 | Upgrade 3 |
+| --- | ---: | ---: |
+| Brier | 0.224 | 0.224 |
+| Log loss | **0.639** | 0.640 |
+| CRPS PTS | **4.59** | 4.65 |
+| PIT mean | 0.680 | 0.678 |
+| MAE PTS | **5.74** | 5.80 |
+| MAE MIN | **5.94** | 6.01 |
+| 10–90 coverage | **0.692** | 0.682 |
+| Sim / actual PPG | 117.51 / 114.29 | 118.41 / 114.29 |
+| Sim / actual poss | 98.95 / 98.92 | 98.95 / 98.92 |
+
+Small move vs U2; PPG slightly higher from late haste / foul FTs. Artifacts: `results/backtest/upgrade3_gamestate/`.
 
 ## Phase 7 (updated)
 
