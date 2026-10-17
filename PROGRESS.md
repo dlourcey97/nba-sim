@@ -22,7 +22,8 @@ Last updated after Upgrade 5 overdispersion backtest (2026-10-17).
 | U2. Stint-based rotations | done | PBP `lineup_stints`; margin×period lineups; depth multipliers. |
 | U3. Game-state behavior | done | Late pace adjust + intentional fouls from stint-learned factors. |
 | U4. Ridge RAPM | done | Stint RAPM → minutes-weighted roster ORtg/DRtg; λ by OOS MSE. |
-| U5–U8 | not started | Overdispersion, Kalman, clusters, incentives. |
+| U5. Variance (player RE + pace) | done | Per-player shoot/usage draws; pace_sd 5.5; minutes noise unchanged. |
+| U6–U8 | not started | Kalman, clusters, incentives. |
 | Preseason storage | done | `season_type=Preseason` hive partition; excluded from default reads. |
 
 ## Phase 3
@@ -175,6 +176,25 @@ Small move vs U2; PPG slightly higher from late haste / foul FTs. Artifacts: `re
 | Sim / actual PPG | 118.41 / 114.29 | 117.92 / 114.29 |
 
 Chosen λ often high (~5000) → strong shrink toward 0; win metrics flat vs U3. Artifacts: `results/backtest/upgrade4_rapm/`.
+
+## Upgrade 5 — Variance from player RE + pace (2026-10-17)
+
+- Per-run player shooting (`player_shoot_sd: 0.12`) and usage (`player_usage_sd: 0.10`) multipliers.
+- Wider game pace noise (`pace_sd: 5.5`); team hot/cold reduced to 0.05.
+- Minutes variance left at 5.0 — coverage must come from scoring/pace, not minutes inflation.
+
+| Metric | Upgrade 4 | Upgrade 5 |
+| --- | ---: | ---: |
+| Brier | 0.224 | 0.224 |
+| Log loss | 0.640 | **0.640** |
+| CRPS PTS | 4.65 | 4.65 |
+| PIT mean | 0.679 | 0.682 |
+| MAE PTS | 5.80 | 5.80 |
+| MAE MIN | 6.01 | 6.01 |
+| 10–90 coverage | 0.680 | **0.685** |
+| Sim / actual PPG | 117.92 / 114.29 | 117.84 / 114.29 |
+
+Coverage up slightly; still short of ~0.80. Artifacts: `results/backtest/upgrade5_overdisp/`.
 
 ## Phase 7 (updated)
 
