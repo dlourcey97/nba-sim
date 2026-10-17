@@ -121,17 +121,31 @@ def simulate_game(
         rng, away_idx, minutes, players, rotation=rotation
     )
 
-    home_poss = np.clip(rng.normal(projection.home_possessions, 3.5, size=n_runs), 80.0, 130.0)
-    away_poss = np.clip(rng.normal(projection.away_possessions, 3.5, size=n_runs), 80.0, 130.0)
-    # Per-run shooting variance (hot/cold nights) — widens PTS bands without
-    # inflating minutes noise. ~8% sd matches observed team FG% game spread.
-    home_hot = np.clip(rng.normal(1.0, 0.08, size=n_runs), 0.82, 1.18)
-    away_hot = np.clip(rng.normal(1.0, 0.08, size=n_runs), 0.82, 1.18)
+    sim_cfg = cfg.get("simulation", {})
+    pace_sd = float(sim_cfg.get("pace_sd", 5.5))
+    team_hot_sd = float(sim_cfg.get("team_hot_sd", 0.05))
+    player_shoot_sd = float(sim_cfg.get("player_shoot_sd", 0.12))
+    player_usage_sd = float(sim_cfg.get("player_usage_sd", 0.10))
+    home_poss = np.clip(
+        rng.normal(projection.home_possessions, pace_sd, size=n_runs), 80.0, 130.0
+    )
+    away_poss = np.clip(
+        rng.normal(projection.away_possessions, pace_sd, size=n_runs), 80.0, 130.0
+    )
+    # Team-level hot/cold (small) + per-player tonight effects (main overdispersion).
+    # Minutes noise is intentionally NOT inflated for coverage.
+    home_hot = np.clip(rng.normal(1.0, team_hot_sd, size=n_runs), 0.88, 1.12)
+    away_hot = np.clip(rng.normal(1.0, team_hot_sd, size=n_runs), 0.88, 1.12)
+    player_hot = np.clip(
+        rng.normal(1.0, player_shoot_sd, size=(n_players, n_runs)), 0.75, 1.30
+    )
+    player_usage = np.clip(
+        rng.normal(1.0, player_usage_sd, size=(n_players, n_runs)), 0.70, 1.35
+    )
     # Pace targets possession *endings* (NBA pace). OREB continuations must not
     # consume the budget — only dead balls, makes, FT trips, and DREBs count.
     base_target = np.clip(np.round(home_poss + away_poss).astype(int), 160, 260)
     target_endings = base_target.copy()
-    sim_cfg = cfg.get("simulation", {})
     late_pace_adjust = bool(sim_cfg.get("late_pace_adjust", True))
     game_state = getattr(projection, "game_state", None)
     if game_state is None:
@@ -212,6 +226,8 @@ def simulate_game(
             tov,
             home_hot=home_hot,
             away_hot=away_hot,
+            player_hot=player_hot,
+            player_usage=player_usage,
             home_pts=home_pts if foul_p > 0 else None,
             away_pts=away_pts if foul_p > 0 else None,
             period_idx=period_idx if foul_p > 0 else None,
@@ -256,6 +272,8 @@ def simulate_game(
                 tov,
                 home_hot=home_hot,
                 away_hot=away_hot,
+                player_hot=player_hot,
+                player_usage=player_usage,
             )
             home_pts += home_delta
             away_pts += away_delta
@@ -295,6 +313,20 @@ def simulate_game(
         home_possessions=float(np.mean(home_poss)),
         away_possessions=float(np.mean(away_poss)),
     )
+
+
+def _usage_weights(
+    packed: dict[str, np.ndarray],
+    off_lineups: np.ndarray,
+    player_usage: np.ndarray | None,
+    n_runs: int,
+) -> np.ndarray:
+    """On-court usage weights, optionally scaled by per-player tonight draws."""
+    usage_w = packed["usage"][off_lineups].copy()
+    if player_usage is not None:
+        run_ids = np.arange(n_runs)[:, None]
+        usage_w *= player_usage[off_lineups, run_ids]
+    return np.clip(usage_w, 1e-6, None)
 
 
 def _pack_rates(players: list[PlayerProjection]) -> dict[str, np.ndarray]:
@@ -498,6 +530,8 @@ def _vector_possession(
     tov: np.ndarray,
     home_hot: np.ndarray | None = None,
     away_hot: np.ndarray | None = None,
+    player_hot: np.ndarray | None = None,
+    player_usage: np.ndarray | None = None,
     home_pts: np.ndarray | None = None,
     away_pts: np.ndarray | None = None,
     period_idx: np.ndarray | None = None,
@@ -573,7 +607,7 @@ def _vector_possession(
         players = def_lineups[is_stl, pick]
         np.add.at(stl, (players, runners), 1)
         # Credited as a turnover on the offense as well.
-        usage_w_tmp = packed["usage"][off_lineups]
+        usage_w_tmp = _usage_weights(packed, off_lineups, player_usage, n_runs)
         user_slot_tmp = _weighted_choice(rng, usage_w_tmp)
         users_tmp = off_lineups[np.arange(n_runs), user_slot_tmp]
         np.add.at(tov, (users_tmp[is_stl], runners), 1)
@@ -584,7 +618,7 @@ def _vector_possession(
     if not np.any(remaining):
         return home_delta, away_delta, next_offense_home, ended
 
-    usage_w = packed["usage"][off_lineups]
+    usage_w = _usage_weights(packed, off_lineups, player_usage, n_runs)
     user_slot = _weighted_choice(rng, usage_w)
     users = off_lineups[np.arange(n_runs), user_slot]
 
@@ -628,6 +662,9 @@ def _vector_possession(
     if home_hot is not None and away_hot is not None:
         hot = np.where(offense_home, home_hot, away_hot)
         fg_pct = fg_pct * hot
+    if player_hot is not None:
+        # Per-player tonight shooting draw (negative-binomial-like overdispersion).
+        fg_pct = fg_pct * player_hot[users, np.arange(n_runs)]
     fg_pct = np.clip(fg_pct, 0.15, 0.85)
     # Shooting-foul rate from expected FTA/use (≈2 FTA per foul on average).
     shoot_foul_prob = np.clip(packed["ft_rate"][users] / 2.05 * 0.80, 0.02, 0.35)

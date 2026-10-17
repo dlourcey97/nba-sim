@@ -1,6 +1,6 @@
 # Progress
 
-Last updated after Upgrade 4 RAPM backtest (2026-10-17).
+Last updated after Upgrade 5 overdispersion backtest (2026-10-17).
 
 | Phase | Status | Notes |
 | --- | --- | --- |

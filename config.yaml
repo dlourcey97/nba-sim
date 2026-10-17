@@ -26,6 +26,12 @@ simulation:
   intentional_foul_prob: 0.22
   # Soft remaining-budget scale applied once when progress crosses 0.70.
   late_pace_adjust: true
+  # Overdispersion (U5): per-player tonight effects + game pace noise.
+  # Do NOT raise minutes_variance for coverage — use these instead.
+  player_shoot_sd: 0.12
+  player_usage_sd: 0.10
+  team_hot_sd: 0.05
+  pace_sd: 5.5
 
 blending:
   season_weights:
