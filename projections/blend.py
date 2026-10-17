@@ -172,7 +172,20 @@ def player_baseline_and_form(
         baseline_vectors.append((season_vector, season_weight))
 
     prior = priors.get(position_bucket(position)) or priors.get("G") or RateVector()
-    baseline = blend_vectors(baseline_vectors, prior=prior, prior_strength=regression_strength)
+    # Season weights sum to ~1. Shrink toward the position prior using
+    # regression_strength as pseudo-possessions against the blended sample size
+    # (not as a raw weight of 12 next to weights that sum to 1, which flattened
+    # every star toward league-average usage).
+    if not baseline_vectors:
+        baseline = blend_vectors([], prior=prior, prior_strength=1.0)
+    else:
+        raw = blend_vectors(baseline_vectors)
+        data_weight = max(float(raw.sample_possessions), 1.0)
+        baseline = blend_vectors(
+            [(raw, data_weight)],
+            prior=prior,
+            prior_strength=regression_strength,
+        )
     if form_games < min_games_for_form:
         return baseline
     form = vector_from_accumulator(form_acc)

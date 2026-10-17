@@ -77,30 +77,52 @@ def simulate_game(
     minutes_cfg = cfg.get("minutes", {})
     team_target = float(minutes_cfg.get("team_minutes_target", 240.0))
     min_minutes = float(minutes_cfg.get("min_minutes", 0.0))
+    # When means are Step-2-like (gap_close=0), hard draw-normalize to 240
+    # shrinks everyone whenever projected team totals exceed 240 and regenerates
+    # the Fix 3 MIN MAE regression. Soft-close only nudges wild totals.
+    gap_close = float(minutes_cfg.get("normalize_gap_close", 0.0))
     out_mask = np.array([p.minutes.out for p in players], dtype=bool)
     caps = np.array(
         [0.0 if p.minutes.out else float(p.minutes.max_minutes) for p in players],
         dtype=float,
     )
-    # Regulation: each team's minute draws sum to team_minutes_target.
     for pool in (home_idx, away_idx):
-        minutes[pool] = normalize_team_minute_draws(
-            minutes[pool],
-            out_mask=out_mask[pool],
-            caps=caps[pool],
-            target=team_target,
-            min_minutes=min_minutes,
-        )
+        if gap_close >= 1.0:
+            minutes[pool] = normalize_team_minute_draws(
+                minutes[pool],
+                out_mask=out_mask[pool],
+                caps=caps[pool],
+                target=team_target,
+                min_minutes=min_minutes,
+            )
+        else:
+            # gap_close=0: clip only, preserve projected means (Step 2 MAE).
+            # Mild soft close when configured between 0 and 1.
+            minutes[pool] = _soft_normalize_minute_draws(
+                minutes[pool],
+                out_mask=out_mask[pool],
+                caps=caps[pool],
+                target=team_target,
+                gap_close=gap_close,
+            )
 
     packed = _pack_rates(players)
-    home_lineups = _lineups_matrix(rng, home_idx, minutes)
-    away_lineups = _lineups_matrix(rng, away_idx, minutes)
+    # Multiple stints per run so minutes-weighted rotation players see the floor
+    # across the game (a single fixed 5-man lineup made p10=0 for everyone).
+    n_stints = 6
+    home_stints = _lineups_stints(rng, home_idx, minutes, n_stints=n_stints)
+    away_stints = _lineups_stints(rng, away_idx, minutes, n_stints=n_stints)
 
     home_poss = np.clip(rng.normal(projection.home_possessions, 3.5, size=n_runs), 80.0, 130.0)
     away_poss = np.clip(rng.normal(projection.away_possessions, 3.5, size=n_runs), 80.0, 130.0)
+    # Per-run shooting variance (hot/cold nights) — widens PTS bands without
+    # inflating minutes noise. ~8% sd matches observed team FG% game spread.
+    home_hot = np.clip(rng.normal(1.0, 0.08, size=n_runs), 0.82, 1.18)
+    away_hot = np.clip(rng.normal(1.0, 0.08, size=n_runs), 0.82, 1.18)
     # Pace targets possession *endings* (NBA pace). OREB continuations must not
     # consume the budget — only dead balls, makes, FT trips, and DREBs count.
     target_endings = np.clip(np.round(home_poss + away_poss).astype(int), 160, 260)
+    stint_len = np.maximum(1, (target_endings // n_stints).astype(np.int32))
 
     pts = np.zeros((n_players, n_runs), dtype=float)
     reb = np.zeros((n_players, n_runs), dtype=float)
@@ -116,10 +138,14 @@ def simulate_game(
     endings = np.zeros(n_runs, dtype=np.int32)
     # Allow extra iterations for OREB retries (typical OREB rate ~25% of misses).
     max_iters = int(target_endings.max() * 1.55) + 20
+    run_ids = np.arange(n_runs)
     for _ in range(max_iters):
         active = endings < target_endings
         if not np.any(active):
             break
+        stint = np.minimum(endings // stint_len, n_stints - 1)
+        home_lineups = home_stints[run_ids, stint]
+        away_lineups = away_stints[run_ids, stint]
         home_delta, away_delta, offense_home, ended = _vector_possession(
             rng,
             packed,
@@ -134,6 +160,8 @@ def simulate_game(
             stl,
             blk,
             tov,
+            home_hot=home_hot,
+            away_hot=away_hot,
         )
         home_pts += home_delta
         away_pts += away_delta
@@ -149,6 +177,9 @@ def simulate_game(
         ot_periods = np.where(tied, ot_period, ot_periods)
         ot_endings = np.zeros(n_runs, dtype=np.int32)
         ot_target = np.where(tied, 16, 0)
+        # OT uses the last regulation stint mix (rotation already set).
+        home_lineups = home_stints[run_ids, n_stints - 1]
+        away_lineups = away_stints[run_ids, n_stints - 1]
         for _ in range(28):
             still = ot_endings < ot_target
             if not np.any(still):
@@ -167,6 +198,8 @@ def simulate_game(
                 stl,
                 blk,
                 tov,
+                home_hot=home_hot,
+                away_hot=away_hot,
             )
             home_pts += home_delta
             away_pts += away_delta
@@ -225,20 +258,86 @@ def _pack_rates(players: list[PlayerProjection]) -> dict[str, np.ndarray]:
     }
 
 
-def _lineups_matrix(rng: np.random.Generator, pool: np.ndarray, minutes: np.ndarray) -> np.ndarray:
-    """Return shape (n_runs, 5) player indexes."""
-    n_runs = minutes.shape[1]
-    size = min(5, pool.size)
-    out = np.zeros((n_runs, size), dtype=np.int32)
-    weights = np.clip(minutes[pool], 0.0, None)  # (pool, runs)
-    for run in range(n_runs):
-        w = weights[:, run]
-        if w.sum() <= 0:
-            order = rng.permutation(pool.size)
+def _soft_normalize_minute_draws(
+    draws: np.ndarray,
+    *,
+    out_mask: np.ndarray,
+    caps: np.ndarray,
+    target: float,
+    gap_close: float,
+) -> np.ndarray:
+    """Clip outs/caps; optionally nudge column sums toward ``target``.
+
+    ``gap_close=0`` preserves per-player draw means (no team rescale).
+    """
+    result = np.array(draws, dtype=float, copy=True)
+    out = np.asarray(out_mask, dtype=bool).reshape(-1)
+    cap = np.asarray(caps, dtype=float).reshape(-1)
+    result[out, :] = 0.0
+    result = np.maximum(result, 0.0)
+    for i in range(result.shape[0]):
+        if out[i]:
+            continue
+        if cap[i] > 0:
+            result[i] = np.minimum(result[i], cap[i])
         else:
-            noisy = w + rng.normal(0.0, 2.0, size=pool.size)
-            order = np.argsort(-noisy)
-        out[run] = pool[order[:size]]
+            result[i] = 0.0
+    if gap_close <= 0 or result.size == 0:
+        return result
+    available = ~out & (cap > 0)
+    if not np.any(available):
+        return result
+    for run in range(result.shape[1]):
+        col = result[:, run]
+        total = float(col[available].sum())
+        if total <= 1e-9:
+            continue
+        # Only nudge when far from target, scaled by gap_close.
+        factor = 1.0 + float(gap_close) * (target / total - 1.0)
+        col = col * factor
+        for i in np.where(available)[0]:
+            col[i] = min(float(col[i]), float(cap[i]))
+        result[:, run] = col
+    return result
+
+
+def _lineups_matrix(rng: np.random.Generator, pool: np.ndarray, minutes: np.ndarray) -> np.ndarray:
+    """Return shape (n_runs, 5) player indexes (single stint)."""
+    return _lineups_stints(rng, pool, minutes, n_stints=1)[:, 0, :]
+
+
+def _lineups_stints(
+    rng: np.random.Generator,
+    pool: np.ndarray,
+    minutes: np.ndarray,
+    *,
+    n_stints: int = 6,
+) -> np.ndarray:
+    """Return shape (n_runs, n_stints, 5) player indexes.
+
+    Each stint is a minutes-weighted top-5 draw with noise so rotation players
+    rotate through the floor in proportion to projected minutes.
+    """
+    n_runs = minutes.shape[1]
+    size = min(5, int(pool.size))
+    n_pool = int(pool.size)
+    out = np.zeros((n_runs, n_stints, size), dtype=np.int32)
+    weights = np.clip(minutes[pool], 0.0, None)  # (pool, runs)
+    # Vectorized noise across runs × stints; argsort per (run, stint).
+    noise_sd = np.maximum(3.0, 0.25 * np.std(weights, axis=0) + 2.0)  # (runs,)
+    # (pool, runs, stints)
+    noisy = weights[:, :, None] + rng.normal(0.0, 1.0, size=(n_pool, n_runs, n_stints)) * noise_sd[
+        None, :, None
+    ]
+    # Zero-weight runs: replace with random scores so permutation is uniform.
+    zero_runs = weights.sum(axis=0) <= 0
+    if np.any(zero_runs):
+        noisy[:, zero_runs, :] = rng.random((n_pool, int(np.sum(zero_runs)), n_stints))
+    order = np.argsort(-noisy, axis=0)  # (pool, runs, stints)
+    top = order[:size]  # (size, runs, stints)
+    # Map pool-local indexes → global player indexes.
+    for stint in range(n_stints):
+        out[:, stint, :] = pool[top[:, :, stint]].T
     return out
 
 
@@ -256,6 +355,8 @@ def _vector_possession(
     stl: np.ndarray,
     blk: np.ndarray,
     tov: np.ndarray,
+    home_hot: np.ndarray | None = None,
+    away_hot: np.ndarray | None = None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Return (home_delta, away_delta, next_offense_home, ended).
 
@@ -334,7 +435,11 @@ def _vector_possession(
     # Shot zone
     zone_share = packed["zone_share"][users]  # (n_runs, 6)
     zone_i = _weighted_choice(rng, zone_share)
-    fg_pct = np.clip(packed["zone_fg"][users, zone_i], 0.15, 0.85)
+    fg_pct = packed["zone_fg"][users, zone_i]
+    if home_hot is not None and away_hot is not None:
+        hot = np.where(offense_home, home_hot, away_hot)
+        fg_pct = fg_pct * hot
+    fg_pct = np.clip(fg_pct, 0.15, 0.85)
     # Shooting-foul rate from expected FTA/use (≈2 FTA per foul on average).
     shoot_foul_prob = np.clip(packed["ft_rate"][users] / 2.05 * 0.80, 0.02, 0.35)
     ft_pct = np.clip(packed["ft_pct"][users], 0.4, 0.95)

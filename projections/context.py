@@ -166,6 +166,9 @@ class TeamStrength:
     drtg: float
 
 
+_THREE_ZONES = frozenset({"left_corner_3", "right_corner_3", "above_break_3"})
+
+
 def team_strength_map(settings: Settings, season: str) -> dict[int, TeamStrength]:
     """Offensive/defensive rating (pts per 100 possessions) from season aggregates."""
     out: dict[int, TeamStrength] = {}
@@ -181,6 +184,123 @@ def team_strength_map(settings: Settings, season: str) -> dict[int, TeamStrength
             drtg=100.0 * pa / poss_a,
         )
     return out
+
+
+def team_strength_as_of(
+    settings: Settings,
+    season: str,
+    team_id: int,
+    as_of: date,
+) -> tuple[TeamStrength | None, int]:
+    """Current-season ORtg/DRtg from team games strictly before ``as_of``."""
+    pts_for = 0.0
+    pts_against = 0.0
+    poss_for = 0.0
+    poss_against = 0.0
+    games = 0
+    for row in read_rows(settings, "team_game_results", season):
+        if int(row["team_id"]) != team_id:
+            continue
+        if row["game_date"] >= as_of:
+            continue
+        games += 1
+        pts_for += float(row.get("pts") or 0.0)
+        pts_against += float(row.get("opp_pts") or 0.0)
+        pace = row.get("pace")
+        if pace is not None and float(pace) > 0:
+            poss_for += float(pace)
+            # Opponent pace row is not joined here; use this team's pace as proxy
+            # for possessions on both ends (same game pace).
+            poss_against += float(pace)
+    if games <= 0:
+        return None, 0
+    if poss_for <= 0:
+        # Pace missing: fall back to points-per-game scaled to league ~100 poss.
+        poss_for = float(games) * 100.0
+        poss_against = float(games) * 100.0
+    return (
+        TeamStrength(
+            ortg=100.0 * pts_for / poss_for,
+            drtg=100.0 * pts_against / poss_against,
+        ),
+        games,
+    )
+
+
+def points_per_use(rates: RateVector) -> float:
+    """Expected points when a player uses a possession (shot/TO/FT proxy)."""
+    shot_pts = 0.0
+    for zone in ZONES:
+        share = float(getattr(rates, f"{zone}_share"))
+        fg = float(getattr(rates, f"{zone}_fg_pct"))
+        mult = 3.0 if zone in _THREE_ZONES else 2.0
+        shot_pts += share * fg * mult
+    # Non-TO uses: field-goal attempt value + FT rate * FT%.
+    return (1.0 - float(rates.tov_rate)) * shot_pts + float(rates.ft_rate) * float(rates.ft_pct)
+
+
+def roster_team_strength(
+    players: Sequence[tuple[RateVector, float]],
+    *,
+    prior: TeamStrength | None,
+    current: TeamStrength | None,
+    current_games: int,
+    league: TeamStrength,
+    config: dict[str, Any],
+) -> TeamStrength:
+    """Minutes-weighted roster ORtg/DRtg blended with current-season results.
+
+    Offense: usage-weighted expected points per team possession from tonight's
+    projected rotation. Defense: minutes-weighted steal/block proxy blended
+    toward prior-season team DRtg (player DRtg is not stored).
+    """
+    ctx = config.get("context", {})
+    half_life = float(ctx.get("team_strength_half_life", 20.0))
+    def_prior_w = float(ctx.get("roster_defense_prior_weight", 0.35))
+
+    total_min = 0.0
+    usage_sum = 0.0
+    scored = 0.0
+    stl_w = 0.0
+    blk_w = 0.0
+    for rates, minutes in players:
+        minutes = float(max(0.0, minutes))
+        if minutes <= 0:
+            continue
+        total_min += minutes
+        usage = float(max(0.0, rates.usage))
+        usage_sum += usage
+        scored += usage * points_per_use(rates)
+        stl_w += minutes * float(rates.stl_rate)
+        blk_w += minutes * float(rates.blk_rate)
+
+    if total_min <= 0 or usage_sum <= 1e-9:
+        roster_ortg = prior.ortg if prior is not None else league.ortg
+        roster_drtg = prior.drtg if prior is not None else league.drtg
+    else:
+        # Usages are later normalized to 1 among playing players; scale now.
+        roster_ortg = 100.0 * scored / usage_sum
+        # League-average ~0.015 stl + 0.010 blk per def poss on court; map a
+        # soft DRtg shift from the minutes-weighted rates.
+        stl_rate = stl_w / total_min
+        blk_rate = blk_w / total_min
+        stop_rate = stl_rate + 0.7 * blk_rate
+        league_stop = 0.015 + 0.7 * 0.010
+        # Higher stop rate → lower (better) DRtg. Keep most of prior team DRtg
+        # because player-level defense is a thin proxy.
+        delta = 8.0 * (league_stop - stop_rate) / max(league_stop, 1e-6)
+        base_drtg = prior.drtg if prior is not None else league.drtg
+        roster_drtg = base_drtg + delta * (1.0 - def_prior_w)
+
+    # Blend roster estimate with current-season results as games accumulate.
+    if current is not None and current_games > 0 and half_life > 0:
+        w = current_games / (current_games + half_life)
+        ortg = (1.0 - w) * roster_ortg + w * current.ortg
+        drtg = (1.0 - w) * roster_drtg + w * current.drtg
+    else:
+        ortg = roster_ortg
+        drtg = roster_drtg
+    return TeamStrength(ortg=float(ortg), drtg=float(drtg))
 
 
 def league_strength(strength: dict[int, TeamStrength]) -> TeamStrength:

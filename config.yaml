@@ -32,6 +32,8 @@ blending:
   # Weight of a game played k games ago is exp(-form_decay * k). Tuned from 0.08 -> 0.04.
   form_decay: 0.04
   # Pseudo-possessions of the position prior mixed in for small samples.
+  # Applied against the player's blended sample_possessions (not as a raw
+  # weight next to season weights that sum to 1).
   regression_strength: 12.0
   min_games_for_form: 5
 
@@ -41,9 +43,13 @@ context:
   # Soft FG%/FT% edge at home (Fix 5 HCA). Relative multiplicative.
   home_fg_factor: 0.015
   away_fg_factor: -0.005
-  # Prior-season ORtg/DRtg vs league (no same-season leakage).
+  # Roster-weighted ORtg/DRtg vs league, blended with current-season results.
   team_offense_weight: 0.40
   team_defense_weight: 0.40
+  # Games of current-season results at which roster vs results are 50/50.
+  team_strength_half_life: 20.0
+  # Soft pull of roster DRtg toward prior-season team DRtg (defense is noisier).
+  roster_defense_prior_weight: 0.35
   # Keys are rest days. 0 is a back-to-back.
   rest_day_factors:
     0: -0.030
@@ -59,15 +65,24 @@ context:
 minutes:
   blowout_margin_threshold: 15.0
   foul_trouble_rate_prior: 0.08
-  minutes_variance: 4.5
+  # Historical-scale minutes sd floor — coverage comes from possession /
+  # shooting variance and lineup stints, not from inflated minutes noise.
+  minutes_variance: 5.0
   min_minutes: 0.0
   max_minutes: 42.0
   # Regulation team total (5 players × 48). Sim draws are renormalized to this.
   team_minutes_target: 240.0
   # Prefer at least this many players with meaningful minutes on a healthy roster.
-  min_rotation_size: 9
+  min_rotation_size: 8
   # Soft cap on how many players receive regulation minutes before scaling to 240.
   max_rotation_size: 11
+  # Never truncate a player projected at/above this when enforcing max_rotation.
+  rotation_keep_threshold: 10.0
+  # When team total > 240, zero players below this before proportional scale.
+  fringe_cut_minutes: 8.0
+  # After trimming ghosts, close this fraction of the remaining gap to 240.
+  # 0.0 keeps Step-2-like means (best MIN MAE); sim draws still sum to 240.
+  normalize_gap_close: 0.0
   # Players with projected mean above this share on-court usage.
   play_threshold: 1.0
   recent_window: 10
@@ -75,8 +90,9 @@ minutes:
   recent_decay: 0.45
   starter_floor: 24.0
   bench_floor: 6.0
-  # Depth-chart priors by as-of roster rank (0 = most appearances).
-  depth_minutes: [34, 32, 30, 28, 26, 22, 18, 14, 10, 6, 3, 0, 0, 0, 0]
+  # Depth-chart priors by as-of roster rank (0 = most used). Zeros at the fringe
+  # so ghost DNPs are not invented and then scaled into the 240 total.
+  depth_minutes: [36, 34, 32, 30, 28, 20, 14, 10, 6, 0, 0, 0, 0, 0, 0]
 
 outputs:
   percentiles: [10, 25, 50, 75, 90]

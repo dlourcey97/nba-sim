@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date
 from typing import Any, Sequence
 
@@ -35,7 +35,9 @@ from projections.context import (
     position_defense_from_bundles,
     redistribute_for_absences,
     rest_days_before,
+    roster_team_strength,
     team_pace_map,
+    team_strength_as_of,
     team_strength_map,
     zone_defense_from_bundles,
 )
@@ -355,19 +357,18 @@ def _build(
         settings, season, bundles, away_team_id, as_of, cache=cache, minute_source=minute_source
     )
 
-    # Prior seasons only (no same-season aggregate leakage for walk-forward).
-    strength: dict = {}
+    # Prior-season team map is a fallback / DRtg anchor; primary strength is
+    # roster-weighted (after minutes) blended with as-of current-season results.
+    prior_strength: dict = {}
     prior_label = prior_season_label(season)
     if prior_label:
-        strength.update(team_strength_map(settings, prior_label))
+        prior_strength.update(team_strength_map(settings, prior_label))
     for bundle in bundles:
         if bundle.season == season or bundle.season == prior_label:
             continue
         for tid, value in team_strength_map(settings, bundle.season).items():
-            strength.setdefault(tid, value)
-    league_str = league_strength(strength)
-    home_str = strength.get(home_team_id)
-    away_str = strength.get(away_team_id)
+            prior_strength.setdefault(tid, value)
+    league_str = league_strength(prior_strength) if prior_strength else league_strength({})
 
     def project_side(
         team_id: int,
@@ -378,12 +379,11 @@ def _build(
         roster: list[int],
         opp_zones: dict[str, float],
         opp_pos: dict[str, dict[str, float]],
-        team_str,
-        opp_str,
-    ) -> tuple[float, dict[int, PlayerProjection]]:
+    ) -> tuple[float, dict[int, PlayerProjection], object]:
         raw_rates: dict[int, RateVector] = {}
-        # depth_rank follows as-of roster order (appearances / stint priority).
+        # depth_rank follows as-of roster order (minutes history / appearances).
         minute_bases: dict[int, tuple[float, float, bool, str | None, int]] = {}
+        team_dates_for_minutes = _team_game_dates(minute_source, team_id, as_of)
         for depth_rank, player_id in enumerate(roster):
             info = meta.get(player_id, {})
             position = info.get("position")
@@ -409,14 +409,7 @@ def _build(
                 league_allowed=league_pos,
                 weight=position_weight,
             )
-            rates = apply_team_strength_and_hca(
-                rates,
-                team=team_str,
-                opponent=opp_str,
-                league=league_str,
-                home_away=home_away,
-                config=config,
-            )
+            # Team strength / HCA applied after minutes allocation (roster-based).
             raw_rates[player_id] = rates
             mean_min, sd_min, _dates, recent_n = recent_minutes_detail(
                 minute_source,
@@ -426,6 +419,7 @@ def _build(
                 current_season=season,
                 window=recent_window,
                 recent_decay=min_decay,
+                team_game_dates=team_dates_for_minutes,
             )
             started = _usually_starts(minute_source, player_id, team_id, as_of)
             base = rotation_base_minutes(
@@ -447,7 +441,7 @@ def _build(
             ):
                 debut_rank = min(
                     depth_rank,
-                    int(config["minutes"].get("min_rotation_size", 9)) - 2,
+                    int(config["minutes"].get("min_rotation_size", 8)) - 2,
                 )
                 base = max(depth_prior_minutes(max(debut_rank, 6), config), 14.0)
                 sd_min = max(sd_min, 4.0)
@@ -461,8 +455,8 @@ def _build(
 
         team_pace = pace.get(team_id, 100.0)
         opp_pace = pace.get(opp_id, 100.0)
-        # Rest from the busiest recent rotation player dates; use team game dates.
-        team_dates = _team_game_dates(minute_source, team_id, as_of)
+        # Rest from team game dates (already collected for minutes alignment).
+        team_dates = team_dates_for_minutes
         rest = rest_days_before(team_dates, game_date)
         team_poss = expected_possessions(
             team_pace=team_pace,
@@ -506,6 +500,24 @@ def _build(
             play_threshold=play_threshold,
         )
 
+        # Roster-weighted strength from tonight's projected rotation.
+        roster_parts = [
+            (adjusted[pid], minutes_by_id[pid].mean)
+            for pid in ordered_ids
+            if pid in adjusted
+            and not minutes_by_id[pid].out
+            and minutes_by_id[pid].mean > play_threshold
+        ]
+        current_str, current_games = team_strength_as_of(settings, season, team_id, as_of)
+        team_str = roster_team_strength(
+            roster_parts,
+            prior=prior_strength.get(team_id),
+            current=current_str,
+            current_games=current_games,
+            league=league_str,
+            config=config,
+        )
+
         players: dict[int, PlayerProjection] = {}
         for player_id, rates in adjusted.items():
             _base, _sd, started, position, _depth = minute_bases[player_id]
@@ -529,9 +541,9 @@ def _build(
                 rest_days=rest,
                 status=status,
             )
-        return team_poss, players
+        return team_poss, players, team_str
 
-    home_poss, home_players = project_side(
+    home_poss, home_players, home_str = project_side(
         home_team_id,
         home_abbr,
         away_team_id,
@@ -540,10 +552,8 @@ def _build(
         home_ids,
         home_opp_zones,
         home_opp_pos,
-        home_str,
-        away_str,
     )
-    away_poss, away_players = project_side(
+    away_poss, away_players, away_str = project_side(
         away_team_id,
         away_abbr,
         home_team_id,
@@ -552,9 +562,29 @@ def _build(
         away_ids,
         away_opp_zones,
         away_opp_pos,
-        away_str,
-        home_str,
     )
+
+    def _apply_strength(
+        players: dict[int, PlayerProjection],
+        team_str,
+        opp_str,
+        home_away: str,
+    ) -> None:
+        for pid, player in list(players.items()):
+            players[pid] = replace(
+                player,
+                rates=apply_team_strength_and_hca(
+                    player.rates,
+                    team=team_str,
+                    opponent=opp_str,
+                    league=league_str,
+                    home_away=home_away,
+                    config=config,
+                ),
+            )
+
+    _apply_strength(home_players, home_str, away_str, "H")
+    _apply_strength(away_players, away_str, home_str, "A")
     players = sorted(
         list(home_players.values()) + list(away_players.values()),
         key=lambda row: (row.home_away != "H", -row.minutes.mean, row.player_name),
@@ -591,6 +621,8 @@ def _roster_for_team(
     ``minute_source`` (preseason logs) when provided.
     """
     count_bundles = minute_source if minute_source is not None else bundles
+    # Role ranking prefers regular-season minute totals from ``bundles`` so
+    # preseason appearance noise (or sitouts) does not bury established players.
     if cache is not None:
         cache.ensure_roster_indexes(count_bundles, as_of)
         counts = (cache.appearances_by_team or {}).get(team_id, {})
@@ -598,6 +630,10 @@ def _roster_for_team(
     else:
         counts = _appearance_counts(count_bundles, team_id, as_of)
         season_rows = read_rows(settings, "team_rosters", season)
+    role_minutes = _recent_minute_totals(bundles, team_id, as_of)
+
+    def _depth_key(pid: int) -> tuple:
+        return (-role_minutes.get(pid, 0.0), -counts.get(pid, 0), pid)
 
     if season == settings.current_season:
         live = (
@@ -608,7 +644,7 @@ def _roster_for_team(
         live_ids = current_roster_player_ids(live, team_id=team_id)
         if live_ids:
             # Keep the full live roster; minutes allocation / outs shrink the rotation.
-            return sorted(live_ids, key=lambda pid: (-counts.get(pid, 0), pid))
+            return sorted(live_ids, key=_depth_key)
 
     roster_ids = active_roster_player_ids(
         season_rows,
@@ -638,7 +674,7 @@ def _roster_for_team(
             ]
     if not roster_ids:
         return []
-    return sorted(roster_ids, key=lambda pid: (-counts.get(pid, 0), pid))[:15]
+    return sorted(roster_ids, key=_depth_key)[:15]
 
 
 def _merge_preseason_sitouts(
@@ -706,6 +742,30 @@ def _appearance_counts(bundles: list, team_id: int, as_of: date) -> dict[int, in
                 if int(row["team_id"]) == team_id and row["game_date"] < as_of:
                     counts[player_id] = counts.get(player_id, 0) + 1
     return counts
+
+
+def _recent_minute_totals(bundles: list, team_id: int, as_of: date) -> dict[int, float]:
+    """Sum of recent minutes for depth ranking (any team, prefer later seasons)."""
+    totals: dict[int, float] = {}
+    for bundle in bundles:
+        for player_id, rows in bundle.logs_by_player.items():
+            recent = [
+                float(row["minutes"] or 0.0)
+                for row in rows
+                if row["game_date"] < as_of
+            ]
+            if not recent:
+                continue
+            # Last up to 15 appearances; weight same-team slightly higher via
+            # including all and letting current-team appearances dominate when present.
+            same = [
+                float(row["minutes"] or 0.0)
+                for row in rows
+                if row["game_date"] < as_of and int(row["team_id"]) == team_id
+            ]
+            sample = (same[-15:] if same else recent[-15:])
+            totals[player_id] = max(totals.get(player_id, 0.0), float(sum(sample)))
+    return totals
 
 
 def _last_known_team_roster(bundles: list, team_id: int, as_of: date) -> list[int]:

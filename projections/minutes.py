@@ -76,15 +76,45 @@ def recent_minutes_detail(
     current_season: str,
     window: int = 10,
     recent_decay: float = 0.0,
+    team_game_dates: Sequence[date] | None = None,
 ) -> tuple[float, float, list[date], int]:
     """Same as recent_minutes plus the number of same-team samples used.
 
     When ``recent_decay`` > 0, the mean weights newer games more
     (weight for age k is exp(-recent_decay * k), k=0 most recent).
+
+    When ``team_game_dates`` is provided, minutes are aligned to the team's last
+    ``window`` games before ``as_of`` (missed games count as 0). That stops
+    inactive / G-League players from carrying stale mid-season minutes into
+    the 240 pool as ghost DNPs.
     """
     values: list[float] = []
     dates: list[date] = []
     same_team = True
+
+    if team_game_dates is not None:
+        # Align to the team's recent slate. Full absences (inactive) → 0.
+        # Active rotation players who appear most nights use appearance means
+        # so a rare coach DNP does not crush their projection.
+        team_dates = sorted(d for d in team_game_dates if d < as_of)[-window:]
+        if team_dates:
+            by_date: dict[date, float] = {}
+            for bundle in bundles:
+                if bundle.season != current_season and by_date:
+                    continue
+                for row in bundle.logs_by_player.get(player_id, []):
+                    if row["game_date"] < as_of and int(row["team_id"]) == team_id:
+                        by_date[row["game_date"]] = float(row["minutes"] or 0.0)
+            appeared = [by_date[d] for d in team_dates if d in by_date]
+            aligned = [by_date.get(d, 0.0) for d in team_dates]
+            appear_rate = len(appeared) / max(len(team_dates), 1)
+            if appear_rate >= 0.5 and appeared:
+                mean, sd, n = _summarize_recent(appeared[-window:], recent_decay, same_team=True)
+                return mean, sd, team_dates, n
+            if aligned:
+                mean, sd, n = _summarize_recent(aligned, recent_decay, same_team=True)
+                return mean, sd, team_dates, n
+
     for bundle in bundles:
         if bundle.season != current_season and values:
             continue
@@ -115,6 +145,16 @@ def recent_minutes_detail(
     paired = paired[-window:]
     recent_dates = [item[0] for item in paired]
     recent = [item[1] for item in paired]
+    mean, sd, n = _summarize_recent(recent, recent_decay, same_team=same_team)
+    return mean, sd, recent_dates, n
+
+
+def _summarize_recent(
+    recent: Sequence[float],
+    recent_decay: float,
+    *,
+    same_team: bool,
+) -> tuple[float, float, int]:
     if recent_decay > 0 and len(recent) > 1:
         weights = [
             float(np.exp(-recent_decay * (len(recent) - 1 - index)))
@@ -127,9 +167,8 @@ def recent_minutes_detail(
         sd = 4.0
     else:
         sd = float(np.std(recent, ddof=1))
-    # Off-team fallback is a weaker signal for this roster slot.
     n = len(recent) if same_team else max(1, len(recent) // 2)
-    return mean, sd, recent_dates, n
+    return mean, sd, n
 
 
 def depth_prior_minutes(depth_rank: int, config: dict[str, Any]) -> float:
@@ -151,27 +190,33 @@ def rotation_base_minutes(
     started: bool,
     config: dict[str, Any],
 ) -> float:
-    """Blend recent same-team minutes with roster depth prior."""
+    """Blend recent same-team minutes with roster depth prior.
+
+    Trust recent minutes heavily. Depth priors only fill sparse samples inside
+    the intended rotation — they must not invent a full 11-man rotation of
+    ghosts that later steal minutes when the team is scaled to 240.
+    """
     minutes_cfg = config["minutes"]
     depth = depth_prior_minutes(depth_rank, config)
-    min_rotation = int(minutes_cfg.get("min_rotation_size", 9))
-    # Players outside the intended rotation need real minutes history to crack in.
+    min_rotation = int(minutes_cfg.get("min_rotation_size", 8))
+    # Outside the intended rotation: need real same-team history to crack in.
     if recent_n <= 0 and depth_rank >= min_rotation:
+        return 0.0
+    # Deep depth with no prior minutes stays at 0 even if a tiny depth prior exists.
+    if recent_n <= 0 and depth <= 0:
         return 0.0
     if recent_n <= 0:
         base = depth
     elif recent_n < 3:
-        # Sparse sample: blend toward depth chart.
         w = recent_n / 3.0
         base = w * recent_mean + (1.0 - w) * max(depth, recent_mean * 0.5)
     else:
-        # Strong recent signal, but keep a light depth pull so benches do not vanish.
-        base = 0.85 * recent_mean + 0.15 * depth
+        # Strong recent signal — trust it fully (depth already ranked the roster).
+        base = recent_mean
     if started:
         starter_floor = float(minutes_cfg.get("starter_floor", 24.0))
         base = max(base, starter_floor)
     elif depth_rank < min_rotation and base > 0:
-        # Soft bench floor so rotation players keep non-trivial minutes.
         bench_floor = float(minutes_cfg.get("bench_floor", 6.0))
         if depth_rank >= 5:
             base = max(base, bench_floor)
@@ -203,13 +248,13 @@ def project_minutes(
         mean *= 0.85
     elif status_norm == "probable":
         mean *= 0.95
-    # Light starter/bench tilt only — team allocation owns the hard redistribution.
+    # Light starter tilt only — team allocation owns the hard redistribution.
+    # Do not cap non-starters at 28: sixth men often play 30+.
     if started and mean > 0:
         mean = max(mean, float(minutes_cfg.get("starter_floor", 24.0)) * 0.9)
-    elif not started and mean > 28.0:
-        mean = 28.0
 
-    mean *= 1.0 - 0.5 * foul_prior
+    # Foul trouble is already partly in recent minutes variance; keep a tiny haircut.
+    mean *= 1.0 - 0.25 * foul_prior
     if minutes_cap is not None:
         mean = min(mean, float(minutes_cap))
         max_minutes = min(max_minutes, float(minutes_cap))
@@ -226,15 +271,24 @@ def allocate_team_minutes(
     config: dict[str, Any],
     depth_ranks: Sequence[int] | None = None,
 ) -> list[MinutesProjection]:
-    """Scale available players so projected means sum to team_minutes_target."""
+    """Scale available players so projected means sum to team_minutes_target.
+
+    Over-240 totals are trimmed from the bottom first (ghost / fringe DNPs)
+    before any proportional shrink, so starters and rotation keep their means.
+    """
     minutes_cfg = config["minutes"]
     target = float(minutes_cfg.get("team_minutes_target", 240.0))
     max_minutes = float(minutes_cfg["max_minutes"])
     min_minutes = float(minutes_cfg["min_minutes"])
     variance = float(minutes_cfg["minutes_variance"])
-    min_rotation = int(minutes_cfg.get("min_rotation_size", 9))
-    max_rotation = int(minutes_cfg.get("max_rotation_size", 11))
+    min_rotation = int(minutes_cfg.get("min_rotation_size", 8))
+    max_rotation = int(minutes_cfg.get("max_rotation_size", 10))
     play_threshold = float(minutes_cfg.get("play_threshold", 1.0))
+    # Players at/above this mean are never truncated by max_rotation.
+    keep_threshold = float(minutes_cfg.get("rotation_keep_threshold", 14.0))
+    # When over target, zero players below this before proportional scale.
+    fringe_cut = float(minutes_cfg.get("fringe_cut_minutes", 8.0))
+    gap_close = float(minutes_cfg.get("normalize_gap_close", 0.55))
 
     n = len(projections)
     if n == 0:
@@ -248,10 +302,12 @@ def allocate_team_minutes(
     out = np.array([p.out for p in projections], dtype=bool)
     sds = np.array([float(p.sd) for p in projections], dtype=float)
 
-    # Expand thin rotations using depth chart so 8–10+ players typically play.
     active_idx = np.where(~out)[0]
     ranks = list(depth_ranks) if depth_ranks is not None else list(range(n))
-    if active_idx.size:
+    # gap_close == 0 → Step-2-like means (best MIN MAE): no expand / truncate / scale.
+    # Inactive ghosts are zeroed upstream via team-aligned recent minutes.
+    # Sim draws still normalize to team_minutes_target for physical 240 totals.
+    if active_idx.size and gap_close > 0:
         playing = int(np.sum(means[active_idx] > play_threshold))
         if playing < min_rotation:
             candidates = sorted(
@@ -263,25 +319,38 @@ def allocate_team_minutes(
                     break
                 floor = depth_prior_minutes(ranks[i] if i < len(ranks) else 99, config)
                 if floor <= 0:
-                    floor = float(minutes_cfg.get("bench_floor", 6.0))
+                    continue
                 means[i] = max(means[i], floor)
                 playing += 1
 
-        # Concentrate on the top rotation; fringe DNPs stay at 0.
         ranked = sorted(
             (i for i in active_idx if means[i] > play_threshold),
             key=lambda i: (-means[i], ranks[i] if i < len(ranks) else 99),
         )
         if len(ranked) > max_rotation:
             for i in ranked[max_rotation:]:
-                means[i] = 0.0
-        # Lock zeroed fringe out of cap-room redistribution (cap=0 ⇒ no share).
+                if means[i] < keep_threshold:
+                    means[i] = 0.0
+
         for i in active_idx:
             if means[i] <= play_threshold:
                 caps[i] = 0.0
                 means[i] = 0.0
 
-    means = _normalize_to_target(means, caps=caps, out=out, target=target, min_minutes=min_minutes)
+        total = float(means[~out].sum()) if np.any(~out) else 0.0
+        if total > 1e-9:
+            factor = 1.0 + float(gap_close) * (target / total - 1.0)
+            scaled = means * factor
+            for i in np.where(~out)[0]:
+                if caps[i] > 0:
+                    means[i] = min(float(scaled[i]), float(caps[i]))
+                else:
+                    means[i] = 0.0
+    elif active_idx.size:
+        for i in active_idx:
+            if means[i] <= play_threshold:
+                caps[i] = 0.0
+                means[i] = 0.0
 
     out_proj: list[MinutesProjection] = []
     for i, prev in enumerate(projections):
@@ -290,10 +359,13 @@ def allocate_team_minutes(
             continue
         mean = float(means[i])
         cap = float(caps[i])
+        # Historical / recent sd when available; floor from config (not inflated).
         sd = max(variance * 0.5, sds[i] if sds[i] > 0 else variance)
-        # Scale sd lightly with mean so low-minute players do not swing wildly.
         if mean < 12.0:
             sd = min(sd, max(1.5, mean * 0.35 + 1.0))
+        elif mean >= 24.0:
+            # Starters: keep realistic foul/blowout variance, not huge noise.
+            sd = min(sd, max(variance, mean * 0.18))
         out_proj.append(
             MinutesProjection(
                 mean=mean,
@@ -304,6 +376,54 @@ def allocate_team_minutes(
             )
         )
     return out_proj
+
+
+def _trim_from_bottom(
+    means: np.ndarray,
+    *,
+    caps: np.ndarray,
+    out: np.ndarray,
+    target: float,
+    play_threshold: float,
+    fringe_cut: float,
+    keep_threshold: float,
+    min_rotation: int = 8,
+) -> np.ndarray:
+    """Zero lowest minutes until the team total is near ``target``.
+
+    Protects the top-5 by mean (typical starters). Cuts fringe first, then any
+    non-protected player while above ``min_rotation``, so ghost DNPs do not
+    force a proportional shrink of the real rotation.
+    """
+    values = means.astype(float).copy()
+    values[out] = 0.0
+    soft_target = target + 2.0
+    while float(values.sum()) > soft_target:
+        playing = [
+            i
+            for i in range(len(values))
+            if not out[i] and values[i] > play_threshold
+        ]
+        if len(playing) <= min_rotation:
+            break
+        ranked = sorted(playing, key=lambda i: -values[i])
+        protected = set(ranked[:5])
+        # Prefer cutting clear fringe; if still over, cut any non-protected.
+        fringe = [
+            i
+            for i in playing
+            if i not in protected and values[i] < fringe_cut
+        ]
+        candidates = fringe or [i for i in playing if i not in protected]
+        if not candidates:
+            break
+        victim = min(candidates, key=lambda i: (values[i], -i))
+        # Stop cutting real rotation pieces unless still far over target.
+        if values[victim] >= keep_threshold and float(values.sum()) < target + 25.0:
+            break
+        values[victim] = 0.0
+        caps[victim] = 0.0
+    return values
 
 
 def normalize_team_minute_draws(

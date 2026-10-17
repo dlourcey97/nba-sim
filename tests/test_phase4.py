@@ -33,6 +33,58 @@ def test_position_bucket_and_blend_vectors():
     assert mixed.usage == pytest.approx(0.20)
 
 
+def test_regression_strength_is_pseudo_possessions():
+    """Stars with large samples must not collapse toward the position prior."""
+    star = RateVector(usage=0.30, sample_possessions=4000)
+    prior = RateVector(usage=0.20)
+    # Mimic player_baseline_and_form: blend data by sample size, then shrink.
+    blended = blend_vectors([(star, star.sample_possessions)], prior=prior, prior_strength=12.0)
+    assert blended.usage == pytest.approx(0.2997, abs=0.002)
+    # Tiny sample still regresses.
+    rook = RateVector(usage=0.30, sample_possessions=20)
+    rook_blend = blend_vectors([(rook, rook.sample_possessions)], prior=prior, prior_strength=12.0)
+    assert rook_blend.usage < 0.28
+    assert rook_blend.usage > 0.22
+
+
+def test_roster_team_strength_blends_with_current_season():
+    from projections.context import TeamStrength, roster_team_strength
+
+    star = RateVector(
+        usage=0.30,
+        restricted_area_share=0.35,
+        restricted_area_fg_pct=0.68,
+        above_break_3_share=0.35,
+        above_break_3_fg_pct=0.38,
+        tov_rate=0.10,
+        ft_rate=0.25,
+        ft_pct=0.85,
+        stl_rate=0.02,
+        blk_rate=0.01,
+    )
+    role = RateVector(usage=0.15, stl_rate=0.01, blk_rate=0.005)
+    prior = TeamStrength(ortg=110.0, drtg=112.0)
+    current = TeamStrength(ortg=118.0, drtg=108.0)
+    early = roster_team_strength(
+        [(star, 34.0), (role, 20.0)],
+        prior=prior,
+        current=current,
+        current_games=2,
+        league=TeamStrength(112.0, 112.0),
+        config={"context": {"team_strength_half_life": 20.0}},
+    )
+    late = roster_team_strength(
+        [(star, 34.0), (role, 20.0)],
+        prior=prior,
+        current=current,
+        current_games=40,
+        league=TeamStrength(112.0, 112.0),
+        config={"context": {"team_strength_half_life": 20.0}},
+    )
+    # More current games → pull toward current-season ORtg.
+    assert abs(late.ortg - current.ortg) < abs(early.ortg - current.ortg)
+
+
 def test_position_defense_from_logs():
     from ingest.parse import team_position_defense
     from projections.context import apply_opponent_position_defense, position_defense_from_bundles

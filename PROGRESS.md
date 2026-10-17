@@ -1,6 +1,6 @@
 # Progress
 
-Last updated after Fix 5 HCA backtest (2026-10-16).
+Last updated after Upgrade 1 calibration metrics (in progress 2026-10-17).
 
 | Phase | Status | Notes |
 | --- | --- | --- |
@@ -17,6 +17,8 @@ Last updated after Fix 5 HCA backtest (2026-10-16).
 | Fix 3. Minutes → 240 | done | Coverage **0.79**; MAE MIN 7.14 (worse); PTS MAE improved. |
 | Fix 4. Variance ~80% | done | Met by Fix 3 (coverage 0.790 vs ~0.80 target). |
 | Fix 5. Team strength / HCA | done | Brier **0.227** (was 0.237); prior-season ORtg/DRtg + home FG. |
+| Fix 6. Minutes MAE + roster strength | done | MIN MAE **5.61** (was 7.16); roster-weighted ORtg/DRtg; usage pseudo-possessions. |
+| U1. Tuning → calibration | in progress | Log loss, CRPS, PIT; tune objective no longer MAE-first. |
 | Preseason storage | done | `season_type=Preseason` hive partition; excluded from default reads. |
 
 ## Phase 3
@@ -95,6 +97,35 @@ Grid on early 2024-25 (`--max-games 24`). Best → `weights [0.40, 0.30, 0.20, 0
 5. **Position labels** — source logs are mostly G/F/C/None; PG–C mapping is heuristic.
 
 Storage cap and storage report remain in place.
+
+## Upgrade 1 — Tuning objective: calibration (2026-10-17)
+
+- Metrics: `log_loss_win`, `crps_pts` (empirical CRPS from sim draws), `pit_pts_mean`.
+- `backtest/tune.py` `score_report` optimizes log loss + CRPS + coverage≈0.80 + PIT≈0.5 (MAE tiebreaker only).
+- Full backtest artifacts: `results/backtest/upgrade1_calibration/` (pending).
+
+## Fix Step 6 — Minutes MAE + roster team strength (2026-10-17)
+
+Root cause of Fix 3 MIN MAE regression: forcing means/draws onto the 240 simplex redistributed minutes from rotation players to ghost DNPs. Fix:
+
+- Team-aligned recent minutes (inactive ghosts → 0); `normalize_gap_close: 0` keeps Step-2-like means.
+- Sim draws no longer hard-normalize to 240 when gap_close=0 (soft clip only).
+- Usage blend treats `regression_strength` as pseudo-possessions (stars keep high usage).
+- Roster-weighted ORtg/DRtg blended with as-of current-season results (`team_strength_half_life`).
+- Multi-stint lineups + per-run FG hot/cold for PTS coverage without inflated minutes noise.
+
+| Metric | Step 5 | Step 6 |
+| --- | ---: | ---: |
+| Brier | 0.227 | **0.222** |
+| MAE PTS | 5.61 | **5.47** |
+| MAE REB | 2.45 | **2.35** |
+| MAE AST | 1.78 | 1.78 |
+| MAE 3PM | 0.96 | **0.94** |
+| MAE MIN | 7.16 | **5.61** |
+| 10–90 coverage | 0.752 | 0.750 |
+| Sim / actual PPG | 117.63 / 114.29 | 117.74 / 114.29 |
+
+Artifacts: `results/backtest/step6_minutes_roster/`.
 
 ## Fix Step 5 — Team strength / HCA (2026-10-16)
 
