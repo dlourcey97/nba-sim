@@ -1,6 +1,6 @@
 # Progress
 
-Last updated after Upgrade 3 game-state backtest (2026-10-17).
+Last updated after Upgrade 4 RAPM backtest (2026-10-17).
 
 | Phase | Status | Notes |
 | --- | --- | --- |
@@ -21,7 +21,8 @@ Last updated after Upgrade 3 game-state backtest (2026-10-17).
 | U1. Tuning → calibration | done | Log loss / CRPS / PIT metrics; tune scores calibration not MAE. |
 | U2. Stint-based rotations | done | PBP `lineup_stints`; margin×period lineups; depth multipliers. |
 | U3. Game-state behavior | done | Late pace adjust + intentional fouls from stint-learned factors. |
-| U4–U8 | not started | RAPM, overdispersion, Kalman, clusters, incentives. |
+| U4. Ridge RAPM | done | Stint RAPM → minutes-weighted roster ORtg/DRtg; λ by OOS MSE. |
+| U5–U8 | not started | Overdispersion, Kalman, clusters, incentives. |
 | Preseason storage | done | `season_type=Preseason` hive partition; excluded from default reads. |
 
 ## Phase 3
@@ -154,6 +155,26 @@ Regression vs U1: margin reallocation hurt MIN MAE and narrowed coverage (lineup
 | Sim / actual poss | 98.95 / 98.92 | 98.95 / 98.92 |
 
 Small move vs U2; PPG slightly higher from late haste / foul FTs. Artifacts: `results/backtest/upgrade3_gamestate/`.
+
+## Upgrade 4 — Ridge RAPM → roster strength (2026-10-17)
+
+- `lineup_stints.plus_minus` from PBP score change; rebuilt 2023-24…2025-26.
+- `projections/rapm.py`: possession-weighted ridge APM; λ ∈ {200…5000} chosen by chronological OOS MSE.
+- Team strength = minutes-weighted roster RAPM split into ORtg/DRtg, blended with current-season results.
+- Box-score PM shrinkage fallback when stint PM missing. Storage read fills new columns as null.
+
+| Metric | Upgrade 3 | Upgrade 4 |
+| --- | ---: | ---: |
+| Brier | 0.224 | 0.224 |
+| Log loss | 0.640 | **0.640** |
+| CRPS PTS | 4.65 | 4.65 |
+| PIT mean | 0.678 | 0.679 |
+| MAE PTS | 5.80 | 5.80 |
+| MAE MIN | 6.01 | 6.01 |
+| 10–90 coverage | 0.682 | 0.680 |
+| Sim / actual PPG | 118.41 / 114.29 | 117.92 / 114.29 |
+
+Chosen λ often high (~5000) → strong shrink toward 0; win metrics flat vs U3. Artifacts: `results/backtest/upgrade4_rapm/`.
 
 ## Phase 7 (updated)
 

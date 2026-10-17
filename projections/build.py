@@ -51,6 +51,7 @@ from projections.minutes import (
 )
 from projections.rates import RateVector
 from projections.game_state import GameStateModel, load_game_state_model
+from projections.rapm import RapmModel, load_rapm_model
 from projections.rotations import (
     RotationModel,
     expected_abs_margin_from_strength,
@@ -92,6 +93,7 @@ class GameProjection:
     expected_abs_margin: float = 8.0
     rotation: RotationModel | None = None
     game_state: GameStateModel | None = None
+    rapm: RapmModel | None = None
 
 
 @dataclass
@@ -113,6 +115,7 @@ class ProjectionCache:
     last_team_by_player: dict[int, int] | None = None
     rotation: RotationModel | None = None
     game_state: GameStateModel | None = None
+    rapm: RapmModel | None = None
     # Shared stint rows by season (loaded once; date-filtered by consumers).
     stint_rows_by_season: dict[str, list] = field(default_factory=dict)
 
@@ -403,6 +406,15 @@ def _build(
             stint_cache=cache.stint_rows_by_season,
         )
     game_state = cache.game_state
+    if cache.rapm is None:
+        cache.rapm = load_rapm_model(
+            settings,
+            bundles,
+            as_of=as_of,
+            config=config,
+            stint_cache=cache.stint_rows_by_season,
+        )
+    rapm = cache.rapm
     home_prior = prior_strength.get(home_team_id)
     away_prior = prior_strength.get(away_team_id)
     if home_prior is not None and away_prior is not None:
@@ -573,7 +585,7 @@ def _build(
             play_threshold=play_threshold,
         )
 
-        # Roster-weighted strength from tonight's projected rotation.
+        # Roster-weighted strength: prefer ridge RAPM when available.
         roster_parts = [
             (adjusted[pid], minutes_by_id[pid].mean)
             for pid in ordered_ids
@@ -581,15 +593,30 @@ def _build(
             and not minutes_by_id[pid].out
             and minutes_by_id[pid].mean > play_threshold
         ]
+        rapm_parts = [
+            (pid, minutes_by_id[pid].mean)
+            for pid in ordered_ids
+            if not minutes_by_id[pid].out and minutes_by_id[pid].mean > play_threshold
+        ]
         current_str, current_games = team_strength_as_of(settings, season, team_id, as_of)
-        team_str = roster_team_strength(
-            roster_parts,
-            prior=prior_strength.get(team_id),
-            current=current_str,
-            current_games=current_games,
-            league=league_str,
-            config=config,
-        )
+        if rapm.ratings:
+            team_str = rapm.team_strength(
+                rapm_parts,
+                league=league_str,
+                prior=prior_strength.get(team_id),
+                current=current_str,
+                current_games=current_games,
+                config=config,
+            )
+        else:
+            team_str = roster_team_strength(
+                roster_parts,
+                prior=prior_strength.get(team_id),
+                current=current_str,
+                current_games=current_games,
+                league=league_str,
+                config=config,
+            )
 
         players: dict[int, PlayerProjection] = {}
         for player_id, rates in adjusted.items():
@@ -685,6 +712,7 @@ def _build(
         expected_abs_margin=float(refined_margin),
         rotation=rotation,
         game_state=game_state,
+        rapm=rapm,
     )
 
 

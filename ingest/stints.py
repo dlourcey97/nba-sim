@@ -85,7 +85,14 @@ def stint_rows(
         if len(stint.players) != 5:
             continue
         mid_margin = (stint.margin_start + stint.margin_end) // 2
-        team_margin = mid_margin if stint.team_id == home_team_id else -mid_margin
+        # Home margin change over the stint; flip sign for the away team.
+        home_pm = int(stint.margin_end - stint.margin_start)
+        if stint.team_id == home_team_id:
+            team_margin = mid_margin
+            plus_minus = home_pm
+        else:
+            team_margin = -mid_margin
+            plus_minus = -home_pm
         rows.append(
             {
                 "season": season,
@@ -99,6 +106,7 @@ def stint_rows(
                 "possessions": stint.possessions,
                 "margin_bucket": margin_bucket(team_margin),
                 "team_margin": int(team_margin),
+                "plus_minus": int(plus_minus),
                 "p1": stint.players[0],
                 "p2": stint.players[1],
                 "p3": stint.players[2],

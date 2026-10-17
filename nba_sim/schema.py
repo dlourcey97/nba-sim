@@ -506,6 +506,7 @@ def _tables() -> dict[str, Table]:
             _col("possessions", "INTEGER", False, "Possession endings while this lineup was out."),
             _col("margin_bucket", "VARCHAR", False, "close / moderate / blowout from team margin."),
             _col("team_margin", "INTEGER", False, "Team points minus opponent at stint midpoint."),
+            _col("plus_minus", "INTEGER", True, "Team scoring differential change during this stint."),
             _col("p1", "INTEGER", False, "On-court player id (sorted)."),
             _col("p2", "INTEGER", False, "On-court player id (sorted)."),
             _col("p3", "INTEGER", False, "On-court player id (sorted)."),

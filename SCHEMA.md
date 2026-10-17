@@ -466,6 +466,7 @@ Key: `game_id`, `team_id`, `period`, `p1`, `p2`, `p3`, `p4`, `p5`, `duration_sec
 | possessions | INTEGER | no | Possession endings while this lineup was out. |
 | margin_bucket | VARCHAR | no | close / moderate / blowout from team margin. |
 | team_margin | INTEGER | no | Team points minus opponent at stint midpoint. |
+| plus_minus | INTEGER | yes | Team scoring differential change during this stint. |
 | p1 | INTEGER | no | On-court player id (sorted). |
 | p2 | INTEGER | no | On-court player id (sorted). |
 | p3 | INTEGER | no | On-court player id (sorted). |

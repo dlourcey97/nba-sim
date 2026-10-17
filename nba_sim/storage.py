@@ -625,10 +625,23 @@ def _read_partition(path: Path, spec: Table) -> pa.Table | None:
     text = str(path)
     if "'" in text or "\n" in text:
         raise StorageError(f"refusing to read parquet at {path}.")
-    column_list = ", ".join(f'"{column.name}"' for column in spec.columns)
     with duckdb.connect(database=":memory:") as connection:
+        # New schema columns may be missing from older partitions; fill nulls.
+        available = {
+            str(row[0])
+            for row in connection.execute(
+                "SELECT column_name FROM (DESCRIBE SELECT * FROM read_parquet(?))",
+                [text],
+            ).fetchall()
+        }
+        select_parts: list[str] = []
+        for column in spec.columns:
+            if column.name in available:
+                select_parts.append(f'"{column.name}"')
+            else:
+                select_parts.append(f"NULL AS \"{column.name}\"")
         arrow = connection.execute(
-            f"SELECT {column_list} FROM read_parquet(?)",
+            f"SELECT {', '.join(select_parts)} FROM read_parquet(?)",
             [text],
         ).to_arrow_table()
     return _align(arrow, spec.arrow_schema())

@@ -54,6 +54,11 @@ context:
   team_strength_half_life: 20.0
   # Soft pull of roster DRtg toward prior-season team DRtg (defense is noisier).
   roster_defense_prior_weight: 0.35
+  # Blend RAPM-implied ORtg/DRtg with prior/roster anchors.
+  rapm_strength_weight: 0.55
+  # Candidate ridge penalties for stint RAPM (chosen by OOS MSE).
+  rapm_lambdas: [200, 500, 1000, 2000, 5000]
+  rapm_box_lambda: 400
   # Keys are rest days. 0 is a back-to-back.
   rest_day_factors:
     0: -0.030
