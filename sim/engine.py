@@ -107,11 +107,19 @@ def simulate_game(
             )
 
     packed = _pack_rates(players)
-    # Multiple stints per run so minutes-weighted rotation players see the floor
-    # across the game (a single fixed 5-man lineup made p10=0 for everyone).
-    n_stints = 6
-    home_stints = _lineups_stints(rng, home_idx, minutes, n_stints=n_stints)
-    away_stints = _lineups_stints(rng, away_idx, minutes, n_stints=n_stints)
+    # Period × margin-bucket lineup grid (stint substitution model).
+    # close games shorten rotations late; blowouts put the bench on the floor.
+    minutes_cfg = cfg.get("minutes", {})
+    close_thr = float(minutes_cfg.get("close_margin_threshold", 6.0))
+    blowout_thr = float(minutes_cfg.get("blowout_margin_threshold", 15.0))
+    expected_margin = float(getattr(projection, "expected_abs_margin", 8.0) or 8.0)
+    rotation = getattr(projection, "rotation", None)
+    home_grid = _lineups_state_grid(
+        rng, home_idx, minutes, players, rotation=rotation
+    )
+    away_grid = _lineups_state_grid(
+        rng, away_idx, minutes, players, rotation=rotation
+    )
 
     home_poss = np.clip(rng.normal(projection.home_possessions, 3.5, size=n_runs), 80.0, 130.0)
     away_poss = np.clip(rng.normal(projection.away_possessions, 3.5, size=n_runs), 80.0, 130.0)
@@ -122,7 +130,6 @@ def simulate_game(
     # Pace targets possession *endings* (NBA pace). OREB continuations must not
     # consume the budget — only dead balls, makes, FT trips, and DREBs count.
     target_endings = np.clip(np.round(home_poss + away_poss).astype(int), 160, 260)
-    stint_len = np.maximum(1, (target_endings // n_stints).astype(np.int32))
 
     pts = np.zeros((n_players, n_runs), dtype=float)
     reb = np.zeros((n_players, n_runs), dtype=float)
@@ -143,9 +150,17 @@ def simulate_game(
         active = endings < target_endings
         if not np.any(active):
             break
-        stint = np.minimum(endings // stint_len, n_stints - 1)
-        home_lineups = home_stints[run_ids, stint]
-        away_lineups = away_stints[run_ids, stint]
+        period_idx, bucket_idx = _period_bucket_indexes(
+            endings,
+            target_endings,
+            home_pts,
+            away_pts,
+            expected_margin=expected_margin,
+            close_thr=close_thr,
+            blowout_thr=blowout_thr,
+        )
+        home_lineups = home_grid[run_ids, period_idx, bucket_idx]
+        away_lineups = away_grid[run_ids, period_idx, bucket_idx]
         home_delta, away_delta, offense_home, ended = _vector_possession(
             rng,
             packed,
@@ -177,9 +192,9 @@ def simulate_game(
         ot_periods = np.where(tied, ot_period, ot_periods)
         ot_endings = np.zeros(n_runs, dtype=np.int32)
         ot_target = np.where(tied, 16, 0)
-        # OT uses the last regulation stint mix (rotation already set).
-        home_lineups = home_stints[run_ids, n_stints - 1]
-        away_lineups = away_stints[run_ids, n_stints - 1]
+        # OT uses Q4 close-game lineups (shortened star rotation).
+        home_lineups = home_grid[run_ids, 3, 0]
+        away_lineups = away_grid[run_ids, 3, 0]
         for _ in range(28):
             still = ot_endings < ot_target
             if not np.any(still):
@@ -301,6 +316,33 @@ def _soft_normalize_minute_draws(
     return result
 
 
+_BUCKETS = ("close", "moderate", "blowout")
+
+
+def _period_bucket_indexes(
+    endings: np.ndarray,
+    target_endings: np.ndarray,
+    home_pts: np.ndarray,
+    away_pts: np.ndarray,
+    *,
+    expected_margin: float,
+    close_thr: float,
+    blowout_thr: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Map game progress + score to period (0–3) and margin bucket (0–2)."""
+    progress = endings.astype(float) / np.maximum(1.0, target_endings.astype(float))
+    period_idx = np.clip(np.floor(progress * 4.0).astype(np.int32), 0, 3)
+    live = np.abs(home_pts - away_pts)
+    # Early: lean on pregame expected margin; late: trust the live score.
+    eff = (1.0 - progress) * float(expected_margin) + progress * live
+    bucket_idx = np.where(
+        eff < close_thr,
+        0,
+        np.where(eff < blowout_thr, 1, 2),
+    ).astype(np.int32)
+    return period_idx, bucket_idx
+
+
 def _lineups_matrix(rng: np.random.Generator, pool: np.ndarray, minutes: np.ndarray) -> np.ndarray:
     """Return shape (n_runs, 5) player indexes (single stint)."""
     return _lineups_stints(rng, pool, minutes, n_stints=1)[:, 0, :]
@@ -338,6 +380,64 @@ def _lineups_stints(
     # Map pool-local indexes → global player indexes.
     for stint in range(n_stints):
         out[:, stint, :] = pool[top[:, :, stint]].T
+    return out
+
+
+def _lineups_state_grid(
+    rng: np.random.Generator,
+    pool: np.ndarray,
+    minutes: np.ndarray,
+    players: list[PlayerProjection],
+    *,
+    rotation=None,
+) -> np.ndarray:
+    """Return shape (n_runs, 4 periods, 3 buckets, 5) player indexes.
+
+    Weights = projected minutes × period/margin priors, with a mild boost for
+    players who historically share the floor (co-appearance).
+    """
+    from projections.rotations import RotationModel
+
+    model = rotation if rotation is not None else RotationModel()
+    n_runs = minutes.shape[1]
+    size = min(5, int(pool.size))
+    n_pool = int(pool.size)
+    out = np.zeros((n_runs, 4, 3, size), dtype=np.int32)
+    if n_pool == 0:
+        return out
+
+    base = np.clip(minutes[pool], 0.0, None)  # (pool, runs)
+    team_id = int(players[int(pool[0])].team_id) if pool.size else 0
+    player_ids = [int(players[int(i)].player_id) for i in pool]
+    depths = [int(getattr(players[int(i)], "depth_rank", 99)) for i in pool]
+
+    # Co-appearance boost relative to the team's minutes leader.
+    leader_local = int(np.argmax(base.mean(axis=1))) if n_pool else 0
+    leader_pid = player_ids[leader_local]
+    co_boost = np.ones(n_pool, dtype=float)
+    for j, pid in enumerate(player_ids):
+        if j == leader_local:
+            continue
+        co_boost[j] = model.partner_boost(team_id, leader_pid, pid)
+
+    for period in range(1, 5):
+        for b_idx, bucket in enumerate(_BUCKETS):
+            period_w = np.array(
+                [
+                    model.period_weights(depths[j], period=period, margin_bucket_name=bucket)
+                    for j in range(n_pool)
+                ],
+                dtype=float,
+            )
+            weights = base * period_w[:, None] * co_boost[:, None]
+            noise_sd = np.maximum(3.0, 0.25 * np.std(weights, axis=0) + 2.0)
+            noisy = weights + rng.normal(0.0, 1.0, size=(n_pool, n_runs)) * noise_sd[None, :]
+            zero_runs = weights.sum(axis=0) <= 0
+            if np.any(zero_runs):
+                noisy[:, zero_runs] = rng.random((n_pool, int(np.sum(zero_runs))))
+            order = np.argsort(-noisy, axis=0)
+            top = order[:size]
+            out[:, period - 1, b_idx, :] = pool[top].T
     return out
 
 

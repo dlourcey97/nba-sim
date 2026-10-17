@@ -3,13 +3,8 @@
 All analytical data is DuckDB-readable Parquet under `DATA_DIR`.
 Do not open data files to remember the layout. Use this document.
 
-Partition path: `{DATA_DIR}/{table}/season={season}/data.parquet` for Regular Season / Playoffs / PlayIn (same season file as before).
-Preseason is isolated: `{DATA_DIR}/{table}/season={season}/season_type=Preseason/data.parquet`.
-`season` looks like `2025-26`. `list_seasons` / default `read_rows` only see the Regular Season path, so Preseason never enters projections or backtests unless `season_type=Preseason` is passed explicitly.
-
-## current_rosters
-
-Live CommonTeamRoster snapshot for `season.current`. Policy: `replace`. Key: `team_id`, `player_id`. Refreshed every `daily.py` run. Columns: season, team_id, team_abbr, player_id, player_name, position, jersey, preseason_appeared, refreshed_at. Current-season projections must use this table only (no prior-season last-known fallthrough).
+Partition path: `{DATA_DIR}/{table}/season={season}/data.parquet`.
+One Parquet file per season. `season` looks like `2025-26`.
 
 Write policies:
 
@@ -288,6 +283,28 @@ Key: `team_id`, `player_id`, `from_date`
 | roster_status | VARCHAR | yes | Optional roster status from the API when available. |
 | source | VARCHAR | no | game_log or common_roster. |
 
+## current_rosters
+
+Live snapshot of every team's roster for season.current from stats.nba.com CommonTeamRoster. Refreshed on every daily.py run. Also notes whether the player has appeared in that team's Preseason box scores this season (preseason_appeared). Current-season projections must use this table and must not include anyone absent from it. Historical walk-forward continues to use team_rosters stints.
+
+Policy: `replace`
+
+Grain: one row per player on a team's live CommonTeamRoster
+
+Key: `team_id`, `player_id`
+
+| column | type | null | description |
+| --- | --- | --- | --- |
+| season | VARCHAR | no | NBA season label, such as 2025-26. Partition key. |
+| team_id | INTEGER | no | Team id. |
+| team_abbr | VARCHAR | no | Team abbreviation. |
+| player_id | INTEGER | no | NBA player id. |
+| player_name | VARCHAR | no | Player display name. |
+| position | VARCHAR | yes | Listed position when known. |
+| jersey | VARCHAR | yes | Jersey number when known. |
+| preseason_appeared | BOOLEAN | no | True if the player logged minutes for this team in a 2026-27 Preseason box score. |
+| refreshed_at | TIMESTAMP | no | UTC time this snapshot was written. |
+
 ## prediction_history
 
 Summary of a simulation, not the raw runs. row_kind is player or game. Player rows leave the game distribution null. Game rows leave player_id and the player distributions null. Actuals are filled by a later upsert. Only the current season is writable unless a backfill passes allow_historical. A _COMPLETE marker freezes the season.
@@ -425,3 +442,32 @@ Key: `row_kind`, `game_id`, `player_id`
 | pred_total_p50 | DOUBLE | yes | Predicted total p50. Margin is home minus away. Null on player rows. |
 | pred_total_p75 | DOUBLE | yes | Predicted total p75. Margin is home minus away. Null on player rows. |
 | pred_total_p90 | DOUBLE | yes | Predicted total p90. Margin is home minus away. Null on player rows. |
+
+## lineup_stints
+
+Compact lineup stints from PlayByPlayV3. Duration, possessions, and score-margin bucket support substitution models without storing raw PBP. Players are stored sorted ascending so the composite key is stable.
+
+Policy: `replace`
+
+Grain: one row per on-court lineup stretch
+
+Key: `game_id`, `team_id`, `period`, `p1`, `p2`, `p3`, `p4`, `p5`, `duration_sec`
+
+| column | type | null | description |
+| --- | --- | --- | --- |
+| season | VARCHAR | no | NBA season label, such as 2025-26. Partition key. |
+| game_id | VARCHAR | no | NBA game id. |
+| game_date | DATE | no | Game date. |
+| team_id | INTEGER | no | Team on the floor. |
+| opponent_team_id | INTEGER | no | Opposing team id. |
+| home_away | VARCHAR | no | H or A. |
+| period | INTEGER | no | Period number (1–4 regulation, 5+ OT). |
+| duration_sec | DOUBLE | no | Seconds this lineup stayed on the floor. |
+| possessions | INTEGER | no | Possession endings while this lineup was out. |
+| margin_bucket | VARCHAR | no | close / moderate / blowout from team margin. |
+| team_margin | INTEGER | no | Team points minus opponent at stint midpoint. |
+| p1 | INTEGER | no | On-court player id (sorted). |
+| p2 | INTEGER | no | On-court player id (sorted). |
+| p3 | INTEGER | no | On-court player id (sorted). |
+| p4 | INTEGER | no | On-court player id (sorted). |
+| p5 | INTEGER | no | On-court player id (sorted). |

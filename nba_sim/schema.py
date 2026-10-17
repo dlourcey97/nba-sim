@@ -484,6 +484,35 @@ def _tables() -> dict[str, Table]:
         + _player_distribution_columns()
         + _game_distribution_columns(),
     )
+    lineup_stints = Table(
+        name="lineup_stints",
+        policy="replace",
+        key=("game_id", "team_id", "period", "p1", "p2", "p3", "p4", "p5", "duration_sec"),
+        grain="one row per on-court lineup stretch",
+        description=(
+            "Compact lineup stints from PlayByPlayV3. Duration, possessions, and "
+            "score-margin bucket support substitution models without storing raw PBP. "
+            "Players are stored sorted ascending so the composite key is stable."
+        ),
+        columns=_season_cols()
+        + (
+            _col("game_id", "VARCHAR", False, "NBA game id."),
+            _col("game_date", "DATE", False, "Game date."),
+            _col("team_id", "INTEGER", False, "Team on the floor."),
+            _col("opponent_team_id", "INTEGER", False, "Opposing team id."),
+            _col("home_away", "VARCHAR", False, "H or A."),
+            _col("period", "INTEGER", False, "Period number (1–4 regulation, 5+ OT)."),
+            _col("duration_sec", "DOUBLE", False, "Seconds this lineup stayed on the floor."),
+            _col("possessions", "INTEGER", False, "Possession endings while this lineup was out."),
+            _col("margin_bucket", "VARCHAR", False, "close / moderate / blowout from team margin."),
+            _col("team_margin", "INTEGER", False, "Team points minus opponent at stint midpoint."),
+            _col("p1", "INTEGER", False, "On-court player id (sorted)."),
+            _col("p2", "INTEGER", False, "On-court player id (sorted)."),
+            _col("p3", "INTEGER", False, "On-court player id (sorted)."),
+            _col("p4", "INTEGER", False, "On-court player id (sorted)."),
+            _col("p5", "INTEGER", False, "On-court player id (sorted)."),
+        ),
+    )
     tables = (
         player_game_logs,
         team_game_results,
@@ -496,6 +525,7 @@ def _tables() -> dict[str, Table]:
         team_rosters,
         current_rosters,
         prediction_history,
+        lineup_stints,
     )
     return {table.name: table for table in tables}
 

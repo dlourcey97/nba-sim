@@ -50,6 +50,11 @@ from projections.minutes import (
     rotation_base_minutes,
 )
 from projections.rates import RateVector
+from projections.rotations import (
+    RotationModel,
+    expected_abs_margin_from_strength,
+    load_rotation_model,
+)
 
 
 @dataclass
@@ -68,6 +73,7 @@ class PlayerProjection:
     expected_team_possessions: float
     rest_days: int
     status: str
+    depth_rank: int = 99
 
 
 @dataclass
@@ -82,6 +88,8 @@ class GameProjection:
     home_possessions: float
     away_possessions: float
     players: list[PlayerProjection]
+    expected_abs_margin: float = 8.0
+    rotation: RotationModel | None = None
 
 
 @dataclass
@@ -101,6 +109,7 @@ class ProjectionCache:
     # as_of-scoped indexes built once per date for all teams
     appearances_by_team: dict[int, dict[int, int]] | None = None
     last_team_by_player: dict[int, int] | None = None
+    rotation: RotationModel | None = None
 
     def reset_if_needed(self, as_of: date) -> None:
         if self.as_of != as_of:
@@ -113,6 +122,8 @@ class ProjectionCache:
             self.pos_by_team.clear()
             self.appearances_by_team = None
             self.last_team_by_player = None
+            # Keep rotation across as_of dates: priors are fit from prior-season
+            # stints / box scores and re-fitting every slate date is too slow.
 
     def roster_rows(self, settings: Settings, season: str) -> list:
         if season not in self.roster_rows_by_season:
@@ -369,6 +380,22 @@ def _build(
         for tid, value in team_strength_map(settings, bundle.season).items():
             prior_strength.setdefault(tid, value)
     league_str = league_strength(prior_strength) if prior_strength else league_strength({})
+    if cache.rotation is None:
+        cache.rotation = load_rotation_model(
+            settings, bundles, as_of=as_of, config=config
+        )
+    rotation = cache.rotation
+    home_prior = prior_strength.get(home_team_id)
+    away_prior = prior_strength.get(away_team_id)
+    if home_prior is not None and away_prior is not None:
+        expected_abs_margin = expected_abs_margin_from_strength(
+            home_prior.ortg,
+            home_prior.drtg,
+            away_prior.ortg,
+            away_prior.drtg,
+        )
+    else:
+        expected_abs_margin = 8.0
 
     def project_side(
         team_id: int,
@@ -490,6 +517,34 @@ def _build(
             config=config,
             depth_ranks=depth_ranks,
         )
+        # Margin-conditioned rotation: close games shorten the rotation;
+        # blowouts push minutes to the bench. Preserve team minute total.
+        means = [p.mean for p in allocated]
+        adjusted_means = rotation.adjust_means(
+            means,
+            depth_ranks,
+            expected_abs_margin=expected_abs_margin,
+            config=config,
+        )
+        prev_total = sum(means)
+        new_total = sum(adjusted_means)
+        if prev_total > 1e-9 and new_total > 1e-9:
+            scale = prev_total / new_total
+            adjusted_means = [m * scale for m in adjusted_means]
+        allocated = [
+            (
+                MinutesProjection(0.0, 0.0, 0.0, 0.0, True)
+                if prev.out
+                else MinutesProjection(
+                    mean=float(adjusted_means[i]),
+                    sd=prev.sd,
+                    min_minutes=prev.min_minutes,
+                    max_minutes=prev.max_minutes,
+                    out=False,
+                )
+            )
+            for i, prev in enumerate(allocated)
+        ]
         minutes_by_id = dict(zip(ordered_ids, allocated))
 
         # Usage among players expected to play (post-allocation minutes).
@@ -540,6 +595,7 @@ def _build(
                 expected_team_possessions=team_poss,
                 rest_days=rest,
                 status=status,
+                depth_rank=int(_depth),
             )
         return team_poss, players, team_str
 
@@ -589,6 +645,14 @@ def _build(
         list(home_players.values()) + list(away_players.values()),
         key=lambda row: (row.home_away != "H", -row.minutes.mean, row.player_name),
     )
+    # Refine expected margin with roster-weighted nets once both sides exist.
+    refined_margin = expected_abs_margin_from_strength(
+        home_str.ortg,
+        home_str.drtg,
+        away_str.ortg,
+        away_str.drtg,
+        possessions=0.5 * (home_poss + away_poss),
+    )
     return GameProjection(
         season=season,
         game_id=game_id,
@@ -600,6 +664,8 @@ def _build(
         home_possessions=home_poss,
         away_possessions=away_poss,
         players=players,
+        expected_abs_margin=float(refined_margin),
+        rotation=rotation,
     )
 
 

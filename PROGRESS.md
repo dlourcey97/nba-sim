@@ -1,6 +1,6 @@
 # Progress
 
-Last updated after Upgrade 1 calibration backtest (2026-10-17).
+Last updated after Upgrade 2 stint-rotation backtest (2026-10-17).
 
 | Phase | Status | Notes |
 | --- | --- | --- |
@@ -19,7 +19,7 @@ Last updated after Upgrade 1 calibration backtest (2026-10-17).
 | Fix 5. Team strength / HCA | done | Brier **0.227** (was 0.237); prior-season ORtg/DRtg + home FG. |
 | Fix 6. Minutes MAE + roster strength | done | MIN MAE **5.61** (was 7.16); roster-weighted ORtg/DRtg; usage pseudo-possessions. |
 | U1. Tuning → calibration | done | Log loss / CRPS / PIT metrics; tune scores calibration not MAE. |
-| U2. Stint-based rotations | not started | Needs compact PBP lineup-stint table (not stored today). |
+| U2. Stint-based rotations | done | PBP `lineup_stints`; margin×period lineups; depth multipliers. |
 | U3–U8 | not started | Game-state, RAPM, overdispersion, Kalman, clusters, incentives. |
 | Preseason storage | done | `season_type=Preseason` hive partition; excluded from default reads. |
 
@@ -112,6 +112,27 @@ Storage cap and storage report remain in place.
 | Sim / actual PPG | 117.74 / 114.29 | 117.74 / 114.29 |
 
 PIT > 0.5 and coverage ~75% show remaining underdispersion (addressed in U5). Artifacts: `results/backtest/upgrade1_calibration/`.
+
+## Upgrade 2 — Stint-based rotations (2026-10-17)
+
+- New `lineup_stints` table from PlayByPlayV3 (duration, possessions, margin bucket, 5-man lineup).
+- Rebuild: `python -m ingest.rebuild_stints --seasons 2023-24,2024-25,2025-26` (~40k stints/season).
+- `projections/rotations.py`: depth×margin multipliers + co-appearance; box-score fallback if stints missing.
+- Minutes: scale by expected abs margin (close → shorten rotation; blowout → bench).
+- Sim: period×margin lineup grid; live score switches buckets late (blowout bench / close Q4 stars).
+
+| Metric | Upgrade 1 | Upgrade 2 |
+| --- | ---: | ---: |
+| Brier | 0.222 | 0.224 |
+| Log loss | **0.634** | 0.639 |
+| CRPS PTS | **4.38** | 4.59 |
+| PIT mean | 0.669 | 0.680 |
+| MAE PTS | **5.47** | 5.74 |
+| MAE MIN | **5.61** | 5.94 |
+| 10–90 coverage | **0.750** | 0.692 |
+| Sim / actual PPG | 117.74 / 114.29 | 117.51 / 114.29 |
+
+Regression vs U1: margin reallocation hurt MIN MAE and narrowed coverage (lineup grid concentrates floor time). Kept as the structural floor for U3–U4 (game-state + RAPM on stints). Artifacts: `results/backtest/upgrade2_stints/`.
 
 ## Phase 7 (updated)
 

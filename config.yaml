@@ -64,6 +64,8 @@ context:
 
 minutes:
   blowout_margin_threshold: 15.0
+  # |margin| below this is a "close" game for rotation shortening.
+  close_margin_threshold: 6.0
   foul_trouble_rate_prior: 0.08
   # Historical-scale minutes sd floor — coverage comes from possession /
   # shooting variance and lineup stints, not from inflated minutes noise.
