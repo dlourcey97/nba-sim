@@ -51,6 +51,12 @@ from projections.minutes import (
 )
 from projections.rates import RateVector
 from projections.game_state import GameStateModel, load_game_state_model
+from projections.kalman import (
+    KalmanTracker,
+    make_kalman_tracker,
+    prior_nets_from_strength,
+    rest_hca_points,
+)
 from projections.rapm import RapmModel, load_rapm_model
 from projections.rotations import (
     RotationModel,
@@ -116,6 +122,7 @@ class ProjectionCache:
     rotation: RotationModel | None = None
     game_state: GameStateModel | None = None
     rapm: RapmModel | None = None
+    kalman_tracker: KalmanTracker | None = None
     # Shared stint rows by season (loaded once; date-filtered by consumers).
     stint_rows_by_season: dict[str, list] = field(default_factory=dict)
 
@@ -415,6 +422,14 @@ def _build(
             stint_cache=cache.stint_rows_by_season,
         )
     rapm = cache.rapm
+    if cache.kalman_tracker is None or cache.kalman_tracker.season != season:
+        cache.kalman_tracker = make_kalman_tracker(
+            settings,
+            season=season,
+            config=config,
+            prior_nets=prior_nets_from_strength(prior_strength, league_str),
+        )
+    kalman = cache.kalman_tracker.advance_to(as_of)
     home_prior = prior_strength.get(home_team_id)
     away_prior = prior_strength.get(away_team_id)
     if home_prior is not None and away_prior is not None:
@@ -617,6 +632,14 @@ def _build(
                 league=league_str,
                 config=config,
             )
+        # Blend dynamic Kalman net rating into ORtg/DRtg.
+        kalman_w = float(config.get("context", {}).get("kalman_strength_weight", 0.45))
+        if kalman_w > 0 and team_id in kalman.ratings:
+            k_str = kalman.team_strength(team_id, league_str)
+            team_str = type(team_str)(
+                ortg=(1.0 - kalman_w) * team_str.ortg + kalman_w * k_str.ortg,
+                drtg=(1.0 - kalman_w) * team_str.drtg + kalman_w * k_str.drtg,
+            )
 
         players: dict[int, PlayerProjection] = {}
         for player_id, rates in adjusted.items():
@@ -642,9 +665,9 @@ def _build(
                 status=status,
                 depth_rank=int(_depth),
             )
-        return team_poss, players, team_str
+        return team_poss, players, team_str, rest
 
-    home_poss, home_players, home_str = project_side(
+    home_poss, home_players, home_str, rest_home = project_side(
         home_team_id,
         home_abbr,
         away_team_id,
@@ -654,7 +677,7 @@ def _build(
         home_opp_zones,
         home_opp_pos,
     )
-    away_poss, away_players, away_str = project_side(
+    away_poss, away_players, away_str, rest_away = project_side(
         away_team_id,
         away_abbr,
         home_team_id,
@@ -681,11 +704,20 @@ def _build(
                     league=league_str,
                     home_away=home_away,
                     config=config,
+                    rest_home=rest_home,
+                    rest_away=rest_away,
                 ),
             )
 
     _apply_strength(home_players, home_str, away_str, "H")
     _apply_strength(away_players, away_str, home_str, "A")
+    # Expected closeness uses Kalman nets + rest HCA when available.
+    if home_team_id in kalman.ratings and away_team_id in kalman.ratings:
+        expected_abs_margin = abs(
+            kalman.ratings[home_team_id]
+            - kalman.ratings[away_team_id]
+            + rest_hca_points(rest_home, rest_away, config=config)
+        )
     players = sorted(
         list(home_players.values()) + list(away_players.values()),
         key=lambda row: (row.home_away != "H", -row.minutes.mean, row.player_name),

@@ -65,6 +65,21 @@ context:
   # Candidate ridge penalties for stint RAPM (chosen by OOS MSE).
   rapm_lambdas: [200, 500, 1000, 2000, 5000]
   rapm_box_lambda: 400
+  # Kalman team ratings + rest-aware HCA (points of expected margin).
+  kalman_hca_points: 2.8
+  kalman_process_var: 1.5
+  kalman_obs_var: 140.0
+  kalman_init_var: 25.0
+  both_b2b_hca_scale: 0.55
+  hca_points_to_fg: 0.004
+  rest_hca_curve:
+    0: -2.2
+    1: 0.0
+    2: 0.6
+    3: 0.9
+    4: 1.0
+  # Blend Kalman nets into team strength (alongside RAPM/roster).
+  kalman_strength_weight: 0.45
   # Keys are rest days. 0 is a back-to-back.
   rest_day_factors:
     0: -0.030

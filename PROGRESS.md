@@ -1,6 +1,6 @@
 # Progress
 
-Last updated after Upgrade 5 overdispersion backtest (2026-10-17).
+Last updated after Upgrade 6 Kalman backtest (2026-10-18).
 
 | Phase | Status | Notes |
 | --- | --- | --- |
@@ -23,7 +23,8 @@ Last updated after Upgrade 5 overdispersion backtest (2026-10-17).
 | U3. Game-state behavior | done | Late pace adjust + intentional fouls from stint-learned factors. |
 | U4. Ridge RAPM | done | Stint RAPM → minutes-weighted roster ORtg/DRtg; λ by OOS MSE. |
 | U5. Variance (player RE + pace) | done | Per-player shoot/usage draws; pace_sd 5.5; minutes noise unchanged. |
-| U6–U8 | not started | Kalman, clusters, incentives. |
+| U6. Kalman + rest HCA | done | Dynamic team nets; non-linear rest HCA; Brier back to 0.222. |
+| U7–U8 | not started | Shot clusters, late-season incentives. |
 | Preseason storage | done | `season_type=Preseason` hive partition; excluded from default reads. |
 
 ## Phase 3
@@ -195,6 +196,25 @@ Chosen λ often high (~5000) → strong shrink toward 0; win metrics flat vs U3.
 | Sim / actual PPG | 117.92 / 114.29 | 117.84 / 114.29 |
 
 Coverage up slightly; still short of ~0.80. Artifacts: `results/backtest/upgrade5_overdisp/`.
+
+## Upgrade 6 — Kalman team ratings + rest HCA (2026-10-18)
+
+- `projections/kalman.py`: walk-forward Kalman net ratings updated after every game.
+- HCA non-linear in both teams' rest (B2B penalty; both-B2B scale 0.55).
+- Blend Kalman into roster/RAPM strength (`kalman_strength_weight: 0.45`).
+
+| Metric | Upgrade 5 | Upgrade 6 |
+| --- | ---: | ---: |
+| Brier | 0.224 | **0.222** |
+| Log loss | 0.640 | **0.636** |
+| CRPS PTS | 4.65 | **4.65** |
+| PIT mean | 0.682 | 0.683 |
+| MAE PTS | 5.80 | **5.79** |
+| MAE MIN | 6.01 | 6.01 |
+| 10–90 coverage | 0.685 | 0.687 |
+| Sim / actual PPG | 117.84 / 114.29 | 117.56 / 114.29 |
+
+Win calibration recovered to U1 level. Artifacts: `results/backtest/upgrade6_kalman/`.
 
 ## Phase 7 (updated)
 

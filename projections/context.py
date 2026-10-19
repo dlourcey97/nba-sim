@@ -319,11 +319,14 @@ def apply_team_strength_and_hca(
     league: TeamStrength,
     home_away: str,
     config: dict[str, Any],
+    rest_home: int | None = None,
+    rest_away: int | None = None,
 ) -> RateVector:
     """Scale FG%/FT% from team offense, opponent defense, and home-court edge.
 
     Soft multiplicative shifts so strong offenses / weak defenses / home court
-    separate win probabilities without blowing up scoring level.
+    separate win probabilities without blowing up scoring level. When both
+    teams' rest days are provided, HCA is non-linear in rest (B2B penalty).
     """
     ctx = config.get("context", {})
     off_w = float(ctx.get("team_offense_weight", 0.0))
@@ -336,7 +339,13 @@ def apply_team_strength_and_hca(
     if opponent is not None and league.drtg > 0 and def_w != 0:
         # Higher opponent DRtg = worse defense = boost our FG%.
         factor *= (opponent.drtg / league.drtg) ** def_w
-    if home_away == "H":
+    if rest_home is not None and rest_away is not None:
+        from projections.kalman import rest_fg_adjustment
+
+        factor *= 1.0 + rest_fg_adjustment(
+            rest_home, rest_away, home_away=home_away, config=config
+        )
+    elif home_away == "H":
         factor *= 1.0 + home_fg
     else:
         factor *= 1.0 + away_fg
