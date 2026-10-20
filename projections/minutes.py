@@ -175,6 +175,25 @@ def _summarize_recent(
     return mean, sd, n
 
 
+def effective_minutes_gap_close(
+    *,
+    current_season_games_before: int,
+    config: dict[str, Any],
+) -> float:
+    """Gap-close used for allocate + sim draws.
+
+    Mid-season (enough current-season finals): ``normalize_gap_close`` (usually 0)
+    for best MIN MAE. Early season / opening night: ``early_season_gap_close`` so
+    trade-inflated rosters still land near 240.
+    """
+    minutes_cfg = config.get("minutes", {})
+    base = float(minutes_cfg.get("normalize_gap_close", 0.0))
+    early_n = int(minutes_cfg.get("early_season_games", 10))
+    if early_n > 0 and current_season_games_before < early_n:
+        return float(minutes_cfg.get("early_season_gap_close", 0.55))
+    return base
+
+
 def depth_prior_minutes(depth_rank: int, config: dict[str, Any]) -> float:
     """Minutes prior from as-of roster depth (0 = most used / highest priority)."""
     minutes_cfg = config.get("minutes", {})
@@ -308,10 +327,10 @@ def allocate_team_minutes(
 
     active_idx = np.where(~out)[0]
     ranks = list(depth_ranks) if depth_ranks is not None else list(range(n))
-    # gap_close > 0 → expand thin rotations and soft-scale toward 240.
-    # gap_close == 0 → keep Step-2-like means for MAE, but still enforce a
-    # physical ceiling: fringe-trim + scale when the team is well over 240
-    # (common on opening night after trade-history minutes land on a full roster).
+    # gap_close > 0 → expand thin rotations and soft-scale toward 240
+    # (early season / opening night when trade history overfills the roster).
+    # gap_close == 0 → Step-2-like means for best MIN MAE: zero ghosts only;
+    # extreme overfill (> target+40) fringe-trims without forcing exactly 240.
     if active_idx.size and gap_close > 0:
         playing = int(np.sum(means[active_idx] > play_threshold))
         if playing < min_rotation:
@@ -357,26 +376,18 @@ def allocate_team_minutes(
                 caps[i] = 0.0
                 means[i] = 0.0
         total = float(means[~out].sum()) if np.any(~out) else 0.0
-        if total > target + 5.0:
+        # Only cut clear ghosts when the book is absurdly over regulation.
+        if total > target + 40.0:
             means = _trim_from_bottom(
                 means,
                 caps=caps,
                 out=out,
-                target=target,
+                target=target + 20.0,
                 play_threshold=play_threshold,
                 fringe_cut=fringe_cut,
                 keep_threshold=keep_threshold,
                 min_rotation=min_rotation,
             )
-            total = float(means[~out].sum()) if np.any(~out) else 0.0
-        # After fringe cuts (or when a few minutes short), soft-scale to target.
-        if total > 1e-9 and abs(total - target) > 0.5:
-            scale = target / total
-            for i in np.where(~out)[0]:
-                if caps[i] > 0 and means[i] > play_threshold:
-                    means[i] = min(float(means[i] * scale), float(caps[i]))
-                elif caps[i] <= 0:
-                    means[i] = 0.0
 
     out_proj: list[MinutesProjection] = []
     for i, prev in enumerate(projections):

@@ -77,10 +77,11 @@ def simulate_game(
     minutes_cfg = cfg.get("minutes", {})
     team_target = float(minutes_cfg.get("team_minutes_target", 240.0))
     min_minutes = float(minutes_cfg.get("min_minutes", 0.0))
-    # When means are Step-2-like (gap_close=0), hard draw-normalize to 240
-    # shrinks everyone whenever projected team totals exceed 240 and regenerates
-    # the Fix 3 MIN MAE regression. Soft-close only nudges wild totals.
+    # Config gap_close > 0 is an explicit override (tests / tuning).
+    # Otherwise use the projection's early-season-aware value (0 mid-season).
     gap_close = float(minutes_cfg.get("normalize_gap_close", 0.0))
+    if gap_close <= 0:
+        gap_close = float(getattr(projection, "minutes_gap_close", 0.0))
     out_mask = np.array([p.minutes.out for p in players], dtype=bool)
     caps = np.array(
         [0.0 if p.minutes.out else float(p.minutes.max_minutes) for p in players],
@@ -370,20 +371,17 @@ def _soft_normalize_minute_draws(
             result[i] = np.minimum(result[i], cap[i])
         else:
             result[i] = 0.0
-    if result.size == 0:
+    if gap_close <= 0 or result.size == 0:
         return result
     available = ~out & (cap > 0)
     if not np.any(available):
         return result
-    # gap_close=0 still gets a mild pull so team totals land near 240 after
-    # independent player noise (opening-night readiness); full 1.0 hard-normalizes.
-    strength = float(gap_close) if gap_close > 0 else 0.45
     for run in range(result.shape[1]):
         col = result[:, run]
         total = float(col[available].sum())
         if total <= 1e-9:
             continue
-        factor = 1.0 + strength * (target / total - 1.0)
+        factor = 1.0 + float(gap_close) * (target / total - 1.0)
         col = col * factor
         for i in np.where(available)[0]:
             col[i] = min(float(col[i]), float(cap[i]))

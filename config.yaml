@@ -26,12 +26,11 @@ simulation:
   intentional_foul_prob: 0.22
   # Soft remaining-budget scale applied once when progress crosses 0.70.
   late_pace_adjust: true
-  # Overdispersion (U5): per-player tonight effects + game pace noise.
-  # Do NOT raise minutes_variance for coverage — use these instead.
-  player_shoot_sd: 0.12
-  player_usage_sd: 0.10
-  team_hot_sd: 0.05
-  pace_sd: 5.5
+  # Overdispersion: coverage comes from shoot/usage/pace — not minutes_variance.
+  player_shoot_sd: 0.22
+  player_usage_sd: 0.15
+  team_hot_sd: 0.07
+  pace_sd: 9.0
 
 blending:
   season_weights:
@@ -113,8 +112,13 @@ minutes:
   # When team total > 240, zero players below this before proportional scale.
   fringe_cut_minutes: 8.0
   # After trimming ghosts, close this fraction of the remaining gap to 240.
-  # 0.0 keeps Step-2-like means (best MIN MAE); sim draws still sum to 240.
+  # 0.0 keeps Step-2-like means (best MIN MAE) once the season has games.
   normalize_gap_close: 0.0
+  # When fewer than this many current-season finals exist before as_of, use
+  # early_season_gap_close instead (opening night / week 1 trade rosters).
+  early_season_games: 10
+  # Full close for week-1 / opening night so trade rosters hit ~240.
+  early_season_gap_close: 1.0
   # Players with projected mean above this share on-court usage.
   play_threshold: 1.0
   recent_window: 10

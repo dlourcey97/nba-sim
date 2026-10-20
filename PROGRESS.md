@@ -1,6 +1,6 @@
 # Progress
 
-Last updated opening-night freeze (2026-10-19).
+Last updated minutes/calibration pass (2026-10-19 night).
 
 | Phase | Status | Notes |
 | --- | --- | --- |
@@ -28,6 +28,7 @@ Last updated opening-night freeze (2026-10-19).
 | U8. Late-season incentives | deferred | Not started. `features.late_season_incentives: false` in config.yaml. Opening-night freeze — no new features. |
 | Preseason storage | done | `season_type=Preseason` hive partition; excluded from default reads. |
 | Opening night v1.0 | done | Tag `v1.0-opening-night`. Trade-history minutes + 240 allocate; injury CDN hang fix; RUNBOOK.md. |
+| Minutes + calibration | partial | Early-season gap_close=1.0 for ~240; mid-season gap=0 for MAE. Wider shoot/pace SDs. MIN MAE ~6.4 (was 7.5); coverage ~0.67–0.68 (not yet ~0.80). |
 
 ## Phase 3
 
@@ -198,6 +199,14 @@ Chosen λ often high (~5000) → strong shrink toward 0; win metrics flat vs U3.
 | Sim / actual PPG | 117.92 / 114.29 | 117.84 / 114.29 |
 
 Coverage up slightly; still short of ~0.80. Artifacts: `results/backtest/upgrade5_overdisp/`.
+
+## Minutes + calibration pass (2026-10-19 night)
+
+- Mid-season: `normalize_gap_close=0` again (no force-to-240 means) → better MIN MAE.
+- Early season (`early_season_games: 10`): `early_season_gap_close: 1.0` so opening week still hits ~240 after trades.
+- Kept trade any-team minutes fallback + mid-rotation SD caps.
+- Calibration: `player_shoot_sd` 0.22, `usage` 0.15, `pace_sd` 9.0 (do not raise `minutes_variance`).
+- Probe `--seasons 2024-25 --runs 200 --max-games 400`: Brier 0.228, MAE MIN **6.40**, coverage **0.672**, MAE PTS 5.67. Coverage still short of ~0.80 — needs deeper overdispersion / rotation work, not just SD knobs.
 
 ## Opening night freeze (2026-10-19)
 

@@ -72,6 +72,20 @@ def test_normalize_minute_draws_sum_to_target():
     assert float(normed.max()) <= 42.0 + 1e-6
 
 
+def test_effective_gap_close_switches_early_season():
+    from projections.minutes import effective_minutes_gap_close
+
+    cfg = {
+        "minutes": {
+            "normalize_gap_close": 0.0,
+            "early_season_games": 10,
+            "early_season_gap_close": 1.0,
+        }
+    }
+    assert effective_minutes_gap_close(current_season_games_before=0, config=cfg) == 1.0
+    assert effective_minutes_gap_close(current_season_games_before=10, config=cfg) == 0.0
+
+
 def test_traded_player_uses_any_team_minutes_not_zero_window():
     """Opening-night trade: no same-team samples must not become a window of zeros."""
     from projections.blend import SeasonBundle

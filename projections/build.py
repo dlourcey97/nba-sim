@@ -45,6 +45,7 @@ from projections.minutes import (
     MinutesProjection,
     allocate_team_minutes,
     depth_prior_minutes,
+    effective_minutes_gap_close,
     project_minutes,
     recent_minutes_detail,
     rotation_base_minutes,
@@ -100,6 +101,8 @@ class GameProjection:
     rotation: RotationModel | None = None
     game_state: GameStateModel | None = None
     rapm: RapmModel | None = None
+    # Effective minutes normalize_gap_close for this slate (early vs mid season).
+    minutes_gap_close: float = 0.0
 
 
 @dataclass
@@ -265,6 +268,19 @@ def _build(
     season_type: str | None = None,
 ) -> GameProjection:
     config = settings.config
+    finals_before = sum(
+        1
+        for row in read_rows(settings, "schedule", season)
+        if row.get("status") == "final" and row["game_date"] < as_of
+    )
+    minutes_gap = effective_minutes_gap_close(
+        current_season_games_before=finals_before,
+        config=config,
+    )
+    if minutes_gap != float(config["minutes"].get("normalize_gap_close", 0.0)):
+        minutes_cfg = dict(config["minutes"])
+        minutes_cfg["normalize_gap_close"] = minutes_gap
+        config = {**config, "minutes": minutes_cfg}
     seasons_back = list(config["blending"]["season_weights"]["seasons_back"])
     window = available_season_window(settings, season, seasons_back)
     if season not in window:
@@ -745,6 +761,7 @@ def _build(
         rotation=rotation,
         game_state=game_state,
         rapm=rapm,
+        minutes_gap_close=minutes_gap,
     )
 
 
