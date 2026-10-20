@@ -370,18 +370,20 @@ def _soft_normalize_minute_draws(
             result[i] = np.minimum(result[i], cap[i])
         else:
             result[i] = 0.0
-    if gap_close <= 0 or result.size == 0:
+    if result.size == 0:
         return result
     available = ~out & (cap > 0)
     if not np.any(available):
         return result
+    # gap_close=0 still gets a mild pull so team totals land near 240 after
+    # independent player noise (opening-night readiness); full 1.0 hard-normalizes.
+    strength = float(gap_close) if gap_close > 0 else 0.45
     for run in range(result.shape[1]):
         col = result[:, run]
         total = float(col[available].sum())
         if total <= 1e-9:
             continue
-        # Only nudge when far from target, scaled by gap_close.
-        factor = 1.0 + float(gap_close) * (target / total - 1.0)
+        factor = 1.0 + strength * (target / total - 1.0)
         col = col * factor
         for i in np.where(available)[0]:
             col[i] = min(float(col[i]), float(cap[i]))

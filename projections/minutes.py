@@ -96,6 +96,9 @@ def recent_minutes_detail(
         # Align to the team's recent slate. Full absences (inactive) → 0.
         # Active rotation players who appear most nights use appearance means
         # so a rare coach DNP does not crush their projection.
+        # Never-appeared on this team (trades / opening-night signings): do NOT
+        # treat a full window of zeros as a strong same-team sample — fall
+        # through to any-team history so stars keep their prior minutes.
         team_dates = sorted(d for d in team_game_dates if d < as_of)[-window:]
         if team_dates:
             by_date: dict[date, float] = {}
@@ -111,9 +114,10 @@ def recent_minutes_detail(
             if appear_rate >= 0.5 and appeared:
                 mean, sd, n = _summarize_recent(appeared[-window:], recent_decay, same_team=True)
                 return mean, sd, team_dates, n
-            if aligned:
+            if appear_rate > 0 and aligned:
                 mean, sd, n = _summarize_recent(aligned, recent_decay, same_team=True)
                 return mean, sd, team_dates, n
+            # appear_rate == 0 → fall through to any-team history below.
 
     for bundle in bundles:
         if bundle.season != current_season and values:
@@ -304,9 +308,10 @@ def allocate_team_minutes(
 
     active_idx = np.where(~out)[0]
     ranks = list(depth_ranks) if depth_ranks is not None else list(range(n))
-    # gap_close == 0 → Step-2-like means (best MIN MAE): no expand / truncate / scale.
-    # Inactive ghosts are zeroed upstream via team-aligned recent minutes.
-    # Sim draws still normalize to team_minutes_target for physical 240 totals.
+    # gap_close > 0 → expand thin rotations and soft-scale toward 240.
+    # gap_close == 0 → keep Step-2-like means for MAE, but still enforce a
+    # physical ceiling: fringe-trim + scale when the team is well over 240
+    # (common on opening night after trade-history minutes land on a full roster).
     if active_idx.size and gap_close > 0:
         playing = int(np.sum(means[active_idx] > play_threshold))
         if playing < min_rotation:
@@ -351,6 +356,27 @@ def allocate_team_minutes(
             if means[i] <= play_threshold:
                 caps[i] = 0.0
                 means[i] = 0.0
+        total = float(means[~out].sum()) if np.any(~out) else 0.0
+        if total > target + 5.0:
+            means = _trim_from_bottom(
+                means,
+                caps=caps,
+                out=out,
+                target=target,
+                play_threshold=play_threshold,
+                fringe_cut=fringe_cut,
+                keep_threshold=keep_threshold,
+                min_rotation=min_rotation,
+            )
+            total = float(means[~out].sum()) if np.any(~out) else 0.0
+        # After fringe cuts (or when a few minutes short), soft-scale to target.
+        if total > 1e-9 and abs(total - target) > 0.5:
+            scale = target / total
+            for i in np.where(~out)[0]:
+                if caps[i] > 0 and means[i] > play_threshold:
+                    means[i] = min(float(means[i] * scale), float(caps[i]))
+                elif caps[i] <= 0:
+                    means[i] = 0.0
 
     out_proj: list[MinutesProjection] = []
     for i, prev in enumerate(projections):
@@ -361,11 +387,13 @@ def allocate_team_minutes(
         cap = float(caps[i])
         # Historical / recent sd when available; floor from config (not inflated).
         sd = max(variance * 0.5, sds[i] if sds[i] > 0 else variance)
+        # Cap sd for every band — mid-rotation players with volatile history
+        # (e.g. post-injury) previously kept sd≈12 at ~24 MIN, which put PTS
+        # p10 at 0 despite a healthy projected mean.
         if mean < 12.0:
             sd = min(sd, max(1.5, mean * 0.35 + 1.0))
-        elif mean >= 24.0:
-            # Starters: keep realistic foul/blowout variance, not huge noise.
-            sd = min(sd, max(variance, mean * 0.18))
+        else:
+            sd = min(sd, max(variance, mean * 0.20))
         out_proj.append(
             MinutesProjection(
                 mean=mean,

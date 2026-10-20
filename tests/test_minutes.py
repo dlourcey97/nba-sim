@@ -72,6 +72,32 @@ def test_normalize_minute_draws_sum_to_target():
     assert float(normed.max()) <= 42.0 + 1e-6
 
 
+def test_traded_player_uses_any_team_minutes_not_zero_window():
+    """Opening-night trade: no same-team samples must not become a window of zeros."""
+    from projections.blend import SeasonBundle
+    from projections.minutes import recent_minutes_detail
+
+    logs = [
+        {"game_date": date(2025, 11, 1), "team_id": 100, "minutes": 34.0},
+        {"game_date": date(2025, 11, 3), "team_id": 100, "minutes": 36.0},
+        {"game_date": date(2025, 11, 5), "team_id": 100, "minutes": 35.0},
+        {"game_date": date(2025, 11, 8), "team_id": 100, "minutes": 33.0},
+    ]
+    bundle = SeasonBundle("2025-26", rates_by_player={}, logs_by_player={1: logs})
+    team_dates = [date(2026, 10, 10), date(2026, 10, 12), date(2026, 10, 14)]
+    mean, _sd, _dates, n = recent_minutes_detail(
+        [bundle],
+        player_id=1,
+        team_id=200,
+        as_of=date(2026, 10, 20),
+        current_season="2026-27",
+        window=10,
+        team_game_dates=team_dates,
+    )
+    assert mean >= 30.0
+    assert n >= 1
+
+
 def test_rotation_base_gives_bench_minutes():
     settings = load_settings()
     config = settings.config

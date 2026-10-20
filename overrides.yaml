@@ -3,55 +3,15 @@
 #
 # statuses: out, doubtful, questionable, probable, available
 # Optional minutes_cap limits projected minutes for that player.
+#
+# Example (uncomment and edit for late scratches on game day):
+# players:
+#   - player_id: 203999
+#     player_name: "Nikola Jokic"
+#     team_abbr: DEN
+#     game_date: "2026-10-20"
+#     status: out
+#     reason: "late scratch"
+#     minutes_cap: null
 
-players:
-  # DAL @ ATL preseason 2026-10-16 — AAC
-  - player_id: 1630583
-    player_name: "Santi Aldama"
-    team_abbr: DAL
-    game_date: "2026-10-16"
-    status: out
-    reason: "injury"
-    minutes_cap: null
-  - player_id: 1641726
-    player_name: "Dereck Lively II"
-    team_abbr: DAL
-    game_date: "2026-10-16"
-    status: out
-    reason: "injury"
-    minutes_cap: null
-  - player_id: 1641844
-    player_name: "Tarik Biberovic"
-    team_abbr: DAL
-    game_date: "2026-10-16"
-    status: out
-    reason: "injury"
-    minutes_cap: null
-  - player_id: 1631108
-    player_name: "Max Christie"
-    team_abbr: DAL
-    game_date: "2026-10-16"
-    status: out
-    reason: "injury"
-    minutes_cap: null
-  - player_id: 1631243
-    player_name: "Mouhamed Gueye"
-    team_abbr: ATL
-    game_date: "2026-10-16"
-    status: out
-    reason: "injury"
-    minutes_cap: null
-  - player_id: 1643539
-    player_name: "Henri Veesaar"
-    team_abbr: ATL
-    game_date: "2026-10-16"
-    status: out
-    reason: "injury"
-    minutes_cap: null
-  - player_id: 1631204
-    player_name: "Marcus Sasser"
-    team_abbr: DAL
-    game_date: "2026-10-16"
-    status: available
-    reason: "active tonight"
-    minutes_cap: null
+players: []

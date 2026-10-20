@@ -1,6 +1,6 @@
 # Progress
 
-Last updated after Upgrade 6 Kalman backtest (2026-10-18).
+Last updated opening-night freeze (2026-10-19).
 
 | Phase | Status | Notes |
 | --- | --- | --- |
@@ -24,8 +24,10 @@ Last updated after Upgrade 6 Kalman backtest (2026-10-18).
 | U4. Ridge RAPM | done | Stint RAPM → minutes-weighted roster ORtg/DRtg; λ by OOS MSE. |
 | U5. Variance (player RE + pace) | done | Per-player shoot/usage draws; pace_sd 5.5; minutes noise unchanged. |
 | U6. Kalman + rest HCA | done | Dynamic team nets; non-linear rest HCA; Brier back to 0.222. |
-| U7–U8 | not started | Shot clusters, late-season incentives. |
+| U7. Shot clusters | deferred | Not needed for opening night; leave for mid-season. |
+| U8. Late-season incentives | deferred | Not started. `features.late_season_incentives: false` in config.yaml. Opening-night freeze — no new features. |
 | Preseason storage | done | `season_type=Preseason` hive partition; excluded from default reads. |
+| Opening night v1.0 | done | Tag `v1.0-opening-night`. Trade-history minutes + 240 allocate; injury CDN hang fix; RUNBOOK.md. |
 
 ## Phase 3
 
@@ -196,6 +198,31 @@ Chosen λ often high (~5000) → strong shrink toward 0; win metrics flat vs U3.
 | Sim / actual PPG | 117.92 / 114.29 | 117.84 / 114.29 |
 
 Coverage up slightly; still short of ~0.80. Artifacts: `results/backtest/upgrade5_overdisp/`.
+
+## Opening night freeze (2026-10-19)
+
+- **U8 deferred:** `features.late_season_incentives: false` (not implemented).
+- **Minutes:** traded / new-roster players no longer get a full window of same-team zeros; any-team history + depth priors apply. `allocate_team_minutes` fringe-trims and soft-scales to 240 when gap_close=0. Mid-rotation minutes SD capped so PTS p10 is not 0 at 20+ MIN.
+- **Injuries:** ak-static primary; static.cms fallback only once (was hanging on unpublished keys). 403 treated as not-posted.
+- **Schedule:** 2026-27 regular season schedule stored (opening night 2026-10-20: BOS@DET, PHI@NYK, OKC@SAS).
+- **Overrides:** cleared for opening night (add late scratches in `overrides.yaml` before `daily.py`).
+- **RUNBOOK.md:** game-day steps.
+- Tests: **74 passed**.
+- Full walk-forward `--seasons 2024-2025 --runs 200 --seed 1` (2627 games):
+
+| Metric | Upgrade 6 | Opening night v1.0 |
+| --- | ---: | ---: |
+| Brier | **0.222** | 0.225 |
+| Log loss | **0.636** | 0.640 |
+| CRPS PTS | **4.65** | 4.80 |
+| PIT mean | **0.683** | 0.693 |
+| MAE PTS | **5.79** | 5.92 |
+| MAE MIN | **6.01** | 7.54 |
+| 10–90 coverage | **0.687** | 0.646 |
+| Sim / actual PPG | 117.56 / 114.29 | 117.56 / 114.29 |
+| Sim / actual poss | — | 98.95 / 98.92 |
+
+MIN MAE and coverage regressed vs U6 from re-enforcing ~240 team minutes (needed for opening-night trades). Win metrics nearly flat. Artifacts: `results/backtest/opening_night_v1/`.
 
 ## Upgrade 6 — Kalman team ratings + rest HCA (2026-10-18)
 

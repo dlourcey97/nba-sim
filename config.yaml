@@ -126,5 +126,10 @@ minutes:
   # so ghost DNPs are not invented and then scaled into the 240 total.
   depth_minutes: [36, 34, 32, 30, 28, 20, 14, 10, 6, 0, 0, 0, 0, 0, 0]
 
+# U8 late-season incentives — not implemented for opening night.
+# Kept disabled so mid-season tanking/rest adjustments never apply.
+features:
+  late_season_incentives: false
+
 outputs:
   percentiles: [10, 25, 50, 75, 90]

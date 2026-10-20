@@ -95,10 +95,15 @@ _REPORT_TIMES = (
     "11AM",
     "11:30AM",
 )
-_URL_TEMPLATES = (
-    "https://ak-static.cms.nba.com/referee/injury/Injury-Report_{date}_{time}.pdf",
-    "https://static.cms.nba.com/referee/injury/Injury-Report_{date}_{time}.pdf",
+# Primary CDN first. static.cms.nba.com often hangs on unpublished keys — only
+# used as a single last-resort fallback after every primary miss.
+_URL_TEMPLATE_PRIMARY = (
+    "https://ak-static.cms.nba.com/referee/injury/Injury-Report_{date}_{time}.pdf"
 )
+_URL_TEMPLATE_FALLBACK = (
+    "https://static.cms.nba.com/referee/injury/Injury-Report_{date}_{time}.pdf"
+)
+_URL_TEMPLATES = (_URL_TEMPLATE_PRIMARY, _URL_TEMPLATE_FALLBACK)
 
 
 @dataclass(frozen=True)
@@ -215,25 +220,57 @@ def download_injury_report(
     # Prefer evening reports first for a full slate.
     ordered = sorted(set(times), key=_time_sort_key, reverse=True)
     last_error: Exception | None = None
+
+    def _try(template: str, stamp: str, *, retries: int, timeout: float) -> bytes | None:
+        nonlocal last_error
+        url = template.format(date=game_date.isoformat(), time=_normalize_time_token(stamp))
+        try:
+            payload = _get_pdf(
+                client,
+                url,
+                delay_seconds=delay_seconds,
+                max_retries=retries,
+                backoff_seconds=backoff_seconds,
+                timeout_seconds=timeout,
+            )
+        except InjuryReportError as exc:
+            last_error = exc
+            logger.debug("injury PDF miss %s: %s", url, exc)
+            return None
+        if payload:
+            logger.info("downloaded injury report %s (%d bytes)", url, len(payload))
+            return payload
+        return None
+
+    # Walk primary CDN across all report times before touching the slow fallback.
     for stamp in ordered:
-        for template in _URL_TEMPLATES:
-            url = template.format(date=game_date.isoformat(), time=_normalize_time_token(stamp))
-            try:
-                payload = _get_pdf(
-                    client,
-                    url,
-                    delay_seconds=delay_seconds,
-                    max_retries=max_retries,
-                    backoff_seconds=backoff_seconds,
-                    timeout_seconds=timeout_seconds,
-                )
-            except InjuryReportError as exc:
-                last_error = exc
-                logger.debug("injury PDF miss %s: %s", url, exc)
-                continue
-            if payload:
-                logger.info("downloaded injury report %s (%d bytes)", url, len(payload))
-                return payload, url
+        payload = _try(
+            _URL_TEMPLATE_PRIMARY,
+            stamp,
+            retries=max_retries,
+            timeout=timeout_seconds,
+        )
+        if payload:
+            url = _URL_TEMPLATE_PRIMARY.format(
+                date=game_date.isoformat(), time=_normalize_time_token(stamp)
+            )
+            return payload, url
+
+    # One short-timeout attempt on the alternate host (newest stamp only).
+    if ordered:
+        stamp = ordered[0]
+        payload = _try(
+            _URL_TEMPLATE_FALLBACK,
+            stamp,
+            retries=0,
+            timeout=min(12.0, float(timeout_seconds)),
+        )
+        if payload:
+            url = _URL_TEMPLATE_FALLBACK.format(
+                date=game_date.isoformat(), time=_normalize_time_token(stamp)
+            )
+            return payload, url
+
     raise InjuryReportError(
         f"no injury PDF found for {game_date.isoformat()}. Last error: {last_error}"
     )
@@ -518,11 +555,17 @@ def _get_pdf(
     for attempt in range(max_retries + 1):
         try:
             response = session.get(url, headers=headers, timeout=timeout_seconds)
+        except requests.Timeout as exc:
+            # Unpublished / dead hosts hang; treat as a miss so the caller can
+            # advance to the next report time instead of burning the slate.
+            last_error = exc
+            return None
         except requests.RequestException as exc:
             last_error = exc
             time.sleep(backoff_seconds * (2**attempt))
             continue
-        if response.status_code == 404:
+        if response.status_code in (403, 404):
+            # Not posted yet (404) or CDN blocks unpublished keys (403).
             return None
         if response.status_code >= 500:
             last_error = InjuryReportError(f"HTTP {response.status_code} for {url}")

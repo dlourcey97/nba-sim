@@ -80,8 +80,9 @@ def test_env_and_config_load():
     assert settings.archive_dir is not None
     assert settings.repo_root not in settings.data_dir.parents
     assert settings.max_bytes == 2_147_483_648
-    assert settings.current_season == "2025-26"
+    assert settings.current_season == "2026-27"
     assert settings.config["simulation"]["runs"] == 10000
+    assert settings.config["features"]["late_season_incentives"] is False
     weights = settings.config["blending"]["season_weights"]["weights"]
     assert abs(sum(weights) - 1) < 1e-9
 
@@ -125,13 +126,14 @@ def test_every_table_round_trips(settings):
 
 
 def test_incremental_skips_existing_keys_and_keeps_original_values(settings):
-    first = _rows("player_game_logs", "2025-26", 1)
-    store_rows(settings, "player_game_logs", "2025-26", first)
-    changed = _rows("player_game_logs", "2025-26", 1, pts=99)
-    added = _rows("player_game_logs", "2025-26", 1)
+    season = settings.current_season
+    first = _rows("player_game_logs", season, 1)
+    store_rows(settings, "player_game_logs", season, first)
+    changed = _rows("player_game_logs", season, 1, pts=99)
+    added = _rows("player_game_logs", season, 1)
     added[0]["game_id"] = "game-new"
     added[0]["player_id"] = 50
-    result = store_rows(settings, "player_game_logs", "2025-26", changed + added)
+    result = store_rows(settings, "player_game_logs", season, changed + added)
     assert result.rows_written == 1
     assert result.rows_skipped == 1
     import duckdb
@@ -140,7 +142,7 @@ def test_incremental_skips_existing_keys_and_keeps_original_values(settings):
         f"SELECT pts FROM read_parquet('{result.path}') WHERE game_id = '{first[0]['game_id']}'"
     ).fetchall()
     assert points == [(1,)]
-    assert len(stored_keys(settings, "player_game_logs", "2025-26")) == 2
+    assert len(stored_keys(settings, "player_game_logs", season)) == 2
 
 
 def test_completed_season_is_frozen(settings):
@@ -179,10 +181,11 @@ def test_replace_overwrites_and_drops_completion_marker(settings):
 
 
 def test_upsert_replaces_matching_key(settings):
-    original = _rows("schedule", "2025-26", 1, status="scheduled", home_pts=None, away_pts=None)
-    store_rows(settings, "schedule", "2025-26", original)
-    updated = _rows("schedule", "2025-26", 1, status="final", home_pts=110, away_pts=101)
-    result = store_rows(settings, "schedule", "2025-26", updated)
+    season = settings.current_season
+    original = _rows("schedule", season, 1, status="scheduled", home_pts=None, away_pts=None)
+    store_rows(settings, "schedule", season, original)
+    updated = _rows("schedule", season, 1, status="final", home_pts=110, away_pts=101)
+    result = store_rows(settings, "schedule", season, updated)
     assert result.rows_written == 1
     import duckdb
 
@@ -193,24 +196,26 @@ def test_upsert_replaces_matching_key(settings):
 
 
 def test_prediction_game_row_allows_null_player(settings):
-    row = _rows("prediction_history", "2025-26", 1, row_kind="game", player_id=None)[0]
-    result = store_rows(settings, "prediction_history", "2025-26", [row])
-    assert stored_keys(settings, "prediction_history", "2025-26") == {("game", row["game_id"], None)}
+    season = settings.current_season
+    row = _rows("prediction_history", season, 1, row_kind="game", player_id=None)[0]
+    result = store_rows(settings, "prediction_history", season, [row])
+    assert stored_keys(settings, "prediction_history", season) == {("game", row["game_id"], None)}
     assert result.rows_written == 1
 
 
 def test_rejects_bad_rows(settings):
-    row = _rows("player_game_logs", "2025-26", 1)[0]
+    season = settings.current_season
+    row = _rows("player_game_logs", season, 1)[0]
     row["season"] = "2024-25"
     with pytest.raises(Exception, match="does not match partition"):
-        store_rows(settings, "player_game_logs", "2025-26", [row])
-    dup = _rows("player_game_logs", "2025-26", 1) * 2
+        store_rows(settings, "player_game_logs", season, [row])
+    dup = _rows("player_game_logs", season, 1) * 2
     with pytest.raises(Exception, match="duplicate key"):
-        store_rows(settings, "player_game_logs", "2025-26", dup)
-    extra = _rows("player_game_logs", "2025-26", 1)[0]
+        store_rows(settings, "player_game_logs", season, dup)
+    extra = _rows("player_game_logs", season, 1)[0]
     extra["odds"] = 1.5
     with pytest.raises(Exception, match="unexpected columns"):
-        store_rows(settings, "player_game_logs", "2025-26", [extra])
+        store_rows(settings, "player_game_logs", season, [extra])
 
 
 def test_storage_report_uses_file_sizes_only(settings):
@@ -233,12 +238,13 @@ def test_storage_report_uses_file_sizes_only(settings):
 
 
 def test_cap_discards_the_new_file(settings):
+    season = settings.current_season
     settings.data_dir.mkdir()
     blob = settings.data_dir / "blob.bin"
     blob.write_bytes(b"x" * 1000)
     tight = replace(settings, max_bytes=1000)
     with pytest.raises(StorageCapExceeded) as caught:
-        store_rows(tight, "player_game_logs", "2025-26", _rows("player_game_logs", "2025-26", 1))
+        store_rows(tight, "player_game_logs", season, _rows("player_game_logs", season, 1))
     assert caught.value.cap == 1000
     assert "Aborting" in str(caught.value) or "discarded" in str(caught.value)
     assert blob.read_bytes() == b"x" * 1000
@@ -257,12 +263,13 @@ def test_enforce_cap_allows_exact_size(settings):
 
 
 def test_cleanup_and_finish_run(settings, capsys):
+    season = settings.current_season
     scratch = settings.data_dir / "_tmp"
     scratch.mkdir(parents=True)
     (scratch / "raw.json").write_text("{}", encoding="utf-8")
     (settings.data_dir / "player_game_logs").mkdir()
     (settings.data_dir / "player_game_logs" / "partial.parquet.tmp").write_bytes(b"temp")
-    store_rows(settings, "schedule", "2025-26", _rows("schedule", "2025-26", 1))
+    store_rows(settings, "schedule", season, _rows("schedule", season, 1))
     removed = cleanup_temp(settings.data_dir)
     assert removed >= 2
     assert not scratch.exists()
@@ -276,7 +283,8 @@ def test_cleanup_and_finish_run(settings, capsys):
 
 
 def test_cli_report(settings, tmp_path):
-    store_rows(settings, "schedule", "2025-26", _rows("schedule", "2025-26", 1))
+    season = settings.current_season
+    store_rows(settings, "schedule", season, _rows("schedule", season, 1))
     env = os.environ.copy()
     env["DATA_DIR"] = str(settings.data_dir)
     env["ARCHIVE_DIR"] = str(settings.archive_dir)
@@ -290,6 +298,6 @@ def test_cli_report(settings, tmp_path):
     )
     assert completed.returncode == 0, completed.stderr
     assert "schedule" in completed.stdout
-    assert "2025-26" in completed.stdout
+    assert season in completed.stdout
     assert "within_cap: yes" in completed.stdout
     assert "TOTAL" in completed.stdout
