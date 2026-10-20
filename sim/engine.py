@@ -138,11 +138,19 @@ def simulate_game(
     # Minutes noise is intentionally NOT inflated for coverage.
     home_hot = np.clip(rng.normal(1.0, team_hot_sd, size=n_runs), 0.88, 1.12)
     away_hot = np.clip(rng.normal(1.0, team_hot_sd, size=n_runs), 0.88, 1.12)
+    # Symmetric clips around 1.0 — asymmetric caps biased FG%/usage upward
+    # (star PPM inflation on opening night).
+    shoot_cap = min(0.28, max(0.18, 1.25 * player_shoot_sd))
+    usage_cap = min(0.30, max(0.18, 1.25 * player_usage_sd))
     player_hot = np.clip(
-        rng.normal(1.0, player_shoot_sd, size=(n_players, n_runs)), 0.75, 1.30
+        rng.normal(1.0, player_shoot_sd, size=(n_players, n_runs)),
+        1.0 - shoot_cap,
+        1.0 + shoot_cap,
     )
     player_usage = np.clip(
-        rng.normal(1.0, player_usage_sd, size=(n_players, n_runs)), 0.70, 1.35
+        rng.normal(1.0, player_usage_sd, size=(n_players, n_runs)),
+        1.0 - usage_cap,
+        1.0 + usage_cap,
     )
     # Pace targets possession *endings* (NBA pace). OREB continuations must not
     # consume the budget — only dead balls, makes, FT trips, and DREBs count.

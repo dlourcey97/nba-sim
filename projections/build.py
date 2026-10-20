@@ -592,12 +592,24 @@ def _build(
         if prev_total > 1e-9 and new_total > 1e-9:
             scale = prev_total / new_total
             adjusted_means = [m * scale for m in adjusted_means]
+        # Re-apply caps after rotation adjust. Margin adjust can otherwise push
+        # stars past both allocate output and max_minutes (Cade 35 → 41).
+        max_min = float(config["minutes"]["max_minutes"])
+        star_cap = float(config["minutes"].get("post_rotation_star_cap", 36.0))
+        clipped = []
+        for i, prev in enumerate(allocated):
+            if prev.out:
+                clipped.append(0.0)
+                continue
+            m = float(adjusted_means[i])
+            m = min(m, max_min, max(float(prev.mean), star_cap))
+            clipped.append(m)
         allocated = [
             (
                 MinutesProjection(0.0, 0.0, 0.0, 0.0, True)
                 if prev.out
                 else MinutesProjection(
-                    mean=float(adjusted_means[i]),
+                    mean=float(clipped[i]),
                     sd=prev.sd,
                     min_minutes=prev.min_minutes,
                     max_minutes=prev.max_minutes,
@@ -963,7 +975,13 @@ def _normalize_usage_for_minutes(
     out_ids: set[int],
     play_threshold: float,
 ) -> dict[int, RateVector]:
-    """Renormalize usage among players with projected minutes; floor zeros."""
+    """Calibrate on-court usage; zero players who will not play.
+
+    Preserve relative usage shares, but scale so the minutes-weighted mean
+    usage is 0.20 (five on-court players sum to ~1). Roster-wide sum-to-1
+    diluted stars to ~0.15 and inflated shot share with low-usage bench;
+    raw unscaled rates often sum to >1 on the floor.
+    """
     playing = {
         pid: rates
         for pid, rates in rates_by_id.items()
@@ -974,7 +992,6 @@ def _normalize_usage_for_minutes(
     if not playing:
         return rates_by_id
     updated = dict(rates_by_id)
-    # Only invent usage when a player has minutes but ~zero rate history.
     floored: dict[int, float] = {}
     for pid, rates in playing.items():
         mean_min = minutes_by_id[pid].mean
@@ -982,17 +999,22 @@ def _normalize_usage_for_minutes(
         if usage <= 1e-6:
             usage = max(0.02, 0.06 * (mean_min / 36.0))
         floored[pid] = usage
-    total = sum(floored.values())
-    if total <= 0:
-        return updated
+    min_total = sum(minutes_by_id[pid].mean for pid in floored)
+    weighted = (
+        sum(floored[pid] * minutes_by_id[pid].mean for pid in floored) / min_total
+        if min_total > 1e-9
+        else 0.0
+    )
+    scale = (0.20 / weighted) if weighted > 1e-9 else 1.0
+    # Keep stars from being crushed or exploded by thin rotations.
+    scale = max(0.70, min(1.15, float(scale)))
     for pid, usage in floored.items():
         rates = updated[pid]
         updated[pid] = RateVector.from_dict(
-            {**rates.as_dict(), "usage": usage / total},
+            {**rates.as_dict(), "usage": usage * scale},
             sample_possessions=rates.sample_possessions,
             sample_games=rates.sample_games,
         )
-    # Zero usage for players not expected to play.
     for pid, rates in list(updated.items()):
         if pid not in playing:
             updated[pid] = RateVector.from_dict(

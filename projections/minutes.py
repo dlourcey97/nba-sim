@@ -150,6 +150,17 @@ def recent_minutes_detail(
     recent_dates = [item[0] for item in paired]
     recent = [item[1] for item in paired]
     mean, sd, n = _summarize_recent(recent, recent_decay, same_team=same_team)
+    if not same_team:
+        # Cross-team history: keep nearly-full minutes only for true stars
+        # (trade acquisions who were 32+ MPG). Everyone else drops to a
+        # depth-chart-sized role so they cannot crowd out same-team rotation
+        # players on opening night / week 1.
+        if mean >= 32.0:
+            mean = 0.85 * mean
+        elif mean >= 24.0:
+            mean = min(0.40 * mean, 14.0)
+        else:
+            mean = min(0.35 * mean, 10.0)
     return mean, sd, recent_dates, n
 
 
@@ -228,6 +239,9 @@ def rotation_base_minutes(
     # Deep depth with no prior minutes stays at 0 even if a tiny depth prior exists.
     if recent_n <= 0 and depth <= 0:
         return 0.0
+    # Playoff stretches often run 40+ MPG; do not carry that into RS projections.
+    if recent_n >= 5 and recent_mean > 36.0:
+        recent_mean = 36.0
     if recent_n <= 0:
         base = depth
     elif recent_n < 3:
@@ -364,7 +378,32 @@ def allocate_team_minutes(
         total = float(means[~out].sum()) if np.any(~out) else 0.0
         if total > 1e-9:
             factor = 1.0 + float(gap_close) * (target / total - 1.0)
-            scaled = means * factor
+            star_protect = float(minutes_cfg.get("gap_close_star_floor", 34.0))
+            if factor > 1.0:
+                # Expanding toward 240: do not dump fringe cuts onto stars.
+                scaled = means.copy()
+                for i in np.where(~out)[0]:
+                    if means[i] >= star_protect:
+                        scaled[i] = means[i]
+                    elif caps[i] > 0:
+                        scaled[i] = means[i] * factor
+                # If still short, give leftover to mid-rotation (8–star_protect).
+                short = target - float(scaled[~out].sum())
+                if short > 1.0:
+                    mid = [
+                        i
+                        for i in np.where(~out)[0]
+                        if 8.0 <= scaled[i] < star_protect and caps[i] > scaled[i]
+                    ]
+                    if mid:
+                        room = np.array([caps[i] - scaled[i] for i in mid], dtype=float)
+                        room_sum = float(room.sum())
+                        if room_sum > 1e-9:
+                            give = min(short, room_sum)
+                            for i, r in zip(mid, room):
+                                scaled[i] += give * (r / room_sum)
+            else:
+                scaled = means * factor
             for i in np.where(~out)[0]:
                 if caps[i] > 0:
                     means[i] = min(float(scaled[i]), float(caps[i]))

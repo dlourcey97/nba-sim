@@ -82,7 +82,9 @@ def test_effective_gap_close_switches_early_season():
             "early_season_gap_close": 1.0,
         }
     }
-    assert effective_minutes_gap_close(current_season_games_before=0, config=cfg) == 1.0
+    assert effective_minutes_gap_close(current_season_games_before=0, config=cfg) == pytest.approx(
+        float(cfg["minutes"].get("early_season_gap_close", 0.55))
+    )
     assert effective_minutes_gap_close(current_season_games_before=10, config=cfg) == 0.0
 
 
@@ -108,7 +110,9 @@ def test_traded_player_uses_any_team_minutes_not_zero_window():
         window=10,
         team_game_dates=team_dates,
     )
-    assert mean >= 30.0
+    # Cross-team star minutes are discounted (~0.85) so fringe imports cannot
+    # outrank same-team rotation players; still keep a starter-level prior.
+    assert mean >= 28.0
     assert n >= 1
 
 

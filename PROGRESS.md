@@ -1,6 +1,6 @@
 # Progress
 
-Last updated assist attribution fix (2026-10-20).
+Last updated roster refresh + star-inflation fixes (2026-10-20 night).
 
 | Phase | Status | Notes |
 | --- | --- | --- |
@@ -30,6 +30,7 @@ Last updated assist attribution fix (2026-10-20).
 | Opening night v1.0 | done | Tag `v1.0-opening-night`. Trade-history minutes + 240 allocate; injury CDN hang fix; RUNBOOK.md. |
 | Minutes + calibration | partial | Early-season gap_close=1.0 for ~240; mid-season gap=0 for MAE. Wider shoot/pace SDs. MIN MAE ~6.4 (was 7.5); coverage ~0.67–0.68 (not yet ~0.80). |
 | Assist attribution | done | Passer weighted by `ast_rate`; team AST bias −10 → +0.0 on 2025-26 sample. |
+| Roster + star inflation | partial | Live `current_rosters` refresh; any-team minutes discount; usage calibrate; playoff MPG soft-cap. Cade 34.7→32.4 PTS (actual 22). Huerter/Joe still under-minuted without injury PDF. |
 
 ## Phase 3
 
@@ -72,6 +73,37 @@ when on court; high PTS (~35) is minutes/efficiency, not assists stolen into FGA
 
 Opening night BOS@DET Cade: before AST≈3.0 / PTS≈34 → after AST≈11.4 / PTS≈34.8;
 P(PTS≥24.5)=0.819.
+
+## Roster refresh + star inflation (2026-10-20 night)
+
+**Roster:** Refreshed `current_rosters` from CommonTeamRoster for all 30 teams
+(519 players). Trust live API (large offseason movement, e.g. LeBron→PHI).
+Official injury PDF unavailable for 2026-10-20; overrides empty.
+
+**BOS@DET missing-bench autopsy:** Membership was mostly right; minutes were wrong.
+Cross-team any-team fallback gave Harkless/Prince ~30 MPG from prior clubs and
+crowded out Joe/Huerter/Green. Playoff last-10 MPG (Cade 41) plus
+`early_season_gap_close=1.0` and rotation adjust pushed stars to max_minutes.
+
+**Fixes:**
+1. Discount any-team minutes (stars keep ~85%; bench imports capped ~10–14).
+2. Soft-cap recent MPG at 36 (playoff bleed).
+3. `early_season_gap_close` 1.0 → 0.55; don't scale stars up when expanding to 240.
+4. Cap after rotation adjust at allocate mean / 36.
+5. Usage: calibrate minutes-weighted mean to 0.20 (not roster sum-to-1).
+6. Symmetric player_hot / player_usage clips.
+
+**BOS@DET before → after (vs actual DET 121, BOS 113):**
+
+| Player | Before PTS/MIN | After PTS/MIN | Actual |
+| --- | ---: | ---: | ---: |
+| Cade | 34.7 / 39.6 | 32.4 / 36.5 | 22 / 35.3 |
+| Tatum | 26.9 / 32.3 | 28.6 / 36.4 | 13 / 37.8 |
+
+Remaining: Huerter/Joe still ~0 proj min (need inactive/injury feed);
+top-30 dPPM still ~+0.06 vs last season. 2025-26 sample PTS MAE (min≥15) ~6.9.
+
+**PHI@NYK / OKC@SAS** re-simmed 10k after roster refresh (see chat / results/latest).
 
 ## Phase 5
 

@@ -222,12 +222,16 @@ def rebuild_team_rosters(
             read_rows(settings, "schedule", season, season_type="Preseason")
         )
         team_ids = sorted(
-            {
-                int(row["team_id"])
-                for row in list(logs) + list(preseason_logs)
-            }
-            | {int(row["home_team_id"]) for row in schedule_rows}
-            | {int(row["away_team_id"]) for row in schedule_rows}
+            tid
+            for tid in (
+                {
+                    int(row["team_id"])
+                    for row in list(logs) + list(preseason_logs)
+                }
+                | {int(row["home_team_id"]) for row in schedule_rows}
+                | {int(row["away_team_id"]) for row in schedule_rows}
+            )
+            if tid in _NBA_TEAM_ABBRS
         )
         if not team_ids:
             team_ids = list(_NBA_TEAM_IDS)

@@ -120,8 +120,9 @@ minutes:
   # When fewer than this many current-season finals exist before as_of, use
   # early_season_gap_close instead (opening night / week 1 trade rosters).
   early_season_games: 10
-  # Full close for week-1 / opening night so trade rosters hit ~240.
-  early_season_gap_close: 1.0
+  # Partial close for week-1 / opening night. Full close (1.0) dumps cut
+  # fringe minutes onto stars and blows past max_minutes (Cade ~48 MPG).
+  early_season_gap_close: 0.55
   # Players with projected mean above this share on-court usage.
   play_threshold: 1.0
   recent_window: 10

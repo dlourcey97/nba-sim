@@ -254,8 +254,12 @@ def test_build_projection_from_data_dir():
     assert out_row.minutes.out
     active = [row for row in projection.players if not row.minutes.out and row.team_abbr == "ORL"]
     assert active
-    usage = sum(row.rates.usage for row in active)
-    assert usage == pytest.approx(1.0, abs=0.05)
+    # Usage is calibrated to ~0.20 minutes-weighted mean (on-court sum ~1),
+    # not forced to sum to 1 across the full rotation.
+    usages = [row.rates.usage for row in active if row.minutes.mean > 1]
+    assert usages and min(usages) > 0
+    assert max(usages) < 0.45
+    assert 0.12 < (sum(usages) / len(usages)) < 0.30
     window = available_season_window(
         settings,
         "2024-25",
