@@ -31,6 +31,9 @@ simulation:
   player_usage_sd: 0.15
   team_hot_sd: 0.07
   pace_sd: 9.0
+  # Multiply sum-of-on-court ast_rates before P(assisted). Season-average rates
+  # stacked in a lineup slightly overstate team assists; 0.86 centers 2025-26.
+  assist_p_scale: 0.86
 
 blending:
   season_weights:

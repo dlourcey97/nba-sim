@@ -123,6 +123,7 @@ def simulate_game(
     )
 
     sim_cfg = cfg.get("simulation", {})
+    packed["assist_p_scale"] = float(sim_cfg.get("assist_p_scale", 1.0))
     pace_sd = float(sim_cfg.get("pace_sd", 5.5))
     team_hot_sd = float(sim_cfg.get("team_hot_sd", 0.05))
     player_shoot_sd = float(sim_cfg.get("player_shoot_sd", 0.12))
@@ -702,12 +703,17 @@ def _vector_possession(
             points = points + ao_made
         home_delta = np.where(is_make & offense_home, points, home_delta)
         away_delta = np.where(is_make & ~offense_home, points, away_delta)
-        mate_slot = (user_slot + 1 + rng.integers(0, 4, size=n_runs)) % off_lineups.shape[1]
-        mates = off_lineups[np.arange(n_runs), mate_slot]
-        ast_prob = np.clip(packed["ast_rate"][mates], 0.35, 0.75)
-        is_ast = is_make & (rng.random(n_runs) < ast_prob)
-        if np.any(is_ast):
-            np.add.at(ast, (mates[is_ast], np.flatnonzero(is_ast)), 1)
+        # Assists: ast_rate = historical AST / teammate FGM while on court.
+        # On a make, P(assisted) ≈ sum of on-court non-shooter rates; the passer
+        # is drawn weighted by those rates (not a uniform random teammate).
+        _credit_assists(
+            rng,
+            is_make=is_make,
+            off_lineups=off_lineups,
+            user_slot=user_slot,
+            packed=packed,
+            ast=ast,
+        )
         next_offense_home[is_make] = ~offense_home[is_make]
         ended[is_make] = True
 
@@ -747,6 +753,39 @@ def _vector_possession(
             ended[is_drb] = True
 
     return home_delta, away_delta, next_offense_home, ended
+
+
+def _credit_assists(
+    rng: np.random.Generator,
+    *,
+    is_make: np.ndarray,
+    off_lineups: np.ndarray,
+    user_slot: np.ndarray,
+    packed: dict[str, np.ndarray],
+    ast: np.ndarray,
+) -> None:
+    """Credit the passer on assisted makes using each player's ast_rate.
+
+    ``ast_rate`` is historical AST / teammate FGM while on court. For a make,
+    P(assisted) = clip(scale * sum of non-shooter rates, 0, 1) and the passer
+    is drawn proportional to those rates (not a uniform random teammate).
+    """
+    if not np.any(is_make):
+        return
+    n_runs = off_lineups.shape[0]
+    rates = packed["ast_rate"][off_lineups].copy()
+    rates[np.arange(n_runs), user_slot] = 0.0
+    rates_m = rates[is_make]
+    totals = rates_m.sum(axis=1)
+    scale = float(packed.get("assist_p_scale", 1.0))
+    make_idx = np.flatnonzero(is_make)
+    do_ast = rng.random(make_idx.shape[0]) < np.clip(totals * scale, 0.0, 1.0)
+    if not np.any(do_ast):
+        return
+    pick = _weighted_choice(rng, rates_m[do_ast])
+    runners = make_idx[do_ast]
+    players = off_lineups[runners, pick]
+    np.add.at(ast, (players, runners), 1)
 
 
 def _weighted_choice(rng: np.random.Generator, weights: np.ndarray) -> np.ndarray:

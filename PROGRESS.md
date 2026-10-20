@@ -1,6 +1,6 @@
 # Progress
 
-Last updated minutes/calibration pass (2026-10-19 night).
+Last updated assist attribution fix (2026-10-20).
 
 | Phase | Status | Notes |
 | --- | --- | --- |
@@ -29,6 +29,7 @@ Last updated minutes/calibration pass (2026-10-19 night).
 | Preseason storage | done | `season_type=Preseason` hive partition; excluded from default reads. |
 | Opening night v1.0 | done | Tag `v1.0-opening-night`. Trade-history minutes + 240 allocate; injury CDN hang fix; RUNBOOK.md. |
 | Minutes + calibration | partial | Early-season gap_close=1.0 for ~240; mid-season gap=0 for MAE. Wider shoot/pace SDs. MIN MAE ~6.4 (was 7.5); coverage ~0.67–0.68 (not yet ~0.80). |
+| Assist attribution | done | Passer weighted by `ast_rate`; team AST bias −10 → +0.0 on 2025-26 sample. |
 
 ## Phase 3
 
@@ -42,6 +43,35 @@ Opponent defense:
 
 - Zone FG% allowed (existing `team_zone_defense` + as_of scan from rates/logs).
 - **Position defense (new):** stats allowed to PG/SG/SF/PF/C from player game logs (`team_position_defense` table + as_of `position_defense_from_bundles`). Listed positions are usually G/F/C; `five_position()` maps those onto the five traditional slots using that appearance’s reb/ast.
+
+## Assist attribution (2026-10-20)
+
+**Bug:** On a make, the engine picked a *uniform random* non-shooter and used
+`clip(ast_rate, 0.35, 0.75)` as P(assisted). Primary creators (Cade ~0.43
+ast_rate) were starved (~1/4 of credits) while team AST sat ~16 vs ~26 actual.
+
+**Fix:** `ast_rate` = historical AST / teammate FGM while on court. P(assisted) =
+`clip(assist_p_scale * sum(non-shooter rates), 0, 1)`; passer drawn proportional
+to those rates. `assist_p_scale: 0.86` centers team level (season rates stacked
+in a lineup slightly overstate). Opp-defense ast_rate cap raised 0.45 → 0.65.
+
+**Usage ≠ creation:** Usage only weights who shoots among the on-court five.
+Assists are separate (teammate makes). Cade usg≈0.16 → ~28% of DET shot weight
+when on court; high PTS (~35) is minutes/efficiency, not assists stolen into FGA.
+
+2025-26 walk-forward sample (200 games, 150 runs):
+
+| Metric | Before | After |
+| --- | ---: | ---: |
+| Team AST/G sim | 15.78 | **25.82** |
+| Team AST/G actual | 25.78 | 25.78 |
+| Team AST bias | −10.00 | **+0.04** |
+| Team AST MAE | 10.22 | **4.97** |
+| Cade AST/G sim | 3.22 | **10.80** |
+| Cade AST/G actual | 9.10 | 9.10 |
+
+Opening night BOS@DET Cade: before AST≈3.0 / PTS≈34 → after AST≈11.4 / PTS≈34.8;
+P(PTS≥24.5)=0.819.
 
 ## Phase 5
 

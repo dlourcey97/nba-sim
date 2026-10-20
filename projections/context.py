@@ -427,7 +427,8 @@ def apply_opponent_position_defense(
     opp_ast = float(opp.get("ast_per_36") or league_ast)
     if league_ast > 0:
         ast_factor = (opp_ast / league_ast) ** (weight * 0.5)
-        updates["ast_rate"] = min(0.45, max(0.02, rates.ast_rate * ast_factor))
+        # Elite creators can exceed ~0.45 AST/teammate-FGM; keep room above that.
+        updates["ast_rate"] = min(0.65, max(0.02, rates.ast_rate * ast_factor))
     league_reb = float(league.get("reb_per_36") or 0.0)
     opp_reb = float(opp.get("reb_per_36") or league_reb)
     if league_reb > 0:
