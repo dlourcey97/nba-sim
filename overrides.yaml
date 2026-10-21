@@ -4,14 +4,73 @@
 # statuses: out, doubtful, questionable, probable, available
 # Optional minutes_cap limits projected minutes for that player.
 #
-# Example (uncomment and edit for late scratches on game day):
-# players:
-#   - player_id: 203999
-#     player_name: "Nikola Jokic"
-#     team_abbr: DEN
-#     game_date: "2026-10-20"
-#     status: out
-#     reason: "late scratch"
-#     minutes_cap: null
+# 2026-10-21 slate: official 06:00 PM ET report + beat-reporter resolutions
+# for QUESTIONABLE players. No sportsbook lines/odds/props used.
 
-players: []
+players:
+  # --- QUESTIONABLE → most likely outcome (exclude from confidence picks) ---
+  - player_id: 203500
+    player_name: "Steven Adams"
+    team_abbr: HOU
+    game_date: "2026-10-21"
+    status: available
+    reason: "Q calf tightness; assume plays (veteran, no late scratch)"
+    minutes_cap: null
+
+  - player_id: 1641763
+    player_name: "Julian Phillips"
+    team_abbr: HOU
+    game_date: "2026-10-21"
+    status: out
+    reason: "Q illness + two-way; assume OUT"
+    minutes_cap: null
+
+  - player_id: 1628379
+    player_name: "Luke Kennard"
+    team_abbr: PHX
+    game_date: "2026-10-21"
+    status: available
+    reason: "Q left knee tendinopathy; assume plays (no late scratch)"
+    minutes_cap: null
+
+  - player_id: 1630166
+    player_name: "Deni Avdija"
+    team_abbr: POR
+    game_date: "2026-10-21"
+    status: available
+    reason: "Q right ankle; assume plays (projected starter)"
+    minutes_cap: null
+
+  - player_id: 1628370
+    player_name: "Malik Monk"
+    team_abbr: SAC
+    game_date: "2026-10-21"
+    status: available
+    reason: "Q left ankle; assume plays (no late scratch)"
+    minutes_cap: null
+
+  # --- PROBABLE → treat as available ---
+  - player_id: 201939
+    player_name: "Stephen Curry"
+    team_abbr: GSW
+    game_date: "2026-10-21"
+    status: available
+    reason: "Probable ankle soreness; assume plays full role"
+    minutes_cap: null
+
+  - player_id: 1630695
+    player_name: "Micah Potter"
+    team_abbr: POR
+    game_date: "2026-10-21"
+    status: available
+    reason: "Upgraded probable (illness); assume plays"
+    minutes_cap: null
+
+  # --- Late confirmed OUT already on 06PM report; keep explicit for audit ---
+  - player_id: 1629012
+    player_name: "Collin Sexton"
+    team_abbr: LAL
+    game_date: "2026-10-21"
+    status: out
+    reason: "Late scratch confirmed (soleus); ruled out vs GSW"
+    minutes_cap: null

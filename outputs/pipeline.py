@@ -10,8 +10,15 @@ from typing import Sequence
 from ingest.injuries import InjuryEntry, fetch_injuries_for_date, load_overrides, merge_injuries
 from nba_sim.settings import Settings
 from nba_sim.storage import finish_run, read_rows
+from outputs.confidence import (
+    ConfidentPick,
+    confident_picks_for_game,
+    excluded_player_ids,
+    select_slate_picks,
+)
 from outputs.history import fill_actuals_for_season, write_prediction_history
 from outputs.json_writer import clear_latest, write_game_json
+from outputs.slate_report import write_slate_report
 from outputs.summarize import GameSummary, summarize_game
 from projections.build import build_game_projections
 from sim.engine import simulate_game
@@ -23,6 +30,8 @@ class SlateResult:
     json_paths: list[Path] = field(default_factory=list)
     history_rows: int = 0
     actuals_rows: int = 0
+    confident_picks: list[ConfidentPick] = field(default_factory=list)
+    report_path: Path | None = None
 
 
 def run_game(
@@ -72,6 +81,9 @@ def run_slate(
     season_type: str | None = None,
     minutes_bundles: list | None = None,
     minutes_recent_decay: float | None = None,
+    write_report: bool = True,
+    report_notes: Sequence[str] | None = None,
+    report_assumptions: Sequence[str] | None = None,
 ) -> SlateResult:
     schedule = read_rows(settings, "schedule", season, season_type=season_type)
     selected = []
@@ -89,6 +101,11 @@ def run_slate(
     if clear_json_first and write_json:
         clear_latest(settings.repo_root)
 
+    slate_date = game_date or selected[0]["game_date"]
+    exclude_ids = excluded_player_ids(injury_rows, slate_date)
+    raw_picks: list[ConfidentPick] = []
+    started_flags: dict[int, bool] = {}
+
     for row in sorted(selected, key=lambda item: item["game_id"]):
         projection = build_game_projections(
             settings,
@@ -100,6 +117,8 @@ def run_slate(
             minutes_bundles=minutes_bundles,
             minutes_recent_decay=minutes_recent_decay,
         )
+        for player in projection.players:
+            started_flags[player.player_id] = bool(player.started)
         sim = simulate_game(
             projection,
             runs=runs,
@@ -107,6 +126,14 @@ def run_slate(
             config=settings.config,
         )
         summary = summarize_game(projection, sim, thresholds=thresholds)
+        # Confidence from raw arrays in memory only — never persist runs.
+        raw_picks.extend(
+            confident_picks_for_game(
+                projection,
+                sim,
+                excluded_ids=exclude_ids,
+            )
+        )
         # Typical-game narrative: persist one possession log + WP chart only.
         # WP grid is computed from the full sim cloud in memory, then discarded.
         try:
@@ -139,6 +166,21 @@ def run_slate(
                 summary,
                 allow_historical=allow_historical,
             )
+
+    result.confident_picks = select_slate_picks(raw_picks)
+    if write_report and result.summaries:
+        notes = list(report_notes or [])
+        assumptions = list(report_assumptions or [])
+        result.report_path = write_slate_report(
+            settings.repo_root,
+            game_date=slate_date.isoformat(),
+            summaries=result.summaries,
+            picks=result.confident_picks,
+            injuries=injury_rows,
+            notes=notes,
+            assumptions=assumptions,
+            projections_started=started_flags,
+        )
 
     if write_history:
         result.actuals_rows = fill_actuals_for_season(

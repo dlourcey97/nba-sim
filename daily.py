@@ -74,6 +74,33 @@ def main(argv: list[str] | None = None) -> int:
             fetch_pdf=not args.skip_injury_pdf,
         )
         log(f"injuries={len(injuries)}")
+        overrides = [e for e in injuries if e.source == "override"]
+        if overrides:
+            log("overrides applied:")
+            for entry in overrides:
+                cap = f" cap={entry.minutes_cap}" if entry.minutes_cap is not None else ""
+                log(
+                    f"  {entry.team_abbr} {entry.player_name}: {entry.status}{cap} — {entry.reason}"
+                )
+
+        report_notes = [
+            "Official NBA injury PDF (newest available) merged with overrides.yaml.",
+            "OUT and Doubtful players removed; minutes/usage redistributed via absence model.",
+        ]
+        report_assumptions = [
+            f"{e.player_name} ({e.team_abbr}): {e.reason}"
+            for e in overrides
+            if "assume" in (e.reason or "").lower()
+            or e.minutes_cap is not None
+            or "late scratch" in (e.reason or "").lower()
+        ]
+        for entry in overrides:
+            if entry.minutes_cap is not None:
+                report_assumptions.append(
+                    f"{entry.player_name} ({entry.team_abbr}) minutes_cap={entry.minutes_cap}"
+                )
+        # Dedupe while preserving order.
+        report_assumptions = list(dict.fromkeys(report_assumptions))
 
         slate = run_slate(
             settings,
@@ -86,10 +113,19 @@ def main(argv: list[str] | None = None) -> int:
             write_history=True,
             clear_json_first=True,
             finish=False,
+            write_report=True,
+            report_notes=report_notes
+            + [
+                f"{e.team_abbr} {e.player_name} → {e.status}: {e.reason}"
+                for e in overrides
+            ],
+            report_assumptions=report_assumptions
+            or ["No questionable overrides beyond the official report."],
         )
         log(
             f"simulated games={len(slate.summaries)} json={len(slate.json_paths)} "
-            f"history_rows={slate.history_rows} actuals_rows={slate.actuals_rows}"
+            f"history_rows={slate.history_rows} actuals_rows={slate.actuals_rows} "
+            f"confident_picks={len(slate.confident_picks)} report={slate.report_path}"
         )
         finish_run(settings)
         log("daily done")

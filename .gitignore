@@ -4,7 +4,11 @@ DATA_DIR
 ARCHIVE_DIR
 data/
 archive/
-results/
+# Keep results/ out of git except the nightly slate markdown report.
+results/*
+!results/latest/
+results/latest/*
+!results/latest/slate_report.md
 
 *.parquet
 *.duckdb

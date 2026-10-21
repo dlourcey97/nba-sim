@@ -123,7 +123,11 @@ def test_load_overrides_validates_status(tmp_path: Path):
 def test_repo_overrides_yaml_loads():
     path = Path(__file__).resolve().parents[1] / "overrides.yaml"
     rows = load_overrides(path)
-    assert rows == []
+    # Game-day file may be empty or hold tonight's manual rows; just require valid parse.
+    assert isinstance(rows, list)
+    for row in rows:
+        assert row.status in {"Out", "Doubtful", "Questionable", "Probable", "Available"}
+        assert row.source == "override"
 
 
 def test_parse_real_pdf_bytes_when_available():

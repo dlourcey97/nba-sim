@@ -44,6 +44,7 @@ class PlayerSummary:
     home_away: str
     stats: dict[str, StatSummary]
     thresholds: dict[str, dict[str, float]]
+    started: bool = False
 
 
 @dataclass
@@ -80,6 +81,7 @@ def summarize_game(
         "H": projection.away_abbr,
         "A": projection.home_abbr,
     }
+    by_proj = {p.player_id: p for p in projection.players}
     for index, player_id in enumerate(result.player_ids):
         arrays = {
             "pts": result.pts[index],
@@ -103,6 +105,7 @@ def summarize_game(
             probs.setdefault(stat_name, {})[str(cutoff)] = float(
                 np.mean(arrays[stat_name] >= cutoff)
             )
+        proj = by_proj.get(int(player_id))
         players.append(
             PlayerSummary(
                 player_id=int(player_id),
@@ -112,6 +115,7 @@ def summarize_game(
                 home_away=result.home_away[index],
                 stats=stats,
                 thresholds=probs,
+                started=bool(proj.started) if proj is not None else False,
             )
         )
     return GameSummary(
@@ -168,6 +172,7 @@ def summary_to_json_dict(summary: GameSummary) -> dict[str, Any]:
                 "team_abbr": player.team_abbr,
                 "opponent_abbr": player.opponent_abbr,
                 "home_away": player.home_away,
+                "started": player.started,
                 "stats": {name: stat.as_dict() for name, stat in player.stats.items()},
                 "thresholds": player.thresholds,
             }

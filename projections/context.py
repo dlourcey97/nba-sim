@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import unicodedata
 from collections import defaultdict
 from dataclasses import dataclass, replace
 from datetime import date
@@ -466,18 +467,30 @@ def match_injury_player_ids(
     entries: Sequence[InjuryEntry],
     meta_by_id: dict[int, dict[str, Any]],
 ) -> list[InjuryEntry]:
-    """Fill player_id on name-only injury rows when a unique log match exists."""
-    by_name: dict[tuple[str, str], list[int]] = {}
+    """Fill player_id on name-only injury rows when a unique log match exists.
+
+    Prefer (normalized name, team_abbr). If that misses — common after trades
+    when meta still has last season's team — fall back to a unique name-only
+    match across the meta map. Names are ASCII-folded so Porziņģis ≈ Porzingis.
+    """
+    by_team: dict[tuple[str, str], list[int]] = {}
+    by_name: dict[str, list[int]] = {}
     for player_id, meta in meta_by_id.items():
-        key = (_norm(meta["player_name"]), str(meta.get("team_abbr") or "").upper())
-        by_name.setdefault(key, []).append(player_id)
+        norm = _norm(str(meta["player_name"]))
+        team = str(meta.get("team_abbr") or "").upper()
+        by_team.setdefault((norm, team), []).append(player_id)
+        by_name.setdefault(norm, []).append(player_id)
     resolved: list[InjuryEntry] = []
     for entry in entries:
         if entry.player_id is not None:
             resolved.append(entry)
             continue
-        key = (_norm(entry.player_name), str(entry.team_abbr or "").upper())
-        matches = by_name.get(key, [])
+        norm = _norm(entry.player_name)
+        team = str(entry.team_abbr or "").upper()
+        matches = by_team.get((norm, team), [])
+        if len(matches) != 1:
+            name_hits = list(dict.fromkeys(by_name.get(norm, [])))
+            matches = name_hits if len(name_hits) == 1 else []
         if len(matches) == 1:
             resolved.append(
                 InjuryEntry(
@@ -499,4 +512,6 @@ def match_injury_player_ids(
 
 
 def _norm(name: str) -> str:
-    return "".join(ch for ch in name.lower() if ch.isalnum())
+    folded = unicodedata.normalize("NFKD", name or "")
+    folded = "".join(ch for ch in folded if not unicodedata.combining(ch))
+    return "".join(ch for ch in folded.lower() if ch.isalnum())

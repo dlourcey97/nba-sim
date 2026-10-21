@@ -67,10 +67,13 @@ _TEAM_NAME_RE = re.compile("|".join(re.escape(name) for name in _TEAM_NAMES))
 _MATCHUP_RE = re.compile(r"\b([A-Z]{2,3})@([A-Z]{2,3})\b")
 _DATE_RE = re.compile(r"\b(\d{1,2}/\d{1,2}/\d{4})\b")
 _TIME_RE = re.compile(r"\b(\d{1,2}:\d{2})\s*\(ET\)")
-# Last names are one token (hyphenated OK). First names are one or two tokens so
-# reason text like "Surgery, Injury Recovery Wolf, Danny" does not swallow Wolf.
+# Last names are one token (hyphenated OK) plus optional generational suffix
+# (II, III, Jr., Sr.) so "Lively II, Dereck" / "Butler III, Jimmy" parse.
+# First names are one or two tokens so reason text like
+# "Surgery, Injury Recovery Wolf, Danny" does not swallow Wolf.
 _PLAYER_RE = re.compile(
-    r"\b([A-Z][A-Za-z0-9'.]*(?:-[A-Z][A-Za-z0-9'.]*)*),\s+"
+    r"\b([A-Z][A-Za-z0-9'.]*(?:-[A-Z][A-Za-z0-9'.]*)*"
+    r"(?:\s+(?:II|III|IV|Jr\.?|Sr\.?))?),\s+"
     r"([A-Z][A-Za-z0-9'.]*(?:-[A-Za-z0-9'.]*)*"
     r"(?:\s+(?:[A-Z]\.|[A-Z][a-z][A-Za-z0-9'.]*))?)\s+"
     r"(Out|Doubtful|Questionable|Probable|Available)\b",
@@ -80,20 +83,27 @@ _HEADER_RE = re.compile(
     r"Matchup\s+Team\s+Player\s+Name\s+Current\s+Status\s+Reason",
     re.IGNORECASE | re.DOTALL,
 )
+# CDN keys use HH_MMPM (e.g. 02_00PM, 05_30PM). Hour-only stamps still work
+# via _normalize_time_token.
 _REPORT_TIMES = (
-    "12PM",
-    "01PM",
-    "02PM",
-    "03PM",
-    "04PM",
-    "05PM",
-    "05:30PM",
-    "06PM",
-    "07PM",
-    "08PM",
-    "08:30PM",
-    "11AM",
+    "09:00AM",
+    "11:00AM",
     "11:30AM",
+    "12:00PM",
+    "01:00PM",
+    "02:00PM",
+    "02:30PM",
+    "03:00PM",
+    "03:30PM",
+    "04:00PM",
+    "05:00PM",
+    "05:30PM",
+    "05:45PM",
+    "06:00PM",
+    "06:30PM",
+    "07:00PM",
+    "08:00PM",
+    "08:30PM",
 )
 # Primary CDN first. static.cms.nba.com often hangs on unpublished keys — only
 # used as a single last-resort fallback after every primary miss.
@@ -311,17 +321,44 @@ def merge_injuries(
     *,
     game_date: date | None = None,
 ) -> list[InjuryEntry]:
-    """Combine PDF rows with overrides. Overrides win on player key."""
-    merged: dict[tuple[Any, ...], InjuryEntry] = {}
+    """Combine PDF rows with overrides. Overrides win on player identity.
+
+    PDF rows are often name-only (no player_id); overrides usually carry an id.
+    Drop any report row that matches an override by player_id **or** by
+    (game_date, team_abbr, normalized name) so both keys cannot coexist.
+    """
+    filtered_report: list[InjuryEntry] = []
     for entry in report:
         if game_date is not None and entry.game_date != game_date:
             continue
-        merged[_entry_key(entry)] = entry
+        filtered_report.append(entry)
+
+    filtered_overrides: list[InjuryEntry] = []
     for entry in overrides:
         if game_date is not None and entry.game_date != game_date:
             continue
+        filtered_overrides.append(entry)
+
+    override_ids = {int(e.player_id) for e in filtered_overrides if e.player_id is not None}
+    override_names = {
+        (e.game_date, (e.team_abbr or "").upper(), _norm_name(e.player_name))
+        for e in filtered_overrides
+    }
+
+    merged: dict[tuple[Any, ...], InjuryEntry] = {}
+    for entry in filtered_report:
+        if entry.player_id is not None and int(entry.player_id) in override_ids:
+            continue
+        name_key = (entry.game_date, (entry.team_abbr or "").upper(), _norm_name(entry.player_name))
+        if name_key in override_names:
+            continue
         merged[_entry_key(entry)] = entry
-    return sorted(merged.values(), key=lambda row: (row.game_date, row.team_abbr or "", row.player_name))
+    for entry in filtered_overrides:
+        merged[_entry_key(entry)] = entry
+    return sorted(
+        merged.values(),
+        key=lambda row: (row.game_date, row.team_abbr or "", row.player_name),
+    )
 
 
 def active_absences(entries: Sequence[InjuryEntry]) -> list[InjuryEntry]:
@@ -511,14 +548,21 @@ def _latest_date(text: str, fallback: date | None) -> date | None:
 
 
 def _normalize_time_token(stamp: str) -> str:
-    """Map 08:30PM -> 08PM style used by most NBA URLs, keep 08PM as-is."""
-    cleaned = stamp.strip().upper().replace(" ", "")
-    # Official URLs usually omit minutes: Injury-Report_2025-10-22_08PM.pdf
+    """Map stamps to CDN form Injury-Report_{date}_HH_MMPM.pdf.
+
+    2026+ CDN keys use zero-padded hour and minutes with an underscore
+    (02_00PM, 05_30PM). Hour-only inputs (02PM) become HH_00PM.
+    """
+    cleaned = stamp.strip().upper().replace(" ", "").replace("_", ":")
+    # Accept already-normalized HH_MMPM by restoring colon for the matcher.
+    if re.fullmatch(r"\d{2}:\d{2}(AM|PM)", cleaned):
+        pass
     match = re.fullmatch(r"(\d{1,2})(?::(\d{2}))?(AM|PM)", cleaned)
     if not match:
-        return cleaned
+        return cleaned.replace(":", "_")
     hour = int(match.group(1))
-    return f"{hour:02d}{match.group(3)}"
+    minute = int(match.group(2) or 0)
+    return f"{hour:02d}_{minute:02d}{match.group(3)}"
 
 
 def _time_sort_key(stamp: str) -> tuple[int, int]:

@@ -330,13 +330,15 @@ def _build(
         cache.meta = load_player_meta(bundles, as_of=as_of)
     priors = cache.priors
     meta = cache.meta
-    # Ensure current-roster names/positions exist for rookies with no RS history.
+    # Ensure current-roster names/teams/positions exist for rookies and trades.
+    # Live CommonTeamRoster wins over last-season log team for injury matching.
     if season == settings.current_season:
         for row in cache.current_rosters(settings, season):
             pid = int(row["player_id"])
             info = meta.setdefault(pid, {})
-            info.setdefault("player_name", str(row["player_name"]))
-            if row.get("position") and not info.get("position"):
+            info["player_name"] = str(row["player_name"])
+            info["team_abbr"] = str(row.get("team_abbr") or info.get("team_abbr") or "")
+            if row.get("position"):
                 info["position"] = str(row["position"])
     injuries = match_injury_player_ids(injuries, meta)
     # Preseason: official PDF is empty — also mark roster players who sat out
