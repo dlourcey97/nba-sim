@@ -1,6 +1,6 @@
 # Progress
 
-Last updated possession-engine upgrade Step A (2026-10-21).
+Last updated possession-engine upgrade Steps B–C (2026-10-21).
 
 | Phase | Status | Notes |
 | --- | --- | --- |
@@ -32,9 +32,9 @@ Last updated possession-engine upgrade Step A (2026-10-21).
 | Assist attribution | done | Passer weighted by `ast_rate`; team AST bias −10 → +0.0 on 2025-26 sample. |
 | Roster + star inflation | partial | Live `current_rosters` refresh; any-team minutes discount; usage calibrate; playoff MPG soft-cap. Cade 34.7→32.4 PTS (actual 22). Huerter/Joe still under-minuted without injury PDF. |
 | Poss upgrade Step A | done | Real game clock + quarter scores; optional single-run `trace_run` possession log. |
-| Poss upgrade Step B | not started | Passer→shooter assist network. |
-| Poss upgrade Step C | not started | Primary-defender matchups (API or fallback). |
-| Poss upgrade Step D | not started | Typical game + in-game WP chart. |
+| Poss upgrade Step B | done | Passer→shooter `assist_edges`; soft-blend into `_credit_assists`. |
+| Poss upgrade Step C | done | `LeagueSeasonMatchups` → `defender_impact`; primary defender by position; prior-season only. |
+| Poss upgrade Step D | in progress | Typical game + in-game WP chart. |
 | Poss upgrade Step E | not started | Tests + full validation summary. |
 | Poss upgrade Step F | planned | Stint-based rotations/subs from PBP conditioned on score margin (blowouts → bench). Not started. |
 
@@ -59,6 +59,34 @@ Walk-forward 2025-26, 250 games, 200 runs, seed 1:
 | 10–90 coverage | 0.671 | 0.672 |
 
 No clear regression. Artifacts: `results/backtest/upgrade_poss_baseline/`, `results/backtest/upgrade_poss_step_a/`.
+
+## Possession upgrade Step B (2026-10-21)
+
+- PlayByPlayV3 omits `assistPersonId`; passer resolved from `(Name N AST)` in the description against the on-court/roster names.
+- Table `assist_edges` (game-level passer→shooter counts). Rebuild: `python -m ingest.rebuild_assists --seasons 2024-25,2025-26`.
+- Sim soft-blends network weights with `ast_rate` (α=0.35) so creators keep volume.
+
+## Possession upgrade Step C (2026-10-21)
+
+- **API check:** `LeagueSeasonMatchups` and `BoxScoreMatchupsV3` both returned usable data.
+- Stored compact per-defender aggregates only (`defender_impact`) from `LeagueSeasonMatchups` (never raw OFF×DEF rows).
+- Walk-forward uses **prior seasons only** (same-season season-totals would leak).
+- Primary defender among on-court five by position affinity; FG%/3P% scaled by regressed defender factors.
+- Rebuild: `python -m ingest.rebuild_matchups --seasons 2023-24,2024-25`.
+
+Walk-forward 2025-26, 250 games, 200 runs, seed 1 (B+C together; blend fix):
+
+| Metric | Step A | Step B+C |
+| --- | ---: | ---: |
+| Brier | 0.2126 | **0.2113** |
+| Log loss | 0.6136 | **0.6098** |
+| MAE PTS | 5.75 | 5.75 |
+| MAE AST | 1.51 | 1.57 |
+| MAE margin | 11.68 | **11.63** |
+| MAE total | 15.75 | 15.88 |
+| 10–90 coverage | 0.672 | 0.672 |
+
+Hard network replace spiked AST MAE to 1.88; soft-blend recovered to 1.57. Win metrics improved. Artifacts: `results/backtest/upgrade_poss_step_b2/`.
 
 ## Phase 3
 

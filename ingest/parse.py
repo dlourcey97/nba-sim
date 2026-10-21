@@ -61,6 +61,8 @@ class CourtEvent:
     lineup: dict[int, tuple[int, ...]] = field(default_factory=dict)
     made: bool = False
     shot_zone: str | None = None
+    # Passer on assisted makes (from assistPersonId / player2_id). Never raw PBP.
+    assist_player_id: int | None = None
 
 
 @dataclass

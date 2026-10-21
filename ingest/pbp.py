@@ -48,6 +48,9 @@ def possessions_to_views(possessions) -> list[PossessionView]:
             elif isinstance(event, Rebound):
                 kind = "rebound"
                 oreb = bool(getattr(event, "oreb", False))
+            assist_id = None
+            if kind == "field_goal" and made:
+                assist_id = _player_id(getattr(event, "player2_id", None))
             events.append(
                 CourtEvent(
                     kind=kind,
@@ -56,6 +59,7 @@ def possessions_to_views(possessions) -> list[PossessionView]:
                     lineup=_lineup(event),
                     made=made,
                     shot_zone=zone,
+                    assist_player_id=assist_id,
                 )
             )
         if not saw_ending:
@@ -196,6 +200,15 @@ class _PlayState:
             return
         self._ensure_offense(team_id)
         made = _is_made(action)
+        assist_id = None
+        if made:
+            assist_id = _player_id(action.get("assistPersonId"))
+            if assist_id is None:
+                assist_id = self._assist_from_description(
+                    str(action.get("description") or ""),
+                    team_id=team_id,
+                    shooter_id=player_id,
+                )
         self.events.append(
             CourtEvent(
                 kind="field_goal",
@@ -204,6 +217,7 @@ class _PlayState:
                 lineup=self._snapshot(),
                 made=made,
                 shot_zone=_zone_for_action(action),
+                assist_player_id=assist_id,
             )
         )
         self.last_shot_team = team_id
@@ -276,6 +290,36 @@ class _PlayState:
             lineup=self._snapshot(),
             made=_is_made(action),
         )
+
+    def _assist_from_description(
+        self,
+        description: str,
+        *,
+        team_id: int,
+        shooter_id: int | None,
+    ) -> int | None:
+        """Resolve ``(Last 1 AST)`` in a Made Shot description to a player id.
+
+        PlayByPlayV3 often omits ``assistPersonId``; the passer is only named in
+        the description. Prefer on-court teammates, then the full team roster.
+        """
+        match = re.search(r"\(([^()]+?)\s+\d+\s+AST\)", description, flags=re.IGNORECASE)
+        if match is None:
+            return None
+        token = match.group(1).strip()
+        if not token:
+            return None
+        exclude = {int(shooter_id)} if shooter_id is not None else set()
+        on_court = self.lineups.get(team_id) or []
+        court_players = [
+            player
+            for player in self.roster.get(team_id, [])
+            if int(player["player_id"]) in set(on_court)
+        ]
+        hit = _match_player(token, court_players, exclude=exclude)
+        if hit is not None:
+            return hit
+        return _match_player(token, self.roster.get(team_id, []), exclude=exclude)
 
     def _jump_ball(self, action: dict) -> None:
         winner = _tipped_to(str(action.get("description") or ""), self.roster)

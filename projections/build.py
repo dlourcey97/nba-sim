@@ -103,6 +103,12 @@ class GameProjection:
     rapm: RapmModel | None = None
     # Effective minutes normalize_gap_close for this slate (early vs mid season).
     minutes_gap_close: float = 0.0
+    # Passer→shooter assist counts: shooter_id → {passer_id: assists}.
+    # Empty when assist_edges are missing; sim falls back to ast_rate.
+    assist_network: dict[int, dict[int, float]] = field(default_factory=dict)
+    # Defender id → FG% multiplier vs league (regressed; 1.0 = average).
+    defender_fg_factor: dict[int, float] = field(default_factory=dict)
+    defender_fg3_factor: dict[int, float] = field(default_factory=dict)
 
 
 @dataclass
@@ -128,6 +134,8 @@ class ProjectionCache:
     kalman_tracker: KalmanTracker | None = None
     # Shared stint rows by season (loaded once; date-filtered by consumers).
     stint_rows_by_season: dict[str, list] = field(default_factory=dict)
+    assist_edge_rows_by_season: dict[str, list] = field(default_factory=dict)
+    defender_impact_by_season: dict[str, list] = field(default_factory=dict)
 
     def reset_if_needed(self, as_of: date) -> None:
         if self.as_of != as_of:
@@ -152,6 +160,20 @@ class ProjectionCache:
         if self.current_roster_rows is None:
             self.current_roster_rows = read_rows(settings, "current_rosters", season)
         return self.current_roster_rows
+
+    def assist_edges(self, settings: Settings, season: str) -> list:
+        if season not in self.assist_edge_rows_by_season:
+            self.assist_edge_rows_by_season[season] = read_rows(
+                settings, "assist_edges", season
+            )
+        return self.assist_edge_rows_by_season[season]
+
+    def defender_impact(self, settings: Settings, season: str) -> list:
+        if season not in self.defender_impact_by_season:
+            self.defender_impact_by_season[season] = read_rows(
+                settings, "defender_impact", season
+            )
+        return self.defender_impact_by_season[season]
 
     def ensure_roster_indexes(self, bundles: list, as_of: date) -> None:
         if self.appearances_by_team is not None and self.last_team_by_player is not None:
@@ -758,6 +780,21 @@ def _build(
         away_str.drtg,
         possessions=0.5 * (home_poss + away_poss),
     )
+    assist_network = _assist_network_as_of(
+        settings,
+        season=season,
+        as_of=as_of,
+        team_ids=(home_team_id, away_team_id),
+        bundles=bundles,
+        cache=cache,
+    )
+    def_fg, def_fg3 = _defender_factors_prior_seasons(
+        settings,
+        season=season,
+        bundles=bundles,
+        cache=cache,
+        config=config,
+    )
     return GameProjection(
         season=season,
         game_id=game_id,
@@ -774,7 +811,114 @@ def _build(
         game_state=game_state,
         rapm=rapm,
         minutes_gap_close=minutes_gap,
+        assist_network=assist_network,
+        defender_fg_factor=def_fg,
+        defender_fg3_factor=def_fg3,
     )
+
+
+def _assist_network_as_of(
+    settings: Settings,
+    *,
+    season: str,
+    as_of: date,
+    team_ids: tuple[int, int],
+    bundles: Sequence,
+    cache: ProjectionCache | None,
+) -> dict[int, dict[int, float]]:
+    """Build shooter → {passer: assists} from assist_edges with as_of cutoff."""
+    seasons = []
+    for bundle in bundles:
+        label = getattr(bundle, "season", None)
+        if label and label not in seasons:
+            seasons.append(label)
+    if season not in seasons:
+        seasons.append(season)
+    network: dict[int, dict[int, float]] = {}
+    team_set = {int(t) for t in team_ids}
+    for label in seasons:
+        if cache is not None:
+            rows = cache.assist_edges(settings, label)
+        else:
+            rows = read_rows(settings, "assist_edges", label)
+        for row in rows:
+            if int(row["team_id"]) not in team_set:
+                continue
+            if row.get("game_date") is not None and row["game_date"] >= as_of:
+                continue
+            shooter = int(row["shooter_id"])
+            passer = int(row["passer_id"])
+            if shooter == passer:
+                continue
+            bucket = network.setdefault(shooter, {})
+            bucket[passer] = bucket.get(passer, 0.0) + float(row["assists"])
+    return network
+
+
+def _defender_factors_prior_seasons(
+    settings: Settings,
+    *,
+    season: str,
+    bundles: Sequence,
+    cache: ProjectionCache | None,
+    config: dict,
+) -> tuple[dict[int, float], dict[int, float]]:
+    """Prior-season only defender FG multipliers (no same-season leakage)."""
+    ctx = config.get("context", {})
+    prior_n = float(ctx.get("defender_regression_fga", 80.0))
+    # Collect prior seasons only (exclude the season being projected).
+    prior_labels = []
+    for bundle in bundles:
+        label = getattr(bundle, "season", None)
+        if label and label != season and label not in prior_labels:
+            prior_labels.append(label)
+    # Aggregate defender stats across prior seasons (recent seasons last → overwrite
+    # with a simple sum).
+    totals: dict[int, dict[str, float]] = {}
+    for label in prior_labels:
+        rows = (
+            cache.defender_impact(settings, label)
+            if cache is not None
+            else read_rows(settings, "defender_impact", label)
+        )
+        for row in rows:
+            did = int(row["defender_id"])
+            bucket = totals.setdefault(
+                did, {"fga": 0.0, "fgm": 0.0, "fg3a": 0.0, "fg3m": 0.0}
+            )
+            # Weight most recent prior season more via simple accumulation;
+            # walk-forward already excludes current season.
+            w = 1.0
+            bucket["fga"] += w * float(row.get("fga") or 0.0)
+            bucket["fgm"] += w * float(row.get("fgm") or 0.0)
+            bucket["fg3a"] += w * float(row.get("fg3a") or 0.0)
+            bucket["fg3m"] += w * float(row.get("fg3m") or 0.0)
+    if not totals:
+        return {}, {}
+    league_fga = sum(b["fga"] for b in totals.values())
+    league_fgm = sum(b["fgm"] for b in totals.values())
+    league_fg3a = sum(b["fg3a"] for b in totals.values())
+    league_fg3m = sum(b["fg3m"] for b in totals.values())
+    league_fg = (league_fgm / league_fga) if league_fga > 0 else 0.46
+    league_fg3 = (league_fg3m / league_fg3a) if league_fg3a > 0 else 0.36
+    fg_factors: dict[int, float] = {}
+    fg3_factors: dict[int, float] = {}
+    for did, bucket in totals.items():
+        fga = bucket["fga"]
+        fg3a = bucket["fg3a"]
+        # Bayesian shrink toward league; factor = allowed/league so >1 means
+        # weaker defense (offense shoots better).
+        fg = (bucket["fgm"] + prior_n * league_fg) / (fga + prior_n) if (fga + prior_n) else league_fg
+        fg3 = (
+            (bucket["fg3m"] + prior_n * league_fg3) / (fg3a + prior_n)
+            if (fg3a + prior_n)
+            else league_fg3
+        )
+        raw_fg = fg / league_fg if league_fg > 0 else 1.0
+        raw_fg3 = fg3 / league_fg3 if league_fg3 > 0 else 1.0
+        fg_factors[did] = float(max(0.90, min(1.10, raw_fg)))
+        fg3_factors[did] = float(max(0.90, min(1.10, raw_fg3)))
+    return fg_factors, fg3_factors
 
 
 def _roster_for_team(

@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date
 
+from ingest.assists import assist_edges_from_possessions
 from ingest.parse import (
     ScheduleGame,
     player_rows_from_box,
@@ -312,6 +313,28 @@ def _store_game(
             season_type=season_type,
             allow_historical=True,
         )
+        # Compact assist network for this game (replace-merge into season file).
+        try:
+            edge_rows = assist_edges_from_possessions(
+                season=season,
+                game_id=game.game_id,
+                game_date=game.game_date,
+                possessions=views,
+            )
+            existing_edges = [
+                row
+                for row in read_rows(settings, "assist_edges", season)
+                if str(row["game_id"]) != game.game_id
+            ]
+            store_rows(
+                settings,
+                "assist_edges",
+                season,
+                existing_edges + edge_rows,
+                allow_historical=True,
+            )
+        except Exception as exc:
+            log(f"assist_edges skipped for {game.game_id}: {exc}")
     _store_open(
         settings,
         "schedule",

@@ -141,6 +141,19 @@ def simulate_game(
             )
 
     packed = _pack_rates(players)
+    packed["assist_matrix"] = _assist_matrix(
+        players, getattr(projection, "assist_network", None) or {}
+    )
+    packed["def_fg_factor"] = _defender_factor_array(
+        players, getattr(projection, "defender_fg_factor", None) or {}
+    )
+    packed["def_fg3_factor"] = _defender_factor_array(
+        players, getattr(projection, "defender_fg3_factor", None) or {}
+    )
+    packed["position_code"] = _position_codes(players)
+    packed["defender_impact_weight"] = float(
+        (cfg.get("context") or {}).get("defender_impact_weight", 0.55)
+    )
     # Period × margin-bucket lineup grid (stint substitution model).
     # close games shorten rotations late; blowouts put the bench on the floor.
     minutes_cfg = cfg.get("minutes", {})
@@ -529,6 +542,89 @@ def _pack_rates(players: list[PlayerProjection]) -> dict[str, np.ndarray]:
     }
 
 
+def _assist_matrix(
+    players: list[PlayerProjection],
+    network: dict[int, dict[int, float]],
+) -> np.ndarray:
+    """Shape (n_players, n_players): matrix[passer_idx, shooter_idx] = assists."""
+    n = len(players)
+    mat = np.zeros((n, n), dtype=float)
+    if not network:
+        return mat
+    index = {int(p.player_id): i for i, p in enumerate(players)}
+    for shooter_pid, edges in network.items():
+        s_idx = index.get(int(shooter_pid))
+        if s_idx is None:
+            continue
+        for passer_pid, weight in edges.items():
+            p_idx = index.get(int(passer_pid))
+            if p_idx is None or p_idx == s_idx:
+                continue
+            mat[p_idx, s_idx] += float(weight)
+    return mat
+
+
+_POS_CODE = {"PG": 0, "SG": 1, "SF": 2, "PF": 3, "C": 4}
+
+
+def _position_codes(players: list[PlayerProjection]) -> np.ndarray:
+    codes = np.full(len(players), -1, dtype=np.int8)
+    for i, player in enumerate(players):
+        raw = (player.position or "").upper().strip()
+        if raw in _POS_CODE:
+            codes[i] = _POS_CODE[raw]
+        elif raw in {"G", "GUARD"}:
+            codes[i] = 1
+        elif raw in {"F", "FORWARD"}:
+            codes[i] = 2
+        elif raw in {"C-F", "F-C"}:
+            codes[i] = 3
+        elif raw in {"G-F", "F-G"}:
+            codes[i] = 2
+    return codes
+
+
+def _defender_factor_array(
+    players: list[PlayerProjection],
+    factors: dict[int, float],
+) -> np.ndarray:
+    out = np.ones(len(players), dtype=float)
+    for i, player in enumerate(players):
+        out[i] = float(factors.get(int(player.player_id), 1.0))
+    return out
+
+
+def _primary_defender_slots(
+    rng: np.random.Generator,
+    *,
+    off_lineups: np.ndarray,
+    def_lineups: np.ndarray,
+    user_slot: np.ndarray,
+    position_code: np.ndarray,
+    remaining: np.ndarray,
+) -> np.ndarray:
+    """Pick a primary defender slot (0-4) for each active run."""
+    n_runs = off_lineups.shape[0]
+    out = np.zeros(n_runs, dtype=np.int32)
+    if not np.any(remaining):
+        return out
+    shooters = off_lineups[np.arange(n_runs), user_slot]
+    off_pos = position_code[shooters]
+    def_pos = position_code[def_lineups]  # (n_runs, 5)
+    # Affinity: same pos=1.0, adjacent=0.55, else=0.20; unknown=0.35
+    weights = np.full((n_runs, 5), 0.35, dtype=float)
+    known = (off_pos >= 0)[:, None] & (def_pos >= 0)
+    same = known & (def_pos == off_pos[:, None])
+    adj = known & (np.abs(def_pos.astype(int) - off_pos[:, None].astype(int)) == 1)
+    weights = np.where(same, 1.0, weights)
+    weights = np.where(adj & ~same, 0.55, weights)
+    weights = np.where(known & ~same & ~adj, 0.20, weights)
+    # Only sample for remaining runs; others stay 0.
+    picks = _weighted_choice(rng, weights)
+    out = np.where(remaining, picks, out)
+    return out
+
+
 def _soft_normalize_minute_draws(
     draws: np.ndarray,
     *,
@@ -872,6 +968,27 @@ def _vector_possession(
     zone_share = packed["zone_share"][users]  # (n_runs, 6)
     zone_i = _weighted_choice(rng, zone_share)
     fg_pct = packed["zone_fg"][users, zone_i]
+    # Primary defender (position/minutes affinity) adjusts make% by zone family.
+    if "def_fg_factor" in packed and "position_code" in packed:
+        def_slots = _primary_defender_slots(
+            rng,
+            off_lineups=off_lineups,
+            def_lineups=def_lineups,
+            user_slot=user_slot,
+            position_code=packed["position_code"],
+            remaining=remaining,
+        )
+        defenders = def_lineups[np.arange(n_runs), def_slots]
+        is_three = zone_i >= 3
+        def_factor = np.where(
+            is_three,
+            packed["def_fg3_factor"][defenders],
+            packed["def_fg_factor"][defenders],
+        )
+        weight = float(packed.get("defender_impact_weight", 0.55))
+        # Blend toward 1.0 so matchup defense is a soft overlay on team defense.
+        def_factor = 1.0 + weight * (def_factor - 1.0)
+        fg_pct = fg_pct * def_factor
     if home_hot is not None and away_hot is not None:
         hot = np.where(offense_home, home_hot, away_hot)
         fg_pct = fg_pct * hot
@@ -996,28 +1113,53 @@ def _credit_assists(
     packed: dict[str, np.ndarray],
     ast: np.ndarray,
 ) -> np.ndarray | None:
-    """Credit the passer on assisted makes using each player's ast_rate.
+    """Credit the passer on assisted makes.
 
-    ``ast_rate`` is historical AST / teammate FGM while on court. For a make,
-    P(assisted) = clip(scale * sum of non-shooter rates, 0, 1) and the passer
-    is drawn proportional to those rates (not a uniform random teammate).
+    Prefer the passer→shooter assist network when available for the shooter;
+    otherwise fall back to on-court ``ast_rate`` weights. P(assisted) still
+    uses the scaled sum of on-court non-shooter rates so team AST level stays
+    calibrated.
 
-    Returns per-run passer player-index (-1 if none) when any make occurred.
+    Returns per-run passer player-index (-1 if none).
     """
     n_runs = off_lineups.shape[0]
     passer_idx = np.full(n_runs, -1, dtype=np.int32)
     if not np.any(is_make):
         return passer_idx
+    # Baseline: on-court ast_rate (historical AST / teammate FGM).
     rates = packed["ast_rate"][off_lineups].copy()
     rates[np.arange(n_runs), user_slot] = 0.0
-    rates_m = rates[is_make]
-    totals = rates_m.sum(axis=1)
+    # Prefer passer→shooter network weights when the matrix has mass for the
+    # on-court passer against this shooter.
+    matrix = packed.get("assist_matrix")
+    if matrix is not None and np.any(matrix):
+        shooters = off_lineups[np.arange(n_runs), user_slot]
+        # network_w[run, slot] = matrix[lineup_player, shooter]
+        network_w = matrix[off_lineups, shooters[:, None]]
+        network_w[np.arange(n_runs), user_slot] = 0.0
+        net_sum = network_w.sum(axis=1, keepdims=True)
+        has_net = net_sum[:, 0] > 0
+        # Scale network to the same total mass as ast_rate, then soft-blend so
+        # creators keep volume while who→whom edges reshape the passer.
+        rate_sum = rates.sum(axis=1, keepdims=True)
+        scaled = np.where(
+            net_sum > 0,
+            network_w * (rate_sum / np.maximum(net_sum, 1e-9)),
+            rates,
+        )
+        alpha = 0.35
+        blended = (1.0 - alpha) * rates + alpha * scaled
+        rates = np.where(has_net[:, None], blended, rates)
+    # P(assisted) from ast_rate sums so team AST volume stays calibrated.
+    p_rates = packed["ast_rate"][off_lineups].copy()
+    p_rates[np.arange(n_runs), user_slot] = 0.0
+    p_totals = p_rates[is_make].sum(axis=1)
     scale = float(packed.get("assist_p_scale", 1.0))
     make_idx = np.flatnonzero(is_make)
-    do_ast = rng.random(make_idx.shape[0]) < np.clip(totals * scale, 0.0, 1.0)
+    do_ast = rng.random(make_idx.shape[0]) < np.clip(p_totals * scale, 0.0, 1.0)
     if not np.any(do_ast):
         return passer_idx
-    pick = _weighted_choice(rng, rates_m[do_ast])
+    pick = _weighted_choice(rng, rates[is_make][do_ast])
     runners = make_idx[do_ast]
     players = off_lineups[runners, pick]
     np.add.at(ast, (players, runners), 1)

@@ -82,6 +82,10 @@ context:
     4: 1.0
   # Blend Kalman nets into team strength (alongside RAPM/roster).
   kalman_strength_weight: 0.45
+  # Pseudo-FGA for Bayesian shrink of defender FG% allowed toward league.
+  defender_regression_fga: 80.0
+  # Scale of primary-defender FG% adjustment in the possession engine.
+  defender_impact_weight: 0.55
   # Keys are rest days. 0 is a back-to-back.
   rest_day_factors:
     0: -0.030

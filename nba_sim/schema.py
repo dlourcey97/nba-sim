@@ -514,6 +514,52 @@ def _tables() -> dict[str, Table]:
             _col("p5", "INTEGER", False, "On-court player id (sorted)."),
         ),
     )
+    assist_edges = Table(
+        name="assist_edges",
+        policy="replace",
+        key=("game_id", "team_id", "passer_id", "shooter_id"),
+        grain="one row per passer→shooter pair with assists in a game",
+        description=(
+            "Compact assist network from play-by-play: who assisted whom. "
+            "Only rows with assists > 0. Never stores raw PBP. Walk-forward "
+            "filters by game_date < as_of."
+        ),
+        columns=_season_cols()
+        + (
+            _col("game_id", "VARCHAR", False, "NBA game id."),
+            _col("game_date", "DATE", False, "Game date."),
+            _col("team_id", "INTEGER", False, "Offense team id."),
+            _col("passer_id", "INTEGER", False, "Player who recorded the assist."),
+            _col("shooter_id", "INTEGER", False, "Player who made the assisted field goal."),
+            _col("assists", "INTEGER", False, "Assisted makes from passer to shooter in this game."),
+        ),
+    )
+    defender_impact = Table(
+        name="defender_impact",
+        policy="replace",
+        key=("defender_id",),
+        grain="one row per defender per season",
+        description=(
+            "Compact per-defender matchup defense from LeagueSeasonMatchups: "
+            "FG%/3P% allowed and sample size. Never stores raw OFF×DEF rows. "
+            "Walk-forward uses only prior-season partitions (same-season "
+            "LeagueSeasonMatchups would leak)."
+        ),
+        columns=_season_cols()
+        + (
+            _col("defender_id", "INTEGER", False, "Defending player id."),
+            _col("defender_name", "VARCHAR", False, "Defender display name."),
+            _col("possessions", "DOUBLE", False, "Sum of partial matchup possessions."),
+            _col("fga", "DOUBLE", False, "Matchup field-goal attempts faced."),
+            _col("fgm", "DOUBLE", False, "Matchup field goals allowed."),
+            _col("fg3a", "DOUBLE", False, "Matchup three-point attempts faced."),
+            _col("fg3m", "DOUBLE", False, "Matchup threes allowed."),
+            _col("pts", "DOUBLE", False, "Points allowed to the matched-up scorer."),
+            _col("matchup_sec", "DOUBLE", False, "Seconds matched up."),
+            _col("fg_pct", "DOUBLE", True, "Allowed FG% (fgm/fga)."),
+            _col("fg3_pct", "DOUBLE", True, "Allowed 3P% (fg3m/fg3a)."),
+        ),
+    )
     tables = (
         player_game_logs,
         team_game_results,
@@ -527,6 +573,8 @@ def _tables() -> dict[str, Table]:
         current_rosters,
         prediction_history,
         lineup_stints,
+        assist_edges,
+        defender_impact,
     )
     return {table.name: table for table in tables}
 

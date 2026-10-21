@@ -472,3 +472,48 @@ Key: `game_id`, `team_id`, `period`, `p1`, `p2`, `p3`, `p4`, `p5`, `duration_sec
 | p3 | INTEGER | no | On-court player id (sorted). |
 | p4 | INTEGER | no | On-court player id (sorted). |
 | p5 | INTEGER | no | On-court player id (sorted). |
+
+## assist_edges
+
+Compact assist network from play-by-play: who assisted whom. Only rows with assists > 0. Never stores raw PBP. Walk-forward filters by game_date < as_of.
+
+Policy: `replace`
+
+Grain: one row per passer→shooter pair with assists in a game
+
+Key: `game_id`, `team_id`, `passer_id`, `shooter_id`
+
+| column | type | null | description |
+| --- | --- | --- | --- |
+| season | VARCHAR | no | NBA season label, such as 2025-26. Partition key. |
+| game_id | VARCHAR | no | NBA game id. |
+| game_date | DATE | no | Game date. |
+| team_id | INTEGER | no | Offense team id. |
+| passer_id | INTEGER | no | Player who recorded the assist. |
+| shooter_id | INTEGER | no | Player who made the assisted field goal. |
+| assists | INTEGER | no | Assisted makes from passer to shooter in this game. |
+
+## defender_impact
+
+Compact per-defender matchup defense from LeagueSeasonMatchups: FG%/3P% allowed and sample size. Never stores raw OFF×DEF rows. Walk-forward uses only prior-season partitions (same-season LeagueSeasonMatchups would leak).
+
+Policy: `replace`
+
+Grain: one row per defender per season
+
+Key: `defender_id`
+
+| column | type | null | description |
+| --- | --- | --- | --- |
+| season | VARCHAR | no | NBA season label, such as 2025-26. Partition key. |
+| defender_id | INTEGER | no | Defending player id. |
+| defender_name | VARCHAR | no | Defender display name. |
+| possessions | DOUBLE | no | Sum of partial matchup possessions. |
+| fga | DOUBLE | no | Matchup field-goal attempts faced. |
+| fgm | DOUBLE | no | Matchup field goals allowed. |
+| fg3a | DOUBLE | no | Matchup three-point attempts faced. |
+| fg3m | DOUBLE | no | Matchup threes allowed. |
+| pts | DOUBLE | no | Points allowed to the matched-up scorer. |
+| matchup_sec | DOUBLE | no | Seconds matched up. |
+| fg_pct | DOUBLE | yes | Allowed FG% (fgm/fga). |
+| fg3_pct | DOUBLE | yes | Allowed 3P% (fg3m/fg3a). |
