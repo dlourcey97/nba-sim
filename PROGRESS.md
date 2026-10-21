@@ -34,8 +34,8 @@ Last updated possession-engine upgrade Steps B–C (2026-10-21).
 | Poss upgrade Step A | done | Real game clock + quarter scores; optional single-run `trace_run` possession log. |
 | Poss upgrade Step B | done | Passer→shooter `assist_edges`; soft-blend into `_credit_assists`. |
 | Poss upgrade Step C | done | `LeagueSeasonMatchups` → `defender_impact`; primary defender by position; prior-season only. |
-| Poss upgrade Step D | in progress | Typical game + in-game WP chart. |
-| Poss upgrade Step E | not started | Tests + full validation summary. |
+| Poss upgrade Step D | done | Typical game log + WP HTML chart under `results/typical/`. |
+| Poss upgrade Step E | in progress | Tests + full validation summary. |
 | Poss upgrade Step F | planned | Stint-based rotations/subs from PBP conditioned on score margin (blowouts → bench). Not started. |
 
 ## Possession upgrade Step A (2026-10-21)
@@ -87,6 +87,13 @@ Walk-forward 2025-26, 250 games, 200 runs, seed 1 (B+C together; blend fix):
 | 10–90 coverage | 0.672 | 0.672 |
 
 Hard network replace spiked AST MAE to 1.88; soft-blend recovered to 1.57. Win metrics improved. Artifacts: `results/backtest/upgrade_poss_step_b2/`.
+
+## Possession upgrade Step D (2026-10-21)
+
+- After Monte Carlo: pick run closest to median margin + total; re-sim with `trace_run` for that index (same seed → identical cloud).
+- Win-probability after each possession from the **in-memory** trajectory cloud (period-score snapshots × final winners); never persist the WP grid.
+- Persist only: one JSON possession log + one HTML chart (`results/typical/`).
+- Wired into `outputs/pipeline.py` (run.py / daily.py). No sim-distribution change → backtest metrics match Step B+C.
 
 ## Phase 3
 

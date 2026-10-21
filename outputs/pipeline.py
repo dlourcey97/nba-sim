@@ -107,7 +107,28 @@ def run_slate(
             config=settings.config,
         )
         summary = summarize_game(projection, sim, thresholds=thresholds)
-        # Drop raw runs immediately.
+        # Typical-game narrative: persist one possession log + WP chart only.
+        # WP grid is computed from the full sim cloud in memory, then discarded.
+        try:
+            from outputs.typical_game import (
+                build_typical_game,
+                write_typical_game_artifacts,
+            )
+
+            _idx, typical_log = build_typical_game(
+                projection, sim, config=settings.config
+            )
+            chart_dir = settings.repo_root / "results" / "typical"
+            paths = write_typical_game_artifacts(
+                projection=projection,
+                result=sim,
+                log=typical_log,
+                out_dir=chart_dir,
+            )
+            result.json_paths.append(paths["html"])
+        except Exception as exc:
+            print(f"typical-game skipped for {projection.game_id}: {exc}")
+        # Drop raw runs immediately (typical log already extracted).
         del sim
         result.summaries.append(summary)
         if write_json:
