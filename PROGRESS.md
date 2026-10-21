@@ -1,6 +1,6 @@
 # Progress
 
-Last updated possession-engine upgrade Steps B–C (2026-10-21).
+Last updated possession-engine upgrade Steps A–E (2026-10-21).
 
 | Phase | Status | Notes |
 | --- | --- | --- |
@@ -35,8 +35,8 @@ Last updated possession-engine upgrade Steps B–C (2026-10-21).
 | Poss upgrade Step B | done | Passer→shooter `assist_edges`; soft-blend into `_credit_assists`. |
 | Poss upgrade Step C | done | `LeagueSeasonMatchups` → `defender_impact`; primary defender by position; prior-season only. |
 | Poss upgrade Step D | done | Typical game log + WP HTML chart under `results/typical/`. |
-| Poss upgrade Step E | in progress | Tests + full validation summary. |
-| Poss upgrade Step F | planned | Stint-based rotations/subs from PBP conditioned on score margin (blowouts → bench). Not started. |
+| Poss upgrade Step E | done | Possession/data tests; walk-forward summary vs baseline. |
+| Poss upgrade Step F | planned | **Next:** stint-based rotations and substitution patterns learned from play-by-play, conditioned on score margin (blowouts trigger bench minutes), to fix the minutes model. Not started. |
 
 ## Possession upgrade Step A (2026-10-21)
 
@@ -94,6 +94,28 @@ Hard network replace spiked AST MAE to 1.88; soft-blend recovered to 1.57. Win m
 - Win-probability after each possession from the **in-memory** trajectory cloud (period-score snapshots × final winners); never persist the WP grid.
 - Persist only: one JSON possession log + one HTML chart (`results/typical/`).
 - Wired into `outputs/pipeline.py` (run.py / daily.py). No sim-distribution change → backtest metrics match Step B+C.
+
+## Possession upgrade Step E — validation summary (2026-10-21)
+
+Walk-forward protocol: `--seasons 2025-26 --runs 200 --seed 1 --max-games 250`.
+
+| Metric | Baseline | Step A | Step B+C | Step D |
+| --- | ---: | ---: | ---: | ---: |
+| Brier | 0.2120 | 0.2126 | **0.2113** | = B+C |
+| Log loss | 0.6121 | 0.6136 | **0.6098** | = B+C |
+| MAE PTS | 5.77 | 5.75 | 5.75 | = B+C |
+| MAE AST | 1.52 | 1.51 | 1.57 | = B+C |
+| MAE MIN | 6.92 | 6.92 | 6.92 | = B+C |
+| MAE margin | — | 11.68 | **11.63** | = B+C |
+| MAE total | — | 15.75 | 15.88 | = B+C |
+| 10–90 coverage | 0.671 | 0.672 | 0.672 | = B+C |
+| Sim PPG | 119.8 | 119.6 | 119.6 | = B+C |
+
+**Step C API note:** `BoxScoreMatchupsV3` and `LeagueSeasonMatchups` both returned usable data. Compact `defender_impact` is built from `LeagueSeasonMatchups` (prior seasons only for walk-forward). Position/minutes primary-defender assignment is the on-court fallback when pairing history is absent.
+
+**Tests added:** `tests/test_possession_engine.py`, `tests/test_assist_network.py`, `tests/test_matchups.py`, `tests/test_typical_game.py`.
+
+**Step F (next, not now):** Learn stint-based rotations and substitution patterns from play-by-play, conditioned on score margin so blowouts trigger bench minutes — aimed at fixing the minutes model.
 
 ## Phase 3
 
