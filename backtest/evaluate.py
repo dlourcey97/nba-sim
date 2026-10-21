@@ -65,6 +65,10 @@ def evaluate_seasons(
     act_team_pts: list[float] = []
     sim_poss: list[float] = []
     act_poss: list[float] = []
+    pred_margin: list[float] = []
+    act_margin: list[float] = []
+    pred_total: list[float] = []
+    act_total: list[float] = []
     games = 0
 
     # Cache season bundles once across the whole evaluation so walk-forward does
@@ -146,6 +150,10 @@ def evaluate_seasons(
                 act_poss.append(float(sim.away_possessions))
             home_probs.append(summary.home_win_prob)
             home_wins.append(1.0 if int(row["home_pts"]) > int(row["away_pts"]) else 0.0)
+            pred_margin.append(float(summary.margin.mean))
+            act_margin.append(float(row["home_pts"]) - float(row["away_pts"]))
+            pred_total.append(float(summary.total.mean))
+            act_total.append(float(row["home_pts"]) + float(row["away_pts"]))
             id_to_idx = {int(pid): index for index, pid in enumerate(sim.player_ids)}
             for player in summary.players:
                 actual = logs.get((summary.game_id, player.player_id))
@@ -199,6 +207,8 @@ def evaluate_seasons(
         actual_ppg=float(np.mean(act_team_pts)) if act_team_pts else float("nan"),
         sim_possessions=float(np.mean(sim_poss)) if sim_poss else float("nan"),
         actual_possessions=float(np.mean(act_poss)) if act_poss else float("nan"),
+        mae_margin=mean_abs_error(np.asarray(pred_margin), np.asarray(act_margin)),
+        mae_total=mean_abs_error(np.asarray(pred_total), np.asarray(act_total)),
     )
 
 

@@ -1,6 +1,6 @@
 # Progress
 
-Last updated roster refresh + star-inflation fixes (2026-10-20 night).
+Last updated possession-engine upgrade Step A (2026-10-21).
 
 | Phase | Status | Notes |
 | --- | --- | --- |
@@ -31,6 +31,34 @@ Last updated roster refresh + star-inflation fixes (2026-10-20 night).
 | Minutes + calibration | partial | Early-season gap_close=1.0 for ~240; mid-season gap=0 for MAE. Wider shoot/pace SDs. MIN MAE ~6.4 (was 7.5); coverage ~0.67–0.68 (not yet ~0.80). |
 | Assist attribution | done | Passer weighted by `ast_rate`; team AST bias −10 → +0.0 on 2025-26 sample. |
 | Roster + star inflation | partial | Live `current_rosters` refresh; any-team minutes discount; usage calibrate; playoff MPG soft-cap. Cade 34.7→32.4 PTS (actual 22). Huerter/Joe still under-minuted without injury PDF. |
+| Poss upgrade Step A | done | Real game clock + quarter scores; optional single-run `trace_run` possession log. |
+| Poss upgrade Step B | not started | Passer→shooter assist network. |
+| Poss upgrade Step C | not started | Primary-defender matchups (API or fallback). |
+| Poss upgrade Step D | not started | Typical game + in-game WP chart. |
+| Poss upgrade Step E | not started | Tests + full validation summary. |
+| Poss upgrade Step F | planned | Stint-based rotations/subs from PBP conditioned on score margin (blowouts → bench). Not started. |
+
+## Possession upgrade Step A (2026-10-21)
+
+- `sim/possession_log.py`: `PossessionEvent` / `PossessionLog`; regulation clock constants.
+- `sim/engine.py`: clock from pace progress (12-min quarters); period-score snapshots; `trace_run` records one run’s possession narrative without persisting other runs.
+- Backtest metrics now include `mae_margin` / `mae_total`.
+- Tests: `tests/test_possession_engine.py`.
+
+Walk-forward 2025-26, 250 games, 200 runs, seed 1:
+
+| Metric | Baseline | Step A |
+| --- | ---: | ---: |
+| Brier | 0.2120 | 0.2126 |
+| Log loss | 0.6121 | 0.6136 |
+| MAE PTS | 5.77 | 5.75 |
+| MAE AST | 1.52 | 1.51 |
+| MAE MIN | 6.92 | 6.92 |
+| MAE margin | — | 11.68 |
+| MAE total | — | 15.75 |
+| 10–90 coverage | 0.671 | 0.672 |
+
+No clear regression. Artifacts: `results/backtest/upgrade_poss_baseline/`, `results/backtest/upgrade_poss_step_a/`.
 
 ## Phase 3
 

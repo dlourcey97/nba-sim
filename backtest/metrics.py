@@ -26,6 +26,8 @@ class MetricReport:
     actual_ppg: float = float("nan")
     sim_possessions: float = float("nan")
     actual_possessions: float = float("nan")
+    mae_margin: float = float("nan")
+    mae_total: float = float("nan")
 
     def as_dict(self) -> dict:
         return {
@@ -38,6 +40,8 @@ class MetricReport:
             "mae_ast": _json_float(self.mae_ast),
             "mae_fg3m": _json_float(self.mae_fg3m),
             "mae_min": _json_float(self.mae_min),
+            "mae_margin": _json_float(self.mae_margin),
+            "mae_total": _json_float(self.mae_total),
             "crps_pts": _json_float(self.crps_pts),
             "pit_pts_mean": _json_float(self.pit_pts_mean),
             "coverage_10_90": _json_float(self.coverage_10_90),

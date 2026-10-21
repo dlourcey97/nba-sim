@@ -1,7 +1,8 @@
 """Possession-by-possession game simulation, vectorized across runs.
 
 Raw per-run draws stay in memory only long enough to build summaries. Callers
-in outputs/ reduce the arrays and discard them.
+in outputs/ reduce the arrays and discard them. Optionally record a single
+run's possession log (``trace_run``) for the typical-game narrative.
 """
 
 from __future__ import annotations
@@ -13,6 +14,22 @@ import numpy as np
 from nba_sim.schema import ZONES
 from projections.build import GameProjection, PlayerProjection
 from projections.minutes import add_overtime_minutes, normalize_team_minute_draws
+from sim.possession_log import (
+    OUTCOME_BONUS_FT,
+    OUTCOME_DREB,
+    OUTCOME_FOUL_FT,
+    OUTCOME_INT_FOUL,
+    OUTCOME_MAKE_2,
+    OUTCOME_MAKE_3,
+    OUTCOME_NAMES,
+    OUTCOME_OREB,
+    OUTCOME_STEAL,
+    OUTCOME_TOV,
+    PERIOD_SECONDS,
+    REGULATION_SECONDS,
+    PossessionEvent,
+    PossessionLog,
+)
 
 _ZONE_POINTS = np.array([2.0, 2.0, 2.0, 3.0, 3.0, 3.0])
 
@@ -40,6 +57,13 @@ class GameSimResult:
     # Mean projected/simulated possession endings per team (pace).
     home_possessions: float
     away_possessions: float
+    # Seconds remaining at end of regulation (0 if regulation finished).
+    clock_remaining: np.ndarray | None = None
+    # Points scored in each regulation period: shape (n_runs, 4).
+    home_period_pts: np.ndarray | None = None
+    away_period_pts: np.ndarray | None = None
+    # Optional single-run possession narrative (typical-game hook).
+    possession_log: PossessionLog | None = None
 
 
 def simulate_game(
@@ -48,17 +72,26 @@ def simulate_game(
     runs: int | None = None,
     seed: int | None = None,
     config: dict | None = None,
+    trace_run: int | None = None,
 ) -> GameSimResult:
-    """Simulate one game. Default runs/seed come from config.yaml when omitted."""
+    """Simulate one game. Default runs/seed come from config.yaml when omitted.
+
+    ``trace_run`` (0-based) records a compact possession log for that single run
+    only. Re-run with the same seed and ``trace_run`` after picking the typical
+    sim index so the log matches the Monte Carlo cloud.
+    """
     cfg = config or {}
     sim_cfg = cfg.get("simulation", {})
     n_runs = int(runs if runs is not None else sim_cfg.get("runs", 10000))
     if n_runs <= 0:
         raise ValueError("runs must be positive")
+    if trace_run is not None and not (0 <= int(trace_run) < n_runs):
+        raise ValueError(f"trace_run must be in [0, {n_runs})")
     base_seed = seed if seed is not None else sim_cfg.get("seed")
     if base_seed is None:
         base_seed = int(np.random.SeedSequence().entropy) % (2**31 - 1)
     rng = np.random.default_rng(int(base_seed))
+    trace_i = int(trace_run) if trace_run is not None else None
 
     players = list(projection.players)
     n_players = len(players)
@@ -176,6 +209,17 @@ def simulate_game(
     tov = np.zeros((n_players, n_runs), dtype=float)
     home_pts = np.zeros(n_runs, dtype=float)
     away_pts = np.zeros(n_runs, dtype=float)
+    # Game clock (seconds remaining in regulation). Advances with possession
+    # endings so period boundaries match 12-minute quarters. Deterministic from
+    # pace progress — no extra RNG — so box-score distributions stay stable.
+    clock_remaining = np.full(n_runs, REGULATION_SECONDS, dtype=float)
+    home_period_pts = np.zeros((n_runs, 4), dtype=float)
+    away_period_pts = np.zeros((n_runs, 4), dtype=float)
+    last_period_idx = np.zeros(n_runs, dtype=np.int32)
+    period_home_start = np.zeros(n_runs, dtype=float)
+    period_away_start = np.zeros(n_runs, dtype=float)
+    possession_events: list[PossessionEvent] = []
+    player_id_arr = np.array([p.player_id for p in players], dtype=np.int32)
 
     offense_home = rng.random(n_runs) < 0.5
     endings = np.zeros(n_runs, dtype=np.int32)
@@ -186,16 +230,33 @@ def simulate_game(
         active = endings < target_endings
         if not np.any(active):
             break
+        progress = endings.astype(float) / np.maximum(1.0, base_target.astype(float))
+        clock_remaining = REGULATION_SECONDS * (1.0 - np.clip(progress, 0.0, 1.0))
         period_idx, bucket_idx = _period_bucket_indexes(
-            endings,
-            base_target,
+            clock_remaining,
             home_pts,
             away_pts,
+            progress=progress,
             expected_margin=expected_margin,
             close_thr=close_thr,
             blowout_thr=blowout_thr,
         )
-        progress = endings.astype(float) / np.maximum(1.0, base_target.astype(float))
+        # Snapshot points when a run rolls into a new quarter.
+        rolled = active & (period_idx > last_period_idx)
+        if np.any(rolled):
+            for p in range(4):
+                just_left = rolled & (last_period_idx == p)
+                if not np.any(just_left):
+                    continue
+                home_period_pts[just_left, p] = (
+                    home_pts[just_left] - period_home_start[just_left]
+                )
+                away_period_pts[just_left, p] = (
+                    away_pts[just_left] - period_away_start[just_left]
+                )
+            period_home_start = np.where(rolled, home_pts, period_home_start)
+            period_away_start = np.where(rolled, away_pts, period_away_start)
+            last_period_idx = np.where(rolled, period_idx, last_period_idx)
         # Once past ~70% of regulation, scale remaining endings by game state
         # (trail haste / lead slowdown / garbage time). Applied once per run.
         if late_pace_adjust:
@@ -220,7 +281,9 @@ def simulate_game(
         away_lineups = away_grid[run_ids, period_idx, bucket_idx]
         # Intentional fouls only matter in late Q4; skip the branch earlier.
         foul_p = foul_prob if float(progress.max()) >= 0.85 else 0.0
-        home_delta, away_delta, offense_home, ended = _vector_possession(
+        want_trace = trace_i is not None and bool(active[trace_i])
+        offense_before = offense_home.copy() if want_trace else None
+        home_delta, away_delta, offense_home, ended, trace = _vector_possession(
             rng,
             packed,
             home_lineups,
@@ -244,10 +307,55 @@ def simulate_game(
             progress=progress if foul_p > 0 else None,
             close_thr=close_thr,
             intentional_foul_prob=foul_p,
+            fill_trace=want_trace,
         )
+        if (
+            want_trace
+            and trace is not None
+            and trace_i is not None
+            and offense_before is not None
+        ):
+            kind = int(trace["kind"][trace_i])
+            if kind != 0:
+                shooter_local = int(trace["shooter"][trace_i])
+                passer_local = int(trace["passer"][trace_i])
+                possession_events.append(
+                    PossessionEvent(
+                        period=int(period_idx[trace_i]) + 1,
+                        clock_remaining=float(clock_remaining[trace_i]),
+                        offense_home=bool(offense_before[trace_i]),
+                        outcome=OUTCOME_NAMES.get(kind, "unknown"),
+                        shooter_id=(
+                            int(player_id_arr[shooter_local])
+                            if shooter_local >= 0
+                            else None
+                        ),
+                        passer_id=(
+                            int(player_id_arr[passer_local])
+                            if passer_local >= 0
+                            else None
+                        ),
+                        points=int(round(float(trace["points"][trace_i]))),
+                        home_pts=int(
+                            round(float(home_pts[trace_i] + home_delta[trace_i]))
+                        ),
+                        away_pts=int(
+                            round(float(away_pts[trace_i] + away_delta[trace_i]))
+                        ),
+                    )
+                )
         home_pts += home_delta
         away_pts += away_delta
         endings += ended.astype(np.int32)
+
+    # Close out the final regulation period scores for runs that finished.
+    for p in range(4):
+        in_period = last_period_idx == p
+        if not np.any(in_period):
+            continue
+        home_period_pts[in_period, p] = home_pts[in_period] - period_home_start[in_period]
+        away_period_pts[in_period, p] = away_pts[in_period] - period_away_start[in_period]
+    clock_remaining = np.maximum(0.0, clock_remaining)
 
     overtime = np.zeros(n_runs, dtype=bool)
     ot_periods = np.zeros(n_runs, dtype=np.int32)
@@ -266,7 +374,9 @@ def simulate_game(
             still = ot_endings < ot_target
             if not np.any(still):
                 break
-            home_delta, away_delta, offense_home, ended = _vector_possession(
+            want_trace = trace_i is not None and bool(still[trace_i])
+            offense_before = offense_home.copy() if want_trace else None
+            home_delta, away_delta, offense_home, ended, trace = _vector_possession(
                 rng,
                 packed,
                 home_lineups,
@@ -284,7 +394,48 @@ def simulate_game(
                 away_hot=away_hot,
                 player_hot=player_hot,
                 player_usage=player_usage,
+                fill_trace=want_trace,
             )
+            if (
+                want_trace
+                and trace is not None
+                and trace_i is not None
+                and offense_before is not None
+            ):
+                kind = int(trace["kind"][trace_i])
+                if kind != 0:
+                    shooter_local = int(trace["shooter"][trace_i])
+                    passer_local = int(trace["passer"][trace_i])
+                    ot_progress = ot_endings.astype(float) / np.maximum(
+                        1.0, ot_target.astype(float)
+                    )
+                    possession_events.append(
+                        PossessionEvent(
+                            period=4 + ot_period,
+                            clock_remaining=float(
+                                300.0 * (1.0 - float(ot_progress[trace_i]))
+                            ),
+                            offense_home=bool(offense_before[trace_i]),
+                            outcome=OUTCOME_NAMES.get(kind, "unknown"),
+                            shooter_id=(
+                                int(player_id_arr[shooter_local])
+                                if shooter_local >= 0
+                                else None
+                            ),
+                            passer_id=(
+                                int(player_id_arr[passer_local])
+                                if passer_local >= 0
+                                else None
+                            ),
+                            points=int(round(float(trace["points"][trace_i]))),
+                            home_pts=int(
+                                round(float(home_pts[trace_i] + home_delta[trace_i]))
+                            ),
+                            away_pts=int(
+                                round(float(away_pts[trace_i] + away_delta[trace_i]))
+                            ),
+                        )
+                    )
             home_pts += home_delta
             away_pts += away_delta
             ot_endings += ended.astype(np.int32)
@@ -300,6 +451,24 @@ def simulate_game(
         out_mask=out_mask,
         caps=caps,
     )
+
+    possession_log = None
+    if trace_i is not None:
+        possession_log = PossessionLog(
+            game_id=projection.game_id,
+            run_index=trace_i,
+            home_abbr=projection.home_abbr,
+            away_abbr=projection.away_abbr,
+            events=possession_events,
+            home_period_pts=[
+                int(round(float(home_period_pts[trace_i, p]))) for p in range(4)
+            ],
+            away_period_pts=[
+                int(round(float(away_period_pts[trace_i, p]))) for p in range(4)
+            ],
+            final_home_pts=int(round(float(home_pts[trace_i]))),
+            final_away_pts=int(round(float(away_pts[trace_i]))),
+        )
 
     return GameSimResult(
         game_id=projection.game_id,
@@ -322,6 +491,10 @@ def simulate_game(
         overtime=overtime,
         home_possessions=float(np.mean(home_poss)),
         away_possessions=float(np.mean(away_poss)),
+        clock_remaining=clock_remaining,
+        home_period_pts=home_period_pts,
+        away_period_pts=away_period_pts,
+        possession_log=possession_log,
     )
 
 
@@ -402,21 +575,26 @@ _BUCKETS = ("close", "moderate", "blowout")
 
 
 def _period_bucket_indexes(
-    endings: np.ndarray,
-    target_endings: np.ndarray,
+    clock_remaining: np.ndarray,
     home_pts: np.ndarray,
     away_pts: np.ndarray,
     *,
+    progress: np.ndarray,
     expected_margin: float,
     close_thr: float,
     blowout_thr: float,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Map game progress + score to period (0–3) and margin bucket (0–2)."""
-    progress = endings.astype(float) / np.maximum(1.0, target_endings.astype(float))
-    period_idx = np.clip(np.floor(progress * 4.0).astype(np.int32), 0, 3)
+    """Map game clock + score to period (0–3) and margin bucket (0–2).
+
+    Period comes from seconds remaining (12-minute quarters). Margin bucket
+    still blends pregame expected margin early with the live score late.
+    """
+    elapsed = np.clip(REGULATION_SECONDS - clock_remaining, 0.0, REGULATION_SECONDS)
+    period_idx = np.clip((elapsed / PERIOD_SECONDS).astype(np.int32), 0, 3)
     live = np.abs(home_pts - away_pts)
     # Early: lean on pregame expected margin; late: trust the live score.
-    eff = (1.0 - progress) * float(expected_margin) + progress * live
+    prog = np.clip(progress.astype(float), 0.0, 1.0)
+    eff = (1.0 - prog) * float(expected_margin) + prog * live
     bucket_idx = np.where(
         eff < close_thr,
         0,
@@ -523,6 +701,15 @@ def _lineups_state_grid(
     return out
 
 
+def _empty_trace(n_runs: int) -> dict[str, np.ndarray]:
+    return {
+        "kind": np.zeros(n_runs, dtype=np.int8),
+        "shooter": np.full(n_runs, -1, dtype=np.int32),
+        "passer": np.full(n_runs, -1, dtype=np.int32),
+        "points": np.zeros(n_runs, dtype=np.float32),
+    }
+
+
 def _vector_possession(
     rng: np.random.Generator,
     packed: dict[str, np.ndarray],
@@ -547,18 +734,21 @@ def _vector_possession(
     progress: np.ndarray | None = None,
     close_thr: float = 6.0,
     intentional_foul_prob: float = 0.0,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Return (home_delta, away_delta, next_offense_home, ended).
+    fill_trace: bool = False,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, dict[str, np.ndarray] | None]:
+    """Return (home_delta, away_delta, next_offense_home, ended, trace).
 
     ``ended`` is True when the possession ending counts against pace (not OREB).
+    ``trace`` is filled only when ``fill_trace`` is True (single-run logging).
     """
     n_runs = active.shape[0]
     home_delta = np.zeros(n_runs)
     away_delta = np.zeros(n_runs)
     next_offense_home = offense_home.copy()
     ended = np.zeros(n_runs, dtype=bool)
+    trace = _empty_trace(n_runs) if fill_trace else None
     if not np.any(active):
-        return home_delta, away_delta, next_offense_home, ended
+        return home_delta, away_delta, next_offense_home, ended, trace
 
     off_lineups = np.where(offense_home[:, None], home_lineups, away_lineups)
     def_lineups = np.where(offense_home[:, None], away_lineups, home_lineups)
@@ -600,10 +790,14 @@ def _vector_possession(
             away_delta = np.where(is_int_foul & ~offense_home, made, away_delta)
             next_offense_home[is_int_foul] = ~offense_home[is_int_foul]
             ended[is_int_foul] = True
+            if trace is not None:
+                trace["kind"][is_int_foul] = OUTCOME_INT_FOUL
+                trace["shooter"][is_int_foul] = users[is_int_foul]
+                trace["points"][is_int_foul] = made[is_int_foul]
 
     remaining_after_foul = active & ~is_int_foul
     if not np.any(remaining_after_foul):
-        return home_delta, away_delta, next_offense_home, ended
+        return home_delta, away_delta, next_offense_home, ended, trace
 
     # Steal. Per-player rates are stl/def_poss; summing five on-court rates
     # overstates team steals, so scale toward league ~8 STL / 100 possessions.
@@ -622,10 +816,13 @@ def _vector_possession(
         np.add.at(tov, (users_tmp[is_stl], runners), 1)
         next_offense_home[is_stl] = ~offense_home[is_stl]
         ended[is_stl] = True
+        if trace is not None:
+            trace["kind"][is_stl] = OUTCOME_STEAL
+            trace["shooter"][is_stl] = users_tmp[is_stl]
 
-    remaining = active & ~is_stl
+    remaining = active & ~is_stl & ~is_int_foul
     if not np.any(remaining):
-        return home_delta, away_delta, next_offense_home, ended
+        return home_delta, away_delta, next_offense_home, ended, trace
 
     usage_w = _usage_weights(packed, off_lineups, player_usage, n_runs)
     user_slot = _weighted_choice(rng, usage_w)
@@ -639,10 +836,13 @@ def _vector_possession(
         np.add.at(tov, (users[is_tov], runners), 1)
         next_offense_home[is_tov] = ~offense_home[is_tov]
         ended[is_tov] = True
+        if trace is not None:
+            trace["kind"][is_tov] = OUTCOME_TOV
+            trace["shooter"][is_tov] = users[is_tov]
 
     remaining = remaining & ~is_tov
     if not np.any(remaining):
-        return home_delta, away_delta, next_offense_home, ended
+        return home_delta, away_delta, next_offense_home, ended, trace
 
     # Rare non-shooting foul / bonus FT trip (no FGA). Most FTA come from
     # shooting fouls attached to an FGA below.
@@ -659,10 +859,14 @@ def _vector_possession(
         away_delta = np.where(is_bonus_ft & ~offense_home, made, away_delta)
         next_offense_home[is_bonus_ft] = ~offense_home[is_bonus_ft]
         ended[is_bonus_ft] = True
+        if trace is not None:
+            trace["kind"][is_bonus_ft] = OUTCOME_BONUS_FT
+            trace["shooter"][is_bonus_ft] = users[is_bonus_ft]
+            trace["points"][is_bonus_ft] = made[is_bonus_ft]
 
     remaining = remaining & ~is_bonus_ft
     if not np.any(remaining):
-        return home_delta, away_delta, next_offense_home, ended
+        return home_delta, away_delta, next_offense_home, ended, trace
 
     # Shot zone
     zone_share = packed["zone_share"][users]  # (n_runs, 6)
@@ -714,7 +918,7 @@ def _vector_possession(
         # Assists: ast_rate = historical AST / teammate FGM while on court.
         # On a make, P(assisted) ≈ sum of on-court non-shooter rates; the passer
         # is drawn weighted by those rates (not a uniform random teammate).
-        _credit_assists(
+        passer_idx = _credit_assists(
             rng,
             is_make=is_make,
             off_lineups=off_lineups,
@@ -724,6 +928,16 @@ def _vector_possession(
         )
         next_offense_home[is_make] = ~offense_home[is_make]
         ended[is_make] = True
+        if trace is not None:
+            # points may include and-one; zone points decide 2 vs 3 label.
+            zone_pts = _ZONE_POINTS[zone_i]
+            trace["kind"][is_make & (zone_pts < 2.5)] = OUTCOME_MAKE_2
+            trace["kind"][is_make & (zone_pts >= 2.5)] = OUTCOME_MAKE_3
+            trace["shooter"][is_make] = users[is_make]
+            trace["points"][is_make] = points[is_make]
+            if passer_idx is not None:
+                assisted = passer_idx >= 0
+                trace["passer"][assisted] = passer_idx[assisted]
 
     # Shooting foul on a miss: FTs, no rebound.
     foul_miss = is_miss & is_foul
@@ -737,6 +951,10 @@ def _vector_possession(
         away_delta = np.where(foul_miss & ~offense_home, made, away_delta)
         next_offense_home[foul_miss] = ~offense_home[foul_miss]
         ended[foul_miss] = True
+        if trace is not None:
+            trace["kind"][foul_miss] = OUTCOME_FOUL_FT
+            trace["shooter"][foul_miss] = users[foul_miss]
+            trace["points"][foul_miss] = made[foul_miss]
 
     live_miss = is_miss & ~is_foul
     if np.any(live_miss):
@@ -752,6 +970,9 @@ def _vector_possession(
             np.add.at(reb, (players, runners), 1)
             next_offense_home[is_orb] = offense_home[is_orb]
             # OREB: possession continues — do NOT mark ended.
+            if trace is not None:
+                trace["kind"][is_orb] = OUTCOME_OREB
+                trace["shooter"][is_orb] = users[is_orb]
         if np.any(is_drb):
             pick = _weighted_choice(rng, d_w[is_drb])
             runners = np.flatnonzero(is_drb)
@@ -759,8 +980,11 @@ def _vector_possession(
             np.add.at(reb, (players, runners), 1)
             next_offense_home[is_drb] = ~offense_home[is_drb]
             ended[is_drb] = True
+            if trace is not None:
+                trace["kind"][is_drb] = OUTCOME_DREB
+                trace["shooter"][is_drb] = users[is_drb]
 
-    return home_delta, away_delta, next_offense_home, ended
+    return home_delta, away_delta, next_offense_home, ended, trace
 
 
 def _credit_assists(
@@ -771,16 +995,19 @@ def _credit_assists(
     user_slot: np.ndarray,
     packed: dict[str, np.ndarray],
     ast: np.ndarray,
-) -> None:
+) -> np.ndarray | None:
     """Credit the passer on assisted makes using each player's ast_rate.
 
     ``ast_rate`` is historical AST / teammate FGM while on court. For a make,
     P(assisted) = clip(scale * sum of non-shooter rates, 0, 1) and the passer
     is drawn proportional to those rates (not a uniform random teammate).
+
+    Returns per-run passer player-index (-1 if none) when any make occurred.
     """
-    if not np.any(is_make):
-        return
     n_runs = off_lineups.shape[0]
+    passer_idx = np.full(n_runs, -1, dtype=np.int32)
+    if not np.any(is_make):
+        return passer_idx
     rates = packed["ast_rate"][off_lineups].copy()
     rates[np.arange(n_runs), user_slot] = 0.0
     rates_m = rates[is_make]
@@ -789,11 +1016,13 @@ def _credit_assists(
     make_idx = np.flatnonzero(is_make)
     do_ast = rng.random(make_idx.shape[0]) < np.clip(totals * scale, 0.0, 1.0)
     if not np.any(do_ast):
-        return
+        return passer_idx
     pick = _weighted_choice(rng, rates_m[do_ast])
     runners = make_idx[do_ast]
     players = off_lineups[runners, pick]
     np.add.at(ast, (players, runners), 1)
+    passer_idx[runners] = players
+    return passer_idx
 
 
 def _weighted_choice(rng: np.random.Generator, weights: np.ndarray) -> np.ndarray:
