@@ -1,6 +1,6 @@
 # Progress
 
-Last updated possession-engine upgrade Step F (2026-10-21).
+Last updated minutes bakeoff + coverage SD (2026-10-22).
 
 | Phase | Status | Notes |
 | --- | --- | --- |
@@ -28,7 +28,7 @@ Last updated possession-engine upgrade Step F (2026-10-21).
 | U8. Late-season incentives | deferred | Not started. `features.late_season_incentives: false` in config.yaml. Opening-night freeze — no new features. |
 | Preseason storage | done | `season_type=Preseason` hive partition; excluded from default reads. |
 | Opening night v1.0 | done | Tag `v1.0-opening-night`. Trade-history minutes + 240 allocate; injury CDN hang fix; RUNBOOK.md. |
-| Minutes + calibration | partial | Early-season gap_close=1.0 for ~240; mid-season gap=0 for MAE. Wider shoot/pace SDs. MIN MAE ~6.4 (was 7.5); coverage ~0.67–0.68 (not yet ~0.80). |
+| Minutes + calibration | done | Full-season bakeoff → default `naive_last10`; shoot/usage SDs widened for ~80% PTS coverage. |
 | Assist attribution | done | Passer weighted by `ast_rate`; team AST bias −10 → +0.0 on 2025-26 sample. |
 | Roster + star inflation | partial | Live `current_rosters` refresh; any-team minutes discount; usage calibrate; playoff MPG soft-cap. Cade 34.7→32.4 PTS (actual 22). Huerter/Joe still under-minuted without injury PDF. |
 | Poss upgrade Step A | done | Real game clock + quarter scores; optional single-run `trace_run` possession log. |
@@ -37,6 +37,26 @@ Last updated possession-engine upgrade Step F (2026-10-21).
 | Poss upgrade Step D | done | Typical game log + WP HTML chart under `results/typical/`. |
 | Poss upgrade Step E | done | Possession/data tests; walk-forward summary vs baseline. |
 | Poss upgrade Step F | done | Stint rotations: replacement edges, closing shares, margin×period timing; absence minutes → historical replacements. MIN MAE improved slightly vs baseline. |
+| Minutes bakeoff 2025-26 | done | Pure `naive_last10` wins MIN/PTS/REB/AST vs v1.0 / Step F off/on. Default minutes_model set; coverage ~0.80 via shoot/usage. |
+
+## Minutes bakeoff + coverage (2026-10-22)
+
+Walk-forward **all 2025-26 games**, 1000 runs, seed 1 (1314 games, 26410 player-rows). Harness: `scripts/minutes_bakeoff.py`. Artifacts: `results/backtest/minutes_bakeoff/`.
+
+| Version | MAE MIN | starters | bench | star MPG | MAE PTS | REB | AST | 10–90 cov | Brier | margin | total |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| v1.0-opening-night | 7.628 | 6.307 | 8.889 | 4.870 | 5.950 | 2.629 | 1.803 | 0.648 | 0.223 | 12.44 | 18.09 |
+| main Step F off | 6.884 | 5.860 | 7.862 | **4.226** | 5.853 | 2.585 | 1.577 | 0.670 | 0.221 | 12.38 | 17.63 |
+| main Step F on | 6.777 | 5.741 | 7.766 | 4.373 | 5.860 | 2.600 | 1.588 | 0.661 | 0.222 | 12.43 | **17.50** |
+| **main naive_last10** | **6.253** | **5.152** | **7.304** | 4.461 | **5.339** | **2.330** | **1.485** | **0.743** | **0.220** | **12.23** | 17.55 |
+
+**Recommendation:** use pure `naive_last10` (not blend). Sample probe: blend 0.5 / 0.7 and engine all worse than pure naive on MIN MAE. Step F still slightly helps the engine path; leave `stint_rotations_step_f: true` for that path.
+
+**Why MIN MAE drifted from ~5.47:** Fix 3 force-to-240, U2 stint rotations, and opening-night allocate/trade-history path widened minutes error vs the Fix 2 / Fix 6 era. On this apples-to-apples 2025-26 slate, current main (engine) already beats v1.0 (7.63 → 6.78); naive closes more of the gap (6.25) without recovering the historical 5.47 peak.
+
+**Coverage:** hard shoot/usage clip ceilings (0.28/0.30) blocked SD knobs. Caps now scale with SD (`1.5 * sd`, max 0.60). With naive minutes: `player_shoot_sd: 0.50`, `player_usage_sd: 0.38` → ~0.795 PTS 10–90 on 100g/250r probe. `minutes_variance` unchanged.
+
+**Config defaults:** `features.minutes_model: naive_last10`; shoot/usage SDs as above.
 
 ## Possession upgrade Step A (2026-10-21)
 

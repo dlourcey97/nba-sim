@@ -46,6 +46,7 @@ from projections.minutes import (
     allocate_team_minutes,
     depth_prior_minutes,
     effective_minutes_gap_close,
+    naive_last10_minutes,
     project_minutes,
     recent_minutes_detail,
     rotation_base_minutes,
@@ -558,6 +559,28 @@ def _build(
                 )
                 base = max(depth_prior_minutes(max(debut_rank, 6), config), 14.0)
                 sd_min = max(sd_min, 4.0)
+            # Optional naive / blend minutes (bakeoff + production switch).
+            minutes_model = str(
+                (config.get("features") or {}).get("minutes_model", "engine")
+            ).lower()
+            if minutes_model in {"naive_last10", "naive", "blend"}:
+                naive_mean, naive_sd, naive_n = naive_last10_minutes(
+                    minute_source,
+                    player_id=player_id,
+                    as_of=as_of,
+                    window=recent_window,
+                    recent_decay=min_decay,
+                )
+                if minutes_model == "blend":
+                    blend = float((config.get("features") or {}).get("naive_blend", 0.5))
+                    blend = max(0.0, min(1.0, blend))
+                    base = (1.0 - blend) * float(base) + blend * float(naive_mean)
+                    sd_min = max(float(sd_min), float(naive_sd))
+                    recent_n = max(recent_n, naive_n)
+                else:
+                    base = float(naive_mean)
+                    sd_min = float(naive_sd) if naive_n > 0 else float(sd_min)
+                    recent_n = naive_n
             minute_bases[player_id] = (base, sd_min, started, position, depth_rank)
 
         adjusted = redistribute_for_absences(
@@ -600,16 +623,35 @@ def _build(
             )
             depth_ranks.append(depth_rank)
         # Step F: give OUT minutes to who historically replaces them, not evenly.
+        # Pure naive_last10 skips replacement graph + margin adjust (injuries/caps only).
+        minutes_model = str(
+            (config.get("features") or {}).get("minutes_model", "engine")
+        ).lower()
+        pure_naive = minutes_model in {"naive_last10", "naive"}
         team_out = {pid for pid in out_ids if pid in set(ordered_ids)}
-        redistributed = redistribute_minutes_for_absences(
-            ordered_ids,
-            [p.mean for p in raw_minutes],
-            team_id=team_id,
-            out_ids=team_out,
-            caps={pid: caps[pid] for pid in caps if pid in set(ordered_ids)},
-            model=rotation,
-            config=config,
-        )
+        if pure_naive:
+            # Even redistrib of OUT minutes among active naive means (no Step F graph).
+            means0 = [p.mean for p in raw_minutes]
+            freed = sum(means0[i] for i, pid in enumerate(ordered_ids) if pid in team_out)
+            active_sum = sum(
+                means0[i] for i, pid in enumerate(ordered_ids) if pid not in team_out
+            ) or 1.0
+            redistributed = []
+            for i, pid in enumerate(ordered_ids):
+                if pid in team_out or raw_minutes[i].out:
+                    redistributed.append(0.0)
+                else:
+                    redistributed.append(means0[i] + freed * (means0[i] / active_sum))
+        else:
+            redistributed = redistribute_minutes_for_absences(
+                ordered_ids,
+                [p.mean for p in raw_minutes],
+                team_id=team_id,
+                out_ids=team_out,
+                caps={pid: caps[pid] for pid in caps if pid in set(ordered_ids)},
+                model=rotation,
+                config=config,
+            )
         raw_minutes = [
             (
                 MinutesProjection(0.0, 0.0, 0.0, 0.0, True)
@@ -636,14 +678,17 @@ def _build(
         # Margin-conditioned rotation: close games shorten the rotation;
         # blowouts push minutes to the bench. Preserve team minute total.
         means = [p.mean for p in allocated]
-        adjusted_means = rotation.adjust_means(
-            means,
-            depth_ranks,
-            expected_abs_margin=expected_abs_margin,
-            config=config,
-            player_ids=ordered_ids,
-            team_id=team_id,
-        )
+        if pure_naive:
+            adjusted_means = list(means)
+        else:
+            adjusted_means = rotation.adjust_means(
+                means,
+                depth_ranks,
+                expected_abs_margin=expected_abs_margin,
+                config=config,
+                player_ids=ordered_ids,
+                team_id=team_id,
+            )
         prev_total = sum(means)
         new_total = sum(adjusted_means)
         if prev_total > 1e-9 and new_total > 1e-9:

@@ -164,6 +164,36 @@ def recent_minutes_detail(
     return mean, sd, recent_dates, n
 
 
+def naive_last10_minutes(
+    bundles: Sequence[SeasonBundle],
+    *,
+    player_id: int,
+    as_of: date,
+    window: int = 10,
+    recent_decay: float = 0.45,
+) -> tuple[float, float, int]:
+    """Weighted mean of the last ``window`` games the player actually played.
+
+    Only appearances with minutes > 0 count (DNPs / inactive nights omitted).
+    No team alignment, depth priors, or cross-team discounts.
+    """
+    paired: list[tuple[date, float]] = []
+    for bundle in bundles:
+        for row in bundle.logs_by_player.get(player_id, []):
+            if row["game_date"] >= as_of:
+                break
+            mins = float(row.get("minutes") or 0.0)
+            if mins <= 0:
+                continue
+            paired.append((row["game_date"], mins))
+    if not paired:
+        return 0.0, 0.0, 0
+    paired.sort(key=lambda item: item[0])
+    recent = [mins for _d, mins in paired[-window:]]
+    mean, sd, n = _summarize_recent(recent, recent_decay, same_team=True)
+    return mean, sd, n
+
+
 def _summarize_recent(
     recent: Sequence[float],
     recent_decay: float,

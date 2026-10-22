@@ -27,8 +27,9 @@ simulation:
   # Soft remaining-budget scale applied once when progress crosses 0.70.
   late_pace_adjust: true
   # Overdispersion: coverage comes from shoot/usage/pace — not minutes_variance.
-  player_shoot_sd: 0.22
-  player_usage_sd: 0.15
+  # Tuned 2026-10-22 (naive minutes, 100g/250r probe): ~0.795 PTS 10–90 coverage.
+  player_shoot_sd: 0.50
+  player_usage_sd: 0.38
   team_hot_sd: 0.07
   pace_sd: 9.0
   # Multiply sum-of-on-court ast_rates before P(assisted). Season-average rates
@@ -146,9 +147,16 @@ minutes:
 # U8 late-season incentives — not implemented for opening night.
 # Kept disabled so mid-season tanking/rest adjustments never apply.
 # Step F stint rotations: substitution edges + absence minute redistribution.
+# minutes_model: engine | naive_last10 | blend
+#   engine = depth/rotation/Step F path; naive_last10 = last N games played;
+#   blend = naive_blend * naive + (1-naive_blend) * engine.
 features:
   late_season_incentives: false
   stint_rotations_step_f: true
+  # Bakeoff 2025-26 full season (1314g/1000r): pure naive_last10 beat engine
+  # and blend on MIN/PTS/REB/AST MAE and coverage. Keep Step F for engine path.
+  minutes_model: naive_last10
+  naive_blend: 0.5
 
 outputs:
   percentiles: [10, 25, 50, 75, 90]

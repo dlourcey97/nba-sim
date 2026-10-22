@@ -184,10 +184,11 @@ def simulate_game(
     # Minutes noise is intentionally NOT inflated for coverage.
     home_hot = np.clip(rng.normal(1.0, team_hot_sd, size=n_runs), 0.88, 1.12)
     away_hot = np.clip(rng.normal(1.0, team_hot_sd, size=n_runs), 0.88, 1.12)
-    # Symmetric clips around 1.0 — asymmetric caps biased FG%/usage upward
-    # (star PPM inflation on opening night).
-    shoot_cap = min(0.28, max(0.18, 1.25 * player_shoot_sd))
-    usage_cap = min(0.30, max(0.18, 1.25 * player_usage_sd))
+    # Symmetric clips around 1.0. Cap scales with configured SD so widening
+    # player_shoot_sd / player_usage_sd actually widens the draw (hard 0.28/0.30
+    # ceilings previously blocked coverage from reaching ~80%).
+    shoot_cap = float(np.clip(1.5 * player_shoot_sd, 0.18, 0.60))
+    usage_cap = float(np.clip(1.5 * player_usage_sd, 0.18, 0.60))
     player_hot = np.clip(
         rng.normal(1.0, player_shoot_sd, size=(n_players, n_runs)),
         1.0 - shoot_cap,
