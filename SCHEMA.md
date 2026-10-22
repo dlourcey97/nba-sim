@@ -307,23 +307,23 @@ Key: `team_id`, `player_id`
 
 ## prediction_history
 
-Summary of a simulation, not the raw runs. row_kind is player or game. Player rows leave the game distribution null. Game rows leave player_id and the player distributions null. Actuals are filled by a later upsert. Only the current season is writable unless a backfill passes allow_historical. A _COMPLETE marker freezes the season.
+Summary of a simulation, not the raw runs. row_kind is player, game, or pick. Player rows leave the game distribution null. Game rows leave player_id and the player distributions null. Pick rows store claimed confidence ranges for tonight's top lines; actual_pick_hit is filled after the game. pick_stat is '' on player/game rows and the stat code (pts/reb/…) on pick rows. Actuals are filled by a later upsert. Only the current season is writable unless a backfill passes allow_historical. A _COMPLETE marker freezes the season.
 
 Policy: `upsert_current`
 
-Grain: one player row per player per game, plus one game row per game
+Grain: one player row per player per game, one game row per game, and optional pick rows (row_kind=pick) for top confident stat lines
 
-Key: `row_kind`, `game_id`, `player_id`
+Key: `row_kind`, `game_id`, `player_id`, `pick_stat`
 
 | column | type | null | description |
 | --- | --- | --- | --- |
 | season | VARCHAR | no | NBA season label, such as 2025-26. Partition key. |
 | game_id | VARCHAR | no | NBA game id. |
 | game_date | DATE | no | Game date. |
-| row_kind | VARCHAR | no | player or game. |
-| player_id | INTEGER | yes | Player id on player rows. Null on game rows. |
+| row_kind | VARCHAR | no | player, game, or pick. |
+| player_id | INTEGER | yes | Player id on player/pick rows. Null on game rows. |
 | team_abbr | VARCHAR | yes | Player's team, or null on game rows. |
-| opponent_abbr | VARCHAR | yes | Opponent abbreviation on player rows. |
+| opponent_abbr | VARCHAR | yes | Opponent abbreviation on player/pick rows. |
 | home_abbr | VARCHAR | yes | Home team on game rows. |
 | away_abbr | VARCHAR | yes | Away team on game rows. |
 | simulated_at | TIMESTAMP | no | UTC time the summary was produced. |
@@ -334,6 +334,13 @@ Key: `row_kind`, `game_id`, `player_id`
 | actual_home_pts | INTEGER | yes | Actual home points. Game rows only, null before final. |
 | actual_away_pts | INTEGER | yes | Actual away points. Game rows only, null before final. |
 | actual_overtime | BOOLEAN | yes | True when the game reached overtime. |
+| pick_stat | VARCHAR | no | Empty on player/game rows; pts/reb/ast/stl/blk on pick rows (part of key). |
+| pick_lo | DOUBLE | yes | Claimed range low on pick rows. |
+| pick_hi | DOUBLE | yes | Claimed range high on pick rows. |
+| pick_median | DOUBLE | yes | Claimed median on pick rows. |
+| pick_confidence | DOUBLE | yes | Claimed in-sim confidence 0–1 on pick rows. |
+| pick_proj_min | DOUBLE | yes | Projected median minutes at pick time. |
+| actual_pick_hit | BOOLEAN | yes | True when actual stat landed in [pick_lo, pick_hi]. Null before final. |
 | pred_pts_mean | DOUBLE | yes | Predicted pts mean. Null on game rows. |
 | pred_pts_p10 | DOUBLE | yes | Predicted pts p10. Null on game rows. |
 | pred_pts_p25 | DOUBLE | yes | Predicted pts p25. Null on game rows. |

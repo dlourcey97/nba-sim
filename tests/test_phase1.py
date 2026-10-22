@@ -199,7 +199,9 @@ def test_prediction_game_row_allows_null_player(settings):
     season = settings.current_season
     row = _rows("prediction_history", season, 1, row_kind="game", player_id=None)[0]
     result = store_rows(settings, "prediction_history", season, [row])
-    assert stored_keys(settings, "prediction_history", season) == {("game", row["game_id"], None)}
+    assert stored_keys(settings, "prediction_history", season) == {
+        ("game", row["game_id"], None, row.get("pick_stat") or "")
+    }
     assert result.rows_written == 1
 
 

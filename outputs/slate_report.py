@@ -53,13 +53,17 @@ def write_slate_report(
         lines.append("_No eligible picks met the confidence filters._")
         lines.append("")
     else:
-        lines.append("| # | Player | Matchup | Stat | Pred | Range | Conf |")
-        lines.append("| --- | --- | --- | --- | ---: | --- | ---: |")
+        lines.append(
+            "| # | Player | Matchup | Stat | Pred | Range | Conf | Proj MIN |"
+        )
+        lines.append("| --- | --- | --- | --- | ---: | --- | ---: | ---: |")
         for i, pick in enumerate(picks, 1):
             matchup = f"{pick.team_abbr} vs {pick.opponent_abbr}"
+            proj_min = float(getattr(pick, "proj_minutes", 0.0) or 0.0)
             lines.append(
                 f"| {i} | {pick.player_name} | {matchup} | {pick.stat} | "
-                f"{int(pick.median)} | {pick.range_label} | {100.0 * pick.confidence:.1f}% |"
+                f"{int(pick.median)} | {pick.range_label} | "
+                f"{100.0 * pick.confidence:.1f}% | {proj_min:.1f} |"
             )
         lines.append("")
 

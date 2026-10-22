@@ -38,12 +38,59 @@ class MinutesProjection:
     min_minutes: float
     max_minutes: float
     out: bool
+    # P(plays tonight). Sampled before minutes: sit-outs are exact zeros, then
+    # team normalize redistributes to players who drew "plays".
+    play_prob: float = 1.0
 
     def sample(self, rng: np.random.Generator, size: int = 1) -> np.ndarray:
-        if self.out or self.mean <= 0:
+        if self.out or self.mean <= 0 or self.play_prob <= 0:
             return np.zeros(size, dtype=float)
         draws = rng.normal(self.mean, self.sd, size=size)
-        return np.clip(draws, self.min_minutes, self.max_minutes)
+        draws = np.clip(draws, self.min_minutes, self.max_minutes)
+        if self.play_prob < 1.0 - 1e-12:
+            plays = rng.random(size) < float(self.play_prob)
+            draws = np.where(plays, draws, 0.0)
+        return draws
+
+
+def estimate_play_prob(
+    *,
+    status: str | None,
+    appear_rate: float,
+    started: bool,
+    depth_rank: int,
+    base_mean: float,
+    minutes_cap: float | None,
+) -> float:
+    """P(plays tonight) from injury status, recent DNP rate, and rotation role.
+
+    ``appear_rate`` is fraction of recent team games with minutes > 0 (0–1).
+    Conditional minutes (``mean``) stay as projected minutes *given* he plays.
+    """
+    status_norm = (status or "available").lower()
+    if status_norm in {"out", "doubtful"}:
+        return 0.0
+    appear = float(np.clip(appear_rate, 0.0, 1.0))
+    # Rotation prior: starters / high-minute cores almost always dress.
+    if started or (depth_rank <= 4 and base_mean >= 26.0):
+        role = 0.98
+    elif depth_rank <= 7 and base_mean >= 18.0:
+        role = 0.92
+    elif base_mean >= 10.0:
+        role = 0.75
+    elif base_mean > 0:
+        role = 0.45
+    else:
+        role = 0.15
+    # Blend appearance history with role (sparse early season → trust role more).
+    base = 0.55 * appear + 0.45 * role if appear > 0 else role
+    if status_norm == "questionable":
+        base = min(base, 0.62) * 0.90
+    elif status_norm == "probable":
+        base = max(base, 0.88) * 0.97
+    if minutes_cap is not None and float(minutes_cap) <= 0:
+        return 0.0
+    return float(np.clip(base, 0.0, 0.995))
 
 
 def recent_minutes(
@@ -298,8 +345,13 @@ def project_minutes(
     status: str | None,
     minutes_cap: float | None,
     started: bool,
+    appear_rate: float = 1.0,
+    depth_rank: int = 99,
 ) -> MinutesProjection:
-    """Per-player injury/status adjustment before team allocation."""
+    """Per-player injury/status adjustment before team allocation.
+
+    Mean/sd are minutes *conditional on playing*. Sit-out risk is ``play_prob``.
+    """
     minutes_cfg = config["minutes"]
     min_minutes = float(minutes_cfg["min_minutes"])
     max_minutes = float(minutes_cfg["max_minutes"])
@@ -308,13 +360,10 @@ def project_minutes(
 
     status_norm = (status or "available").lower()
     if status_norm in {"out", "doubtful"}:
-        return MinutesProjection(0.0, 0.0, 0.0, 0.0, True)
+        return MinutesProjection(0.0, 0.0, 0.0, 0.0, True, play_prob=0.0)
 
     mean = base_mean
-    if status_norm == "questionable":
-        mean *= 0.85
-    elif status_norm == "probable":
-        mean *= 0.95
+    # Do not haircut Q/Probable means — uncertainty is in play_prob draws.
     # Light starter tilt only — team allocation owns the hard redistribution.
     # Do not cap non-starters at 28: sixth men often play 30+.
     if started and mean > 0:
@@ -329,7 +378,15 @@ def project_minutes(
     sd = max(variance * 0.5, (base_sd if base_sd > 0 else variance))
     if minutes_cap is not None:
         sd = min(sd, max(1.0, float(minutes_cap) * 0.15))
-    return MinutesProjection(mean, sd, min_minutes, max_minutes, False)
+    play_prob = estimate_play_prob(
+        status=status_norm,
+        appear_rate=appear_rate,
+        started=started,
+        depth_rank=depth_rank,
+        base_mean=mean,
+        minutes_cap=minutes_cap,
+    )
+    return MinutesProjection(mean, sd, min_minutes, max_minutes, False, play_prob=play_prob)
 
 
 def allocate_team_minutes(
@@ -461,7 +518,9 @@ def allocate_team_minutes(
     out_proj: list[MinutesProjection] = []
     for i, prev in enumerate(projections):
         if out[i]:
-            out_proj.append(MinutesProjection(0.0, 0.0, 0.0, 0.0, True))
+            out_proj.append(
+                MinutesProjection(0.0, 0.0, 0.0, 0.0, True, play_prob=0.0)
+            )
             continue
         mean = float(means[i])
         cap = float(caps[i])
@@ -481,6 +540,7 @@ def allocate_team_minutes(
                 min_minutes=min_minutes,
                 max_minutes=cap if cap > 0 else max_minutes,
                 out=False,
+                play_prob=float(prev.play_prob),
             )
         )
     return out_proj

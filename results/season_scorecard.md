@@ -14,10 +14,14 @@ Graded from `prediction_history` after finals. No sportsbook lines or odds.
 | Player PTS MAE | 6.92 |
 | 10–90 coverage (player stats) | 64.0% |
 | Top confident picks hit rate | 33.3% (3/9) |
+| Top picks avg claimed confidence | 77.1% |
 
 ## Notes
 
-- 2026-10-20: no Top confident picks were produced that night (feature landed with the 2026-10-21 slate).
+- 2026-10-20: no Top confident picks.
+- 2026-10-21: claimed conf 77.1% vs hit rate 33.3% (3/9).
+- Bakeoff: naive_last10 MIN 6.25 > Step F on 6.78 > off 6.88 > v1.0 7.63.
+- 10-21 MIN: played MAE 9.92 (n=254); proj≥8 DNP MAE 20.21 (n=29). Top DNPs: Patrick Williams, Jahmai Mashack, Will Riley.
 
 ## 2026-10-20
 
@@ -127,6 +131,7 @@ Graded from `prediction_history` after finals. No sportsbook lines or odds.
 | AST MAE | 1.76 |
 | 10–90 coverage | 62.6% |
 | Top picks hit rate | 33.3% (3/9) |
+| Top picks avg claimed confidence | 77.1% |
 
 ### Games
 
@@ -358,7 +363,7 @@ Graded from `prediction_history` after finals. No sportsbook lines or odds.
 | Ben Sheppard | IND | 14.4/12 | 0.0/3 | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | all |
 | Reed Sheppard | HOU | 23.4/16 | 5.0/3 | 1.0/2 | 1.0/4 | 0.0/2 | 0.0/0 | MIN |
 | Isaiah Crawford | HOU | 0.0/3 | 0.0/3 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | MIN,PTS |
-| Moussa Cisse | DAL | 22.2/2 | 2.0/3 | 4.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | MIN |
+| Moussa Cissé | DAL | 22.2/2 | 2.0/3 | 4.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | MIN |
 | Sidy Cissoko | POR | 8.4/25 | 0.0/3 | 0.0/4 | 0.0/3 | 0.0/0 | 0.0/0 | MIN,PTS,REB,AST |
 | Ryan Dunn | PHX | 24.6/14 | 7.0/3 | 6.0/2 | 1.0/0 | 1.0/0 | 0.0/0 | MIN |
 | Jordan Goodwin | PHX | 12.0/22 | 0.0/3 | 0.0/4 | 0.0/0 | 0.0/2 | 0.0/0 | MIN,STL |

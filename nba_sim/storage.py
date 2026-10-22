@@ -637,7 +637,15 @@ def _read_partition(path: Path, spec: Table) -> pa.Table | None:
         select_parts: list[str] = []
         for column in spec.columns:
             if column.name in available:
-                select_parts.append(f'"{column.name}"')
+                # pick_stat is part of the upsert key; coerce legacy nulls to ''.
+                if column.name == "pick_stat":
+                    select_parts.append(
+                        f"COALESCE(\"{column.name}\", '') AS \"{column.name}\""
+                    )
+                else:
+                    select_parts.append(f'"{column.name}"')
+            elif column.name == "pick_stat":
+                select_parts.append("'' AS \"pick_stat\"")
             else:
                 select_parts.append(f"NULL AS \"{column.name}\"")
         arrow = connection.execute(

@@ -581,7 +581,32 @@ def _build(
                     base = float(naive_mean)
                     sd_min = float(naive_sd) if naive_n > 0 else float(sd_min)
                     recent_n = naive_n
-            minute_bases[player_id] = (base, sd_min, started, position, depth_rank)
+            # Appear rate over the aligned team window (DNPs count as misses).
+            appear_rate = 1.0
+            if team_dates_for_minutes:
+                window_dates = sorted(
+                    d for d in team_dates_for_minutes if d < as_of
+                )[-recent_window:]
+                if window_dates:
+                    date_set = set(window_dates)
+                    played_dates: set = set()
+                    for bundle in minute_source:
+                        for row in bundle.logs_by_player.get(player_id, []):
+                            if (
+                                row["game_date"] in date_set
+                                and int(row["team_id"]) == team_id
+                                and float(row.get("minutes") or 0.0) > 0
+                            ):
+                                played_dates.add(row["game_date"])
+                    appear_rate = len(played_dates) / max(len(window_dates), 1)
+            minute_bases[player_id] = (
+                base,
+                sd_min,
+                started,
+                position,
+                depth_rank,
+                float(appear_rate),
+            )
 
         adjusted = redistribute_for_absences(
             raw_rates,
@@ -608,7 +633,9 @@ def _build(
         raw_minutes: list[MinutesProjection] = []
         depth_ranks: list[int] = []
         for player_id in ordered_ids:
-            base_mean, sd_min, started, _position, depth_rank = minute_bases[player_id]
+            base_mean, sd_min, started, _position, depth_rank, appear_rate = minute_bases[
+                player_id
+            ]
             entry = injury_by_id.get(player_id)
             status = entry.status if entry is not None else "Available"
             raw_minutes.append(
@@ -619,6 +646,8 @@ def _build(
                     status=status,
                     minutes_cap=caps.get(player_id),
                     started=started,
+                    appear_rate=appear_rate,
+                    depth_rank=depth_rank,
                 )
             )
             depth_ranks.append(depth_rank)
@@ -654,7 +683,7 @@ def _build(
             )
         raw_minutes = [
             (
-                MinutesProjection(0.0, 0.0, 0.0, 0.0, True)
+                MinutesProjection(0.0, 0.0, 0.0, 0.0, True, play_prob=0.0)
                 if raw_minutes[i].out or ordered_ids[i] in team_out
                 else MinutesProjection(
                     mean=float(redistributed[i]),
@@ -666,6 +695,7 @@ def _build(
                         else raw_minutes[i].max_minutes
                     ),
                     out=False,
+                    play_prob=float(raw_minutes[i].play_prob),
                 )
             )
             for i in range(len(ordered_ids))
@@ -708,7 +738,7 @@ def _build(
             clipped.append(m)
         allocated = [
             (
-                MinutesProjection(0.0, 0.0, 0.0, 0.0, True)
+                MinutesProjection(0.0, 0.0, 0.0, 0.0, True, play_prob=0.0)
                 if prev.out
                 else MinutesProjection(
                     mean=float(clipped[i]),
@@ -716,6 +746,7 @@ def _build(
                     min_minutes=prev.min_minutes,
                     max_minutes=prev.max_minutes,
                     out=False,
+                    play_prob=float(prev.play_prob),
                 )
             )
             for i, prev in enumerate(allocated)
@@ -773,7 +804,7 @@ def _build(
 
         players: dict[int, PlayerProjection] = {}
         for player_id, rates in adjusted.items():
-            _base, _sd, started, position, _depth = minute_bases[player_id]
+            _base, _sd, started, position, _depth, _appear = minute_bases[player_id]
             entry = injury_by_id.get(player_id)
             status = entry.status if entry is not None else "Available"
             minutes = minutes_by_id[player_id]
@@ -1040,9 +1071,31 @@ def _roster_for_team(
             else read_rows(settings, "current_rosters", season)
         )
         live_ids = current_roster_player_ids(live, team_id=team_id)
+        # Guard: CommonTeamRoster sometimes returns nonsense for the new season
+        # (stars on the wrong clubs). If overlap with prior-season open stints is
+        # tiny, prefer prior open roster plus anyone who already appeared this year.
+        prior = prior_season_label(season)
+        prior_open: list[int] = []
+        if prior:
+            prior_rows = (
+                cache.roster_rows(settings, prior)
+                if cache is not None
+                else read_rows(settings, "team_rosters", prior)
+            )
+            prior_open = [
+                int(row["player_id"])
+                for row in prior_rows
+                if int(row["team_id"]) == team_id and row.get("to_date") is None
+            ]
+        if live_ids and prior_open:
+            overlap = len(set(live_ids) & set(prior_open))
+            if overlap < max(5, int(0.4 * len(prior_open))):
+                # Live CommonTeamRoster is untrustworthy — use prior-season open
+                # stints only (opening-week safeguard against feed corruption).
+                live_ids = list(prior_open)
         if live_ids:
             # Keep the full live roster; minutes allocation / outs shrink the rotation.
-            return sorted(live_ids, key=_depth_key)
+            return sorted(live_ids, key=_depth_key)[:18]
 
     roster_ids = active_roster_player_ids(
         season_rows,

@@ -16,7 +16,11 @@ from outputs.confidence import (
     excluded_player_ids,
     select_slate_picks,
 )
-from outputs.history import fill_actuals_for_season, write_prediction_history
+from outputs.history import (
+    fill_actuals_for_season,
+    write_pick_history,
+    write_prediction_history,
+)
 from outputs.json_writer import clear_latest, write_game_json
 from outputs.slate_report import write_slate_report
 from outputs.summarize import GameSummary, summarize_game
@@ -167,7 +171,7 @@ def run_slate(
                 allow_historical=allow_historical,
             )
 
-    result.confident_picks = select_slate_picks(raw_picks)
+    result.confident_picks = select_slate_picks(raw_picks, n_picks=8)
     if write_report and result.summaries:
         notes = list(report_notes or [])
         assumptions = list(report_assumptions or [])
@@ -183,6 +187,18 @@ def run_slate(
         )
 
     if write_history:
+        if result.confident_picks and result.summaries:
+            runs_used = int(result.summaries[0].runs)
+            seed_used = result.summaries[0].seed
+            result.history_rows += write_pick_history(
+                settings,
+                result.confident_picks,
+                season=season,
+                game_date=slate_date,
+                runs=runs_used,
+                seed=seed_used,
+                allow_historical=allow_historical,
+            )
         result.actuals_rows = fill_actuals_for_season(
             settings,
             season,

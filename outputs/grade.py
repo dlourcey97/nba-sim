@@ -79,6 +79,15 @@ class NightGrade:
             "top_picks_hit_rate": (
                 sum(1 for p in pick_hits if p.hit) / len(pick_hits) if pick_hits else None
             ),
+            "top_picks_avg_claimed_conf": (
+                float(sum(p.confidence for p in pick_hits) / len(pick_hits))
+                if pick_hits
+                else (
+                    float(sum(p.confidence for p in self.pick_grades) / len(self.pick_grades))
+                    if self.pick_grades
+                    else None
+                )
+            ),
         }
 
 
@@ -182,11 +191,44 @@ def grade_night(
         if any_stat:
             night.player_rows.append(row)
 
-    if picks:
+    # Prefer logged pick rows from prediction_history (claimed confidence).
+    hist_picks = [
+        r
+        for r in history
+        if r["row_kind"] == "pick" and str(r["game_date"]) == game_date
+    ]
+    if hist_picks:
+        night.pick_grades = _grade_history_picks(hist_picks)
+    elif picks:
         night.pick_grades = grade_confident_picks(
             settings, season, picks, game_date=game_date
         )
     return night
+
+
+def _grade_history_picks(rows: Sequence[dict[str, Any]]) -> list[ConfidentPickGrade]:
+    out: list[ConfidentPickGrade] = []
+    for row in rows:
+        stat = str(row.get("pick_stat") or "").lower()
+        hit = row.get("actual_pick_hit")
+        actual_val = row.get(f"actual_{stat}") if stat else None
+        if hit is None and row.get("pick_lo") is not None and actual_val is not None:
+            hit = float(row["pick_lo"]) <= float(actual_val) <= float(row["pick_hi"])
+        out.append(
+            ConfidentPickGrade(
+                player_name=f"player:{row.get('player_id')}",
+                team_abbr=str(row.get("team_abbr") or ""),
+                opponent_abbr=str(row.get("opponent_abbr") or ""),
+                stat=stat.upper(),
+                lo=float(row.get("pick_lo") or 0.0),
+                hi=float(row.get("pick_hi") or 0.0),
+                median=float(row.get("pick_median") or 0.0),
+                confidence=float(row.get("pick_confidence") or 0.0),
+                actual=None if actual_val is None else float(actual_val),
+                hit=None if hit is None else bool(hit),
+            )
+        )
+    return out
 
 
 def grade_confident_picks(
@@ -398,6 +440,12 @@ def write_season_scorecard(
             extra=f"{season_tot.get('top_picks_hits', 0)}/{season_tot.get('top_picks_graded', 0)}",
         )
     )
+    lines.append(
+        _pct_row(
+            "Top picks avg claimed confidence",
+            season_tot.get("top_picks_avg_claimed_conf"),
+        )
+    )
     lines.append("")
 
     if notes:
@@ -432,6 +480,12 @@ def write_season_scorecard(
                     "Top picks hit rate",
                     s.get("top_picks_hit_rate"),
                     extra=f"{s['top_picks_hits']}/{s['top_picks_graded']}",
+                )
+            )
+            lines.append(
+                _pct_row(
+                    "Top picks avg claimed confidence",
+                    s.get("top_picks_avg_claimed_conf"),
                 )
             )
         elif s.get("top_picks") == 0:
@@ -572,6 +626,15 @@ def _aggregate(summaries: Iterable[dict[str, Any]]) -> dict[str, Any]:
 
     pick_hits = sum(int(r.get("top_picks_hits") or 0) for r in rows)
     pick_graded = sum(int(r.get("top_picks_graded") or 0) for r in rows)
+    conf_num = 0.0
+    conf_den = 0.0
+    for r in rows:
+        c = r.get("top_picks_avg_claimed_conf")
+        w = r.get("top_picks_graded") or r.get("top_picks") or 0
+        if c is None or not w:
+            continue
+        conf_num += float(c) * float(w)
+        conf_den += float(w)
     return {
         "games_graded": games,
         "winner_accuracy": winner_num / games if games else None,
@@ -583,6 +646,7 @@ def _aggregate(summaries: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "top_picks_hits": pick_hits,
         "top_picks_graded": pick_graded,
         "top_picks_hit_rate": pick_hits / pick_graded if pick_graded else None,
+        "top_picks_avg_claimed_conf": conf_num / conf_den if conf_den else None,
     }
 
 

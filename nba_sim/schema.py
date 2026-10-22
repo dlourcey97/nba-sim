@@ -453,12 +453,18 @@ def _tables() -> dict[str, Table]:
     prediction_history = Table(
         name="prediction_history",
         policy="upsert_current",
-        key=("row_kind", "game_id", "player_id"),
-        grain="one player row per player per game, plus one game row per game",
+        key=("row_kind", "game_id", "player_id", "pick_stat"),
+        grain=(
+            "one player row per player per game, one game row per game, "
+            "and optional pick rows (row_kind=pick) for top confident stat lines"
+        ),
         description=(
             "Summary of a simulation, not the raw runs. "
-            "row_kind is player or game. Player rows leave the game distribution null. "
+            "row_kind is player, game, or pick. Player rows leave the game distribution null. "
             "Game rows leave player_id and the player distributions null. "
+            "Pick rows store claimed confidence ranges for tonight's top lines; "
+            "actual_pick_hit is filled after the game. "
+            "pick_stat is '' on player/game rows and the stat code (pts/reb/…) on pick rows. "
             "Actuals are filled by a later upsert. Only the current season is writable "
             "unless a backfill passes allow_historical. A _COMPLETE marker freezes the season."
         ),
@@ -466,10 +472,10 @@ def _tables() -> dict[str, Table]:
         + (
             _col("game_id", "VARCHAR", False, "NBA game id."),
             _col("game_date", "DATE", False, "Game date."),
-            _col("row_kind", "VARCHAR", False, "player or game."),
-            _col("player_id", "INTEGER", True, "Player id on player rows. Null on game rows."),
+            _col("row_kind", "VARCHAR", False, "player, game, or pick."),
+            _col("player_id", "INTEGER", True, "Player id on player/pick rows. Null on game rows."),
             _col("team_abbr", "VARCHAR", True, "Player's team, or null on game rows."),
-            _col("opponent_abbr", "VARCHAR", True, "Opponent abbreviation on player rows."),
+            _col("opponent_abbr", "VARCHAR", True, "Opponent abbreviation on player/pick rows."),
             _col("home_abbr", "VARCHAR", True, "Home team on game rows."),
             _col("away_abbr", "VARCHAR", True, "Away team on game rows."),
             _col("simulated_at", "TIMESTAMP", False, "UTC time the summary was produced."),
@@ -480,6 +486,23 @@ def _tables() -> dict[str, Table]:
             _col("actual_home_pts", "INTEGER", True, "Actual home points. Game rows only, null before final."),
             _col("actual_away_pts", "INTEGER", True, "Actual away points. Game rows only, null before final."),
             _col("actual_overtime", "BOOLEAN", True, "True when the game reached overtime."),
+            _col(
+                "pick_stat",
+                "VARCHAR",
+                False,
+                "Empty on player/game rows; pts/reb/ast/stl/blk on pick rows (part of key).",
+            ),
+            _col("pick_lo", "DOUBLE", True, "Claimed range low on pick rows."),
+            _col("pick_hi", "DOUBLE", True, "Claimed range high on pick rows."),
+            _col("pick_median", "DOUBLE", True, "Claimed median on pick rows."),
+            _col("pick_confidence", "DOUBLE", True, "Claimed in-sim confidence 0–1 on pick rows."),
+            _col("pick_proj_min", "DOUBLE", True, "Projected median minutes at pick time."),
+            _col(
+                "actual_pick_hit",
+                "BOOLEAN",
+                True,
+                "True when actual stat landed in [pick_lo, pick_hi]. Null before final.",
+            ),
         )
         + _player_distribution_columns()
         + _game_distribution_columns(),

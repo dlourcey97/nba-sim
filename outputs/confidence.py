@@ -11,30 +11,22 @@ from typing import Any, Sequence
 import numpy as np
 
 from ingest.injuries import InjuryEntry
-from projections.build import GameProjection
+from projections.build import GameProjection, PlayerProjection
 from sim.engine import GameSimResult
 
-# Inclusive windows around the median.
-_WINDOWS = {
-    "pts": 3,
-    "reb": 2,
-    "ast": 2,
-    "stl": 1,
-    "blk": 1,
-}
-_MIN_MEDIAN = {
-    "pts": 4.0,
-    "reb": 4.0,
-    "ast": 4.0,
-    "stl": 2.0,
-    "blk": 2.0,
-}
 _STAT_ARRAY = {
     "pts": "pts",
     "reb": "reb",
     "ast": "ast",
     "stl": "stl",
     "blk": "blk",
+}
+_MIN_MEDIAN = {
+    "pts": 10.0,
+    "reb": 5.0,
+    "ast": 4.0,
+    "stl": 2.0,
+    "blk": 2.0,
 }
 
 
@@ -51,6 +43,8 @@ class ConfidentPick:
     hi: float
     confidence: float  # 0–1
     range_label: str
+    proj_minutes: float = 0.0
+    play_prob: float = 1.0
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -65,7 +59,20 @@ class ConfidentPick:
             "hi": self.hi,
             "confidence": self.confidence,
             "range_label": self.range_label,
+            "proj_minutes": self.proj_minutes,
+            "play_prob": self.play_prob,
         }
+
+
+def scaled_window(stat: str, median: float) -> float:
+    """Half-width around the median; stars get wider absolute windows."""
+    m = abs(float(median))
+    if stat == "pts":
+        return max(3.0, 0.15 * m)
+    if stat in {"reb", "ast"}:
+        return max(2.0, 0.20 * m)
+    # stl / blk
+    return 1.0
 
 
 def excluded_player_ids(
@@ -83,8 +90,6 @@ def excluded_player_ids(
             excluded.add(pid)
         if entry.minutes_cap is not None:
             excluded.add(pid)
-        # Overrides that resolved a Q/probable into available still count as
-        # uncertain / changed-role for confidence exclusion when reason notes it.
         reason = (entry.reason or "").lower()
         if entry.source == "override" and (
             "assume" in reason
@@ -101,6 +106,16 @@ def excluded_player_ids(
         ):
             excluded.add(pid)
     return excluded
+
+
+def _is_core_rotation(player: PlayerProjection, med_min: float) -> bool:
+    """Starters or core rotation with median minutes 26+."""
+    if med_min < 26.0:
+        return False
+    if player.started:
+        return True
+    # Core rotation: top-ish depth and real minutes projection.
+    return int(player.depth_rank) <= 7 and float(player.minutes.mean) >= 26.0
 
 
 def confident_picks_for_game(
@@ -120,9 +135,16 @@ def confident_picks_for_game(
         if pid in excluded_ids:
             continue
         proj = by_id.get(pid)
-        # Skip players projected out / near-zero minutes.
+        if proj is None:
+            continue
+        play_prob = float(getattr(proj.minutes, "play_prob", 1.0) or 0.0)
+        if play_prob < 0.95:
+            continue
+        status = (proj.status or "available").lower()
+        if status in {"questionable", "out", "doubtful"}:
+            continue
         med_min = float(np.median(result.minutes[index]))
-        if med_min < 8.0:
+        if not _is_core_rotation(proj, med_min):
             continue
         team = result.team_abbrs[index]
         opponent = opp[result.home_away[index]]
@@ -134,7 +156,7 @@ def confident_picks_for_game(
             median = float(np.median(draws))
             if median < _MIN_MEDIAN[stat]:
                 continue
-            window = _WINDOWS[stat]
+            window = scaled_window(stat, median)
             lo = median - window
             hi = median + window
             conf = float(np.mean((draws >= lo) & (draws <= hi)))
@@ -145,7 +167,6 @@ def confident_picks_for_game(
                 "stl": "steals",
                 "blk": "blocks",
             }[stat]
-            # Integer-ish display for counting stats.
             lo_i = int(round(lo))
             hi_i = int(round(hi))
             med_i = int(round(median))
@@ -163,6 +184,8 @@ def confident_picks_for_game(
                     hi=float(hi_i),
                     confidence=conf,
                     range_label=range_label,
+                    proj_minutes=float(med_min),
+                    play_prob=play_prob,
                 )
             )
         player_picks.sort(key=lambda p: p.confidence, reverse=True)
@@ -175,29 +198,30 @@ def confident_picks_for_game(
 def select_slate_picks(
     all_picks: Sequence[ConfidentPick],
     *,
-    min_picks: int = 6,
-    max_picks: int = 10,
+    n_picks: int = 8,
     max_per_game: int = 3,
     max_per_player: int = 2,
 ) -> list[ConfidentPick]:
-    """Highest confidence first, with per-game / per-player caps."""
+    """Highest confidence first — exactly ``n_picks`` when enough candidates exist.
+
+    On short slates (e.g. 2 games), raise the per-game cap just enough to allow
+    ``n_picks`` while still preferring diversification.
+    """
+    n_games = len({p.game_id for p in all_picks}) or 1
+    game_cap = max(max_per_game, (n_picks + n_games - 1) // n_games)
     selected: list[ConfidentPick] = []
     per_game: dict[str, int] = {}
     per_player: dict[int, int] = {}
     for pick in sorted(all_picks, key=lambda p: p.confidence, reverse=True):
-        if len(selected) >= max_picks:
+        if len(selected) >= n_picks:
             break
-        if per_game.get(pick.game_id, 0) >= max_per_game:
+        if per_game.get(pick.game_id, 0) >= game_cap:
             continue
         if per_player.get(pick.player_id, 0) >= max_per_player:
             continue
-        # Avoid duplicate player+stat
         if any(s.player_id == pick.player_id and s.stat == pick.stat for s in selected):
             continue
         selected.append(pick)
         per_game[pick.game_id] = per_game.get(pick.game_id, 0) + 1
         per_player[pick.player_id] = per_player.get(pick.player_id, 0) + 1
-    if len(selected) < min_picks:
-        # Keep what we have; caller notes shortfall.
-        return selected
     return selected

@@ -1,6 +1,6 @@
 # Progress
 
-Last updated post-game grade 2026-10-20/21 (2026-10-22).
+Last updated 2026-10-22 slate + play_prob + scorecard claimed conf (2026-10-22).
 
 | Phase | Status | Notes |
 | --- | --- | --- |
@@ -39,6 +39,23 @@ Last updated post-game grade 2026-10-20/21 (2026-10-22).
 | Poss upgrade Step F | done | Stint rotations: replacement edges, closing shares, margin×period timing; absence minutes → historical replacements. MIN MAE improved slightly vs baseline. |
 | Minutes bakeoff 2025-26 | done | Pure `naive_last10` wins MIN/PTS/REB/AST vs v1.0 / Step F off/on. Default minutes_model set; coverage ~0.80 via shoot/usage. |
 | Post-game grade 10-20/21 | done | Ingested 11 finals; filled actuals; `results/season_scorecard.md`; daily.py refreshes scorecard. |
+| 2026-10-22 slate | done | P(plays) Bernoulli; scaled top-8 picks logged to history; roster corruption guard. |
+
+## 2026-10-22 slate (CLE@PHI, DEN@OKC)
+
+- **P(plays):** `MinutesProjection.play_prob` from injury status × appear rate × rotation role; each sim draws sit/play before minutes, then team normalize.
+- **Confident picks:** starters/core with median MIN≥26 and P(plays)≥0.95; scaled windows; exactly 8 (per-game cap rises on short slates); logged as `row_kind=pick` in `prediction_history` with claimed confidence.
+- **Injuries:** 11 OUT/Doubtful; Spencer Jones (DEN) Questionable (hamstring) — left Q, excluded from picks; no other Q overrides.
+- **Roster guard:** if CommonTeamRoster overlap with prior open stints is tiny, fall back to prior open + current appearances (fixes PHI LeBron/Brown junk from the live feed).
+- Slate report: `results/latest/slate_report.md`. Storage ~10.5 MiB.
+
+## Minutes bakeoff + 10-21 MIN MAE (Part 3)
+
+Bakeoff already finished (1314g/1000r). Winner: **naive_last10** (MIN 6.25) over Step F on (6.78), off (6.88), v1.0 (7.63).
+
+10-21 MIN MAE split: **played** 9.92 (n=254) vs **projected≥8 DNP** 20.21 (n=29). Biggest misses: Patrick Williams / Jahmai Mashack / Will Riley (DNP despite 32–36 proj); rookies Acuff / Boozer / Wilson / Peterson / Wiggins under-projected at ~0 then played 30+.
+
+Scorecard now shows top-picks **avg claimed confidence 77.1%** vs **hit rate 33.3% (3/9)** for 10-21.
 
 ## Post-game grade — opening night + 2026-10-21 (2026-10-22)
 
