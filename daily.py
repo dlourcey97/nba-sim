@@ -127,6 +127,11 @@ def main(argv: list[str] | None = None) -> int:
             f"history_rows={slate.history_rows} actuals_rows={slate.actuals_rows} "
             f"confident_picks={len(slate.confident_picks)} report={slate.report_path}"
         )
+        from outputs.grade import refresh_season_scorecard
+
+        scorecard = refresh_season_scorecard(settings, season=season)
+        if scorecard is not None:
+            log(f"season_scorecard={scorecard}")
         finish_run(settings)
         log("daily done")
     except NbaSimError as exc:

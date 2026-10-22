@@ -98,7 +98,13 @@ Each JSON has win probability, score/total distributions, and per-player percent
 
 ### 6. After games finish (next night)
 
-Same `daily.py` for the next slate date. Ingest fills finals; prediction history gets actuals filled for completed games.
+Same `daily.py` for the next slate date. Ingest fills finals; prediction history gets actuals filled for completed games. `daily.py` also refreshes `results/season_scorecard.md` (winner / spread / total / player MAE / 10–90 coverage / top-picks hit rate).
+
+Manual re-grade only:
+
+```bash
+PYTHONPATH=. python scripts/postgame_grade.py --dates 2026-10-20,2026-10-21
+```
 
 ## Rollback
 

@@ -1,6 +1,6 @@
 # Progress
 
-Last updated minutes bakeoff + coverage SD (2026-10-22).
+Last updated post-game grade 2026-10-20/21 (2026-10-22).
 
 | Phase | Status | Notes |
 | --- | --- | --- |
@@ -38,6 +38,22 @@ Last updated minutes bakeoff + coverage SD (2026-10-22).
 | Poss upgrade Step E | done | Possession/data tests; walk-forward summary vs baseline. |
 | Poss upgrade Step F | done | Stint rotations: replacement edges, closing shares, margin×period timing; absence minutes → historical replacements. MIN MAE improved slightly vs baseline. |
 | Minutes bakeoff 2025-26 | done | Pure `naive_last10` wins MIN/PTS/REB/AST vs v1.0 / Step F off/on. Default minutes_model set; coverage ~0.80 via shoot/usage. |
+| Post-game grade 10-20/21 | done | Ingested 11 finals; filled actuals; `results/season_scorecard.md`; daily.py refreshes scorecard. |
+
+## Post-game grade — opening night + 2026-10-21 (2026-10-22)
+
+- Incremental ingest: **11** new 2026-27 finals through 2026-10-21 (3 opening-night already stored). 14 finals total.
+- Roster refresh: **+ Walter Clayton Jr. (DAL)** on CommonTeamRoster (518 → 519). No new box-score-only players vs prior snapshot.
+- `prediction_history` actuals upserted: **336** rows.
+- Scorecard: `results/season_scorecard.md` (also refreshed by `daily.py` / `scripts/postgame_grade.py`).
+
+| Night | Games | Winner | Spread MAE | Total MAE | MIN MAE | PTS MAE | 10–90 cov | Top picks |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 2026-10-20 | 3 | 66.7% | 7.83 | 17.00 | 5.76 | 5.76 | 69.1% | n/a |
+| 2026-10-21 | 11 | 72.7% | 17.09 | 14.64 | 9.92 | 7.23 | 62.6% | **3/9 (33%)** |
+| **Season** | **14** | **71.4%** | **15.11** | **15.14** | **9.04** | **6.92** | **64.0%** | **3/9** |
+
+Opening night had no Top confident table (feature shipped with 10-21). Storage ~10.5 MiB / 2 GB cap.
 
 ## Minutes bakeoff + coverage (2026-10-22)
 
