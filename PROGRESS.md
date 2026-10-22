@@ -1,6 +1,6 @@
 # Progress
 
-Last updated possession-engine upgrade Steps A–E (2026-10-21).
+Last updated possession-engine upgrade Step F (2026-10-21).
 
 | Phase | Status | Notes |
 | --- | --- | --- |
@@ -36,7 +36,7 @@ Last updated possession-engine upgrade Steps A–E (2026-10-21).
 | Poss upgrade Step C | done | `LeagueSeasonMatchups` → `defender_impact`; primary defender by position; prior-season only. |
 | Poss upgrade Step D | done | Typical game log + WP HTML chart under `results/typical/`. |
 | Poss upgrade Step E | done | Possession/data tests; walk-forward summary vs baseline. |
-| Poss upgrade Step F | planned | **Next:** stint-based rotations and substitution patterns learned from play-by-play, conditioned on score margin (blowouts trigger bench minutes), to fix the minutes model. Not started. |
+| Poss upgrade Step F | done | Stint rotations: replacement edges, closing shares, margin×period timing; absence minutes → historical replacements. MIN MAE improved slightly vs baseline. |
 
 ## Possession upgrade Step A (2026-10-21)
 
@@ -115,7 +115,32 @@ Walk-forward protocol: `--seasons 2025-26 --runs 200 --seed 1 --max-games 250`.
 
 **Tests added:** `tests/test_possession_engine.py`, `tests/test_assist_network.py`, `tests/test_matchups.py`, `tests/test_typical_game.py`.
 
-**Step F (next, not now):** Learn stint-based rotations and substitution patterns from play-by-play, conditioned on score margin so blowouts trigger bench minutes — aimed at fixing the minutes model.
+## Possession upgrade Step F — stint-based rotations (2026-10-21)
+
+Learns from compact `lineup_stints` (2025-26 + current, recency-weighted) plus box-score absence history — no raw PBP persisted.
+
+- **Substitution edges:** who checks in for whom (stint lineup swaps + nights a rotation player sits).
+- **Closing lineups:** Q4×close stint seconds → soft boost for closers in expected close games.
+- **Margin × period:** blowouts send bench earlier (Q2+); close games keep starters in Q4.
+- **Absence minutes:** OUT/Doubtful minutes go to historical replacements first (`replacement_share`), not evenly; `overrides.yaml` minutes caps still bind.
+- Config: `features.stint_rotations_step_f: true`, `minutes.replacement_share`, `minutes.stint_recency_half_life_days`.
+- Rebuilt `lineup_stints` for 2026-27 (3 opening-night finals → 109 stints).
+- Tests: `tests/test_rotations.py` (replacement redistribute, caps, blowout/close period weights).
+- Compare: `PYTHONPATH=. python scripts/step_f_backtest.py --seasons 2025-26 --runs 200 --seed 1 --max-games 250`
+
+Walk-forward 2025-26, 250 games, 200 runs, seed 1:
+
+| Metric | Baseline (Step F off) | Step F |
+| --- | ---: | ---: |
+| MAE MIN | 6.866 | **6.802** |
+| MAE MIN starters | 6.194 | **6.151** |
+| MAE MIN bench | 7.460 | **7.377** |
+| MAE PTS | 5.731 | **5.722** |
+| 10–90 coverage | **0.674** | 0.668 |
+| Brier | **0.208** | 0.211 |
+| Star MPG MAE vs prior | **5.28** | 5.51 |
+
+Minutes MAE improved for overall / starters / bench. Coverage and star-vs-prior MPG slightly worse (soft closing/replacement effects). Artifacts: `results/backtest/upgrade_poss_step_f/`.
 
 ## Phase 3
 

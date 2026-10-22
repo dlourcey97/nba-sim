@@ -63,6 +63,7 @@ from projections.rotations import (
     RotationModel,
     expected_abs_margin_from_strength,
     load_rotation_model,
+    redistribute_minutes_for_absences,
 )
 
 
@@ -578,7 +579,8 @@ def _build(
             config=config,
         )
 
-        # Project minutes, then force the healthy roster to sum to 240.
+        # Project minutes, redistribute OUT minutes to historical replacements
+        # (Step F), then force the healthy roster to sum to 240.
         ordered_ids = list(roster)
         raw_minutes: list[MinutesProjection] = []
         depth_ranks: list[int] = []
@@ -597,6 +599,35 @@ def _build(
                 )
             )
             depth_ranks.append(depth_rank)
+        # Step F: give OUT minutes to who historically replaces them, not evenly.
+        team_out = {pid for pid in out_ids if pid in set(ordered_ids)}
+        redistributed = redistribute_minutes_for_absences(
+            ordered_ids,
+            [p.mean for p in raw_minutes],
+            team_id=team_id,
+            out_ids=team_out,
+            caps={pid: caps[pid] for pid in caps if pid in set(ordered_ids)},
+            model=rotation,
+            config=config,
+        )
+        raw_minutes = [
+            (
+                MinutesProjection(0.0, 0.0, 0.0, 0.0, True)
+                if raw_minutes[i].out or ordered_ids[i] in team_out
+                else MinutesProjection(
+                    mean=float(redistributed[i]),
+                    sd=raw_minutes[i].sd,
+                    min_minutes=raw_minutes[i].min_minutes,
+                    max_minutes=(
+                        min(raw_minutes[i].max_minutes, float(caps[ordered_ids[i]]))
+                        if ordered_ids[i] in caps
+                        else raw_minutes[i].max_minutes
+                    ),
+                    out=False,
+                )
+            )
+            for i in range(len(ordered_ids))
+        ]
         allocated = allocate_team_minutes(
             raw_minutes,
             config=config,
@@ -610,6 +641,8 @@ def _build(
             depth_ranks,
             expected_abs_margin=expected_abs_margin,
             config=config,
+            player_ids=ordered_ids,
+            team_id=team_id,
         )
         prev_total = sum(means)
         new_total = sum(adjusted_means)
