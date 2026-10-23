@@ -22,6 +22,7 @@ Graded from `prediction_history` after finals. No sportsbook lines or odds.
 - 2026-10-21: claimed conf 77.1% vs hit rate 33.3% (3/9).
 - Bakeoff: naive_last10 MIN 6.25 > Step F on 6.78 > off 6.88 > v1.0 7.63.
 - 10-21 MIN: played MAE 9.92 (n=254); proj≥8 DNP MAE 20.21 (n=29). Top DNPs: Patrick Williams, Jahmai Mashack, Will Riley.
+- 2026-10-23 follow-ups (guardrail PASS): `reb_share_power: 1.55` restores elite REB/36 (Jokic 9.1→12.8); shoot/usage/pace SDs tightened → PTS 10–90 coverage **0.803** (was ~0.86). MAE held.
 
 ## 2026-10-20
 

@@ -27,18 +27,24 @@ simulation:
   # Soft remaining-budget scale applied once when progress crosses 0.70.
   late_pace_adjust: true
   # Overdispersion: coverage comes from shoot/usage/pace — not minutes_variance.
-  # Tuned 2026-10-22 (naive minutes, 100g/250r probe): ~0.795 PTS 10–90 coverage.
-  player_shoot_sd: 0.50
-  player_usage_sd: 0.38
-  team_hot_sd: 0.07
-  pace_sd: 9.0
+  # Tuned 2026-10-23: post-stabilize ~0.86 PTS 10–90. Caps are 1.5×SD (max 0.60),
+  # so shoot_sd must drop below 0.40 before bands actually tighten. Target ~0.80.
+  player_shoot_sd: 0.32
+  player_usage_sd: 0.28
+  team_hot_sd: 0.05
+  pace_sd: 6.5
   # Multiply sum-of-on-court ast_rates before P(assisted). Season-average rates
   # stacked in a lineup slightly overstate team assists; 0.86 centers 2025-26.
-  assist_p_scale: 1.02
+  # 1.02 drifted to ~+3.4% team AST after variance tighten; 0.99 recenters.
+  assist_p_scale: 0.99
   # Fraction of live misses that become team rebounds (no player credit).
   # 2025-26 box: player REB / missed FG ≈ 0.927. Tuned with Gumbel lineups
   # (more bench → more misses) so sim team REB stays within ±3%.
   team_reb_rate: 0.115
+  # Softmax sharpness for who gets a player rebound. 1.0 = raw rates;
+  # >1 concentrates boards on elite rebounders (fixes post-stabilize REB/36
+  # under-projection for Jokic-class players) without changing team totals.
+  reb_share_power: 1.55
 
 blending:
   season_weights:

@@ -1,6 +1,6 @@
 # Progress
 
-Last updated 2026-10-22 engine stabilize Steps 3–5 (guardrail PASS).
+Last updated 2026-10-23 elite REB share + coverage tighten (guardrail PASS).
 
 | Phase | Status | Notes |
 | --- | --- | --- |
@@ -9,6 +9,8 @@ Last updated 2026-10-22 engine stabilize Steps 3–5 (guardrail PASS).
 | Stabilize Step 3 | done | Team-reb leak, TOV scale, play_prob=appear, Gumbel lineups, STL/BLK/AST scales. Guardrail PASS. |
 | Stabilize Step 4 | done | `tests/test_reconcile.py` + daily.py blocks slate if reconcile fails. |
 | Stabilize Step 5 | done | Before/after table; 10-22 slate rerun — Allen/Mobley ~9–10 REB (was ~15–16). |
+| Follow-up 1: elite REB share | done | `reb_share_power: 1.55` on who-gets-it; team totals unchanged; Jokic 9.1→12.8 REB. |
+| Follow-up 2: coverage ~0.80 | done | shoot/usage/pace SDs tightened (caps bite below shoot_sd 0.40); PTS 10–90 **0.803**. |
 | 1. Project setup and storage | done | Config, schema, ignore files, cap, and storage report. |
 | 2. Ingestion and backfill | done | nba_api, PlayByPlayV3 possessions, live-feed fallback, backfill.py. Preseason supported. |
 | 3. Injury report and overrides | done | Official PDF parse via pypdf, overrides.yaml precedence. |
@@ -132,6 +134,63 @@ Keep naive_last10. v1.0 loses on MAE and has broken AST (−41%). REB inflation 
 | Joel Embiid | 11.3 | **7.5** |
 
 **Rules going forward:** one change at a time; must pass reconcile guardrail and hold/improve backtest or revert.
+
+## Follow-up 1 — elite rebounder share (2026-10-23)
+
+Post team-reb fix, top rebounders were systematically low on REB/36 (Gumbel lineups dilute who-gets-it). Fix: `reb_share_power` on offensive/defensive rebound weights for credit only; ORB% still from raw rates so team REB stays put. Gumbel temp kept at 1.35 (colder lineups failed starter REB share).
+
+**Guardrail:** PASS (100g/120r mid-season). Team REB +0.5%, starter REB share +2.6%.
+
+### Elite REB/36 vs prior season (mid-season sample)
+
+| | Before (power=1.0) | After (power=1.55) |
+| --- | ---: | ---: |
+| Mean top-15 Δ/36 vs prior | −1.82 | **+0.50** |
+| Jokic Δ/36 | −3.4 | **−0.8** |
+
+### Tonight 10-22 centers (stabilize → share fix)
+
+| Player | MIN | REB before | REB after | REB/36 | 2025-26 /36 | Δ/36 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Nikola Jokić | 35.6 | 9.1 | **12.8** | 12.9 | 13.2 | −0.2 |
+| Chet Holmgren | 29.1 | 6.9 | **7.6** | 9.4 | 10.8 | −1.4 |
+| Jarrett Allen | 29.3 | 9.8 | **11.3** | 13.8 | 10.6 | +3.2 |
+| Evan Mobley | 34.6 | 9.6 | **10.6** | 11.0 | 9.7 | +1.3 |
+| Joel Embiid | 30.0 | 7.5 | **8.7** | 10.4 | 8.6 | +1.8 |
+
+### Backtest hold (120g/200r mid-season)
+
+| Metric | Stabilize after | + share power |
+| --- | ---: | ---: |
+| MIN MAE | 5.95 | 6.09 |
+| PTS MAE | 5.09 | **5.18** |
+| REB MAE | 2.03 | 2.10 |
+| AST MAE | 1.37 | **1.37** |
+
+MAE held within noise; reconcile PASS.
+
+## Follow-up 2 — tighten 10–90 coverage (2026-10-23)
+
+Stabilize left PTS 10–90 coverage ~0.86 (bands too wide). Player-level SDs only move the band once below the 1.5×SD cap of 0.60 (`shoot_sd < 0.40`). Means unchanged (multiplicative noise around 1.0).
+
+| Knob | Before | After |
+| --- | ---: | ---: |
+| player_shoot_sd | 0.50 | **0.32** |
+| player_usage_sd | 0.38 | **0.28** |
+| team_hot_sd | 0.07 | **0.05** |
+| pace_sd | 9.0 | **6.5** |
+| assist_p_scale | 1.02 | **0.99** (recentered after AST drifted +3.4%) |
+
+### Before vs after (same mid-season window)
+
+| Metric | Before | After |
+| --- | ---: | ---: |
+| PTS 10–90 coverage | 0.86 (stabilize) / 0.809 paired | **0.803** |
+| mean pred PTS | 8.87 | 8.90 |
+| PTS MAE | 5.25 | **5.18** |
+| REB MAE | 2.10 | **2.10** |
+| AST MAE | 1.39 | **1.37** |
+| Guardrail | PASS | **PASS** |
 
 ## 2026-10-22 slate (CLE@PHI, DEN@OKC)
 

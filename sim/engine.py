@@ -189,6 +189,7 @@ def simulate_game(
     packed["assist_p_scale"] = float(sim_cfg.get("assist_p_scale", 1.0))
     # Live misses with no player credit (team rebound). Keeps possession flip.
     packed["team_reb_rate"] = float(np.clip(sim_cfg.get("team_reb_rate", 0.073), 0.0, 0.20))
+    packed["reb_share_power"] = float(np.clip(sim_cfg.get("reb_share_power", 1.0), 0.5, 3.0))
     pace_sd = float(sim_cfg.get("pace_sd", 5.5))
     team_hot_sd = float(sim_cfg.get("team_hot_sd", 0.05))
     player_shoot_sd = float(sim_cfg.get("player_shoot_sd", 0.12))
@@ -820,8 +821,8 @@ def _lineups_state_grid(
                 # Gumbel-top-k ≈ sample without replacement with probs ∝ minutes.
                 # Temperature scales how often 12–18 MPG bench cracks the five.
                 # temp≈1 → near hard top-5; temp≈3 → heavy bench rotation.
-                # 1.35 keeps starter role shares near actual while preserving
-                # star rebound/assist levels (1.6 starved Jokic-type boards).
+                # 1.35 keeps starter role shares near actual; elite REB/36 is
+                # restored via reb_share_power on who-gets-it (not colder lineups).
                 temperature = 1.35
                 logits = np.log(np.maximum(weights, 1e-6)) / temperature
                 gumbel = rng.gumbel(size=weights.shape)
@@ -1119,9 +1120,18 @@ def _vector_possession(
 
     live_miss = is_miss & ~is_foul
     if np.any(live_miss):
-        o_w = packed["oreb"][off_lineups]
-        d_w = packed["dreb"][def_lineups]
-        p_orb = np.clip(o_w.sum(axis=1) / (o_w.sum(axis=1) + d_w.sum(axis=1) + 1e-9), 0.05, 0.40)
+        o_raw = packed["oreb"][off_lineups]
+        d_raw = packed["dreb"][def_lineups]
+        # ORB% from raw rates (team total). Who-gets-it uses powered weights so
+        # elite rebounders keep historical share of player boards.
+        p_orb = np.clip(
+            o_raw.sum(axis=1) / (o_raw.sum(axis=1) + d_raw.sum(axis=1) + 1e-9),
+            0.05,
+            0.40,
+        )
+        power = float(packed.get("reb_share_power", 1.0))
+        o_w = np.power(np.maximum(o_raw, 0.0), power)
+        d_w = np.power(np.maximum(d_raw, 0.0), power)
         is_orb = live_miss & (rng.random(n_runs) < p_orb)
         is_drb = live_miss & ~is_orb
         # Team rebounds: possession flips/continues like a player board, but no
