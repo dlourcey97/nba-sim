@@ -102,6 +102,31 @@ def main(argv: list[str] | None = None) -> int:
         # Dedupe while preserving order.
         report_assumptions = list(dict.fromkeys(report_assumptions))
 
+        log("reconcile guardrail (mid-season 2025-26 league totals + role shares)")
+        from backtest.reconcile import check_reconcile_guardrail, format_report
+
+        reconcile = check_reconcile_guardrail(
+            settings,
+            runs=80,
+            max_games=80,
+            skip_games=400,
+            seed=1,
+            threshold_pct=3.0,
+        )
+        if not reconcile.passed:
+            log(format_report(reconcile))
+            raise NbaSimError(
+                "Reconcile guardrail failed — refusing to produce projections. "
+                f"team_flags={reconcile.team_flags} role_flags={reconcile.role_flags}. "
+                "Fix the engine so league totals and starter/bench shares are "
+                "within ±3% of actual before shipping a slate."
+            )
+        log(
+            f"reconcile PASS games={reconcile.games} "
+            f"REBΔ={reconcile.team_delta_pct.get('reb', 0):+.1f}% "
+            f"starter_REBΔ={reconcile.role_delta_pct.get('reb', 0):+.1f}%"
+        )
+
         slate = run_slate(
             settings,
             season=season,

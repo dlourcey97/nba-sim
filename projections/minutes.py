@@ -71,19 +71,27 @@ def estimate_play_prob(
     if status_norm in {"out", "doubtful"}:
         return 0.0
     appear = float(np.clip(appear_rate, 0.0, 1.0))
-    # Rotation prior: starters / high-minute cores almost always dress.
+    # Rotation prior when appearance history is missing (rookies / new team).
     if started or (depth_rank <= 4 and base_mean >= 26.0):
         role = 0.98
     elif depth_rank <= 7 and base_mean >= 18.0:
-        role = 0.92
+        role = 0.94
     elif base_mean >= 10.0:
-        role = 0.75
+        role = 0.88
     elif base_mean > 0:
-        role = 0.45
+        role = 0.55
     else:
-        role = 0.15
-    # Blend appearance history with role (sparse early season → trust role more).
-    base = 0.55 * appear + 0.45 * role if appear > 0 else role
+        role = 0.20
+    # Available players: dress at their recent appear rate. Do not haircut a
+    # 90% appearance guy down to ~80% via a role blend — that invented DNPs,
+    # redistributed boards/points to starters, and broke role-share reconcile.
+    base = appear if appear > 0 else role
+    if started or base_mean >= 24.0:
+        base = max(base, 0.96)
+    elif base_mean >= 14.0:
+        base = max(base, 0.88)
+    elif base_mean >= 8.0:
+        base = max(base, 0.70)
     if status_norm == "questionable":
         base = min(base, 0.62) * 0.90
     elif status_norm == "probable":

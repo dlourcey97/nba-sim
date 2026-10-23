@@ -148,9 +148,10 @@ def vector_from_accumulator(acc: dict[str, float]) -> RateVector:
     # usage is share of offensive possessions; used/offensive_poss ≈ usage.
     offensive_possessions = acc.get("offensive_possessions", possessions * 0.5) or (possessions * 0.5)
     # Steal path runs before TOV in the engine, so tov_rate is non-steal TOVs only.
-    # League TOV ≈ 13.5/100 poss and STL ≈ 8/100, so non-steal ≈ 40% of box TOVs.
+    # League TOV ≈ 13.8/team and STL ≈ 8.4, so non-steal ≈ 39% of box TOVs.
+    # Was 0.32 (understated dead possessions → extra FGA/misses/rebounds).
     raw_tov = (acc["tov"] / used) if used > 0 else 0.12
-    tov_rate = max(0.015, min(0.18, raw_tov * 0.32))
+    tov_rate = max(0.015, min(0.18, raw_tov * 0.37))
     vector = RateVector(
         usage=(used / offensive_possessions) if offensive_possessions > 0 else 0.20,
         tov_rate=tov_rate,

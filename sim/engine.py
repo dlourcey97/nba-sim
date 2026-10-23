@@ -156,20 +156,39 @@ def simulate_game(
     )
     # Period × margin-bucket lineup grid (stint substitution model).
     # close games shorten rotations late; blowouts put the bench on the floor.
+    # Pure naive minutes: keep lineups proportional to minute draws only —
+    # period/margin starter boosts were putting stars on the floor more than
+    # their box MIN share, inflating starter PTS/REB/AST role shares.
     minutes_cfg = cfg.get("minutes", {})
     close_thr = float(minutes_cfg.get("close_margin_threshold", 6.0))
     blowout_thr = float(minutes_cfg.get("blowout_margin_threshold", 15.0))
     expected_margin = float(getattr(projection, "expected_abs_margin", 8.0) or 8.0)
     rotation = getattr(projection, "rotation", None)
+    minutes_model = str(
+        (cfg.get("features") or {}).get("minutes_model", "engine")
+    ).lower()
+    flat_lineups = minutes_model in {"naive_last10", "naive"}
     home_grid = _lineups_state_grid(
-        rng, home_idx, minutes, players, rotation=rotation
+        rng,
+        home_idx,
+        minutes,
+        players,
+        rotation=None if flat_lineups else rotation,
+        flat=flat_lineups,
     )
     away_grid = _lineups_state_grid(
-        rng, away_idx, minutes, players, rotation=rotation
+        rng,
+        away_idx,
+        minutes,
+        players,
+        rotation=None if flat_lineups else rotation,
+        flat=flat_lineups,
     )
 
     sim_cfg = cfg.get("simulation", {})
     packed["assist_p_scale"] = float(sim_cfg.get("assist_p_scale", 1.0))
+    # Live misses with no player credit (team rebound). Keeps possession flip.
+    packed["team_reb_rate"] = float(np.clip(sim_cfg.get("team_reb_rate", 0.073), 0.0, 0.20))
     pace_sd = float(sim_cfg.get("pace_sd", 5.5))
     team_hot_sd = float(sim_cfg.get("team_hot_sd", 0.05))
     player_shoot_sd = float(sim_cfg.get("player_shoot_sd", 0.12))
@@ -747,11 +766,15 @@ def _lineups_state_grid(
     players: list[PlayerProjection],
     *,
     rotation=None,
+    flat: bool = False,
 ) -> np.ndarray:
     """Return shape (n_runs, 4 periods, 3 buckets, 5) player indexes.
 
     Weights = projected minutes × period/margin priors, with a mild boost for
     players who historically share the floor (co-appearance).
+
+    ``flat=True`` (naive minutes path): ignore period/margin/co-appearance so
+    on-court share tracks box-score minute draws.
     """
     from projections.rotations import RotationModel
 
@@ -772,23 +795,42 @@ def _lineups_state_grid(
     leader_local = int(np.argmax(base.mean(axis=1))) if n_pool else 0
     leader_pid = player_ids[leader_local]
     co_boost = np.ones(n_pool, dtype=float)
-    for j, pid in enumerate(player_ids):
-        if j == leader_local:
-            continue
-        co_boost[j] = model.partner_boost(team_id, leader_pid, pid)
+    if not flat:
+        for j, pid in enumerate(player_ids):
+            if j == leader_local:
+                continue
+            co_boost[j] = model.partner_boost(team_id, leader_pid, pid)
 
     for period in range(1, 5):
         for b_idx, bucket in enumerate(_BUCKETS):
-            period_w = np.array(
-                [
-                    model.period_weights(depths[j], period=period, margin_bucket_name=bucket)
-                    for j in range(n_pool)
-                ],
-                dtype=float,
-            )
+            if flat:
+                period_w = np.ones(n_pool, dtype=float)
+            else:
+                period_w = np.array(
+                    [
+                        model.period_weights(
+                            depths[j], period=period, margin_bucket_name=bucket
+                        )
+                        for j in range(n_pool)
+                    ],
+                    dtype=float,
+                )
             weights = base * period_w[:, None] * co_boost[:, None]
-            noise_sd = np.maximum(3.0, 0.25 * np.std(weights, axis=0) + 2.0)
-            noisy = weights + rng.normal(0.0, 1.0, size=(n_pool, n_runs)) * noise_sd[None, :]
+            if flat:
+                # Gumbel-top-k ≈ sample without replacement with probs ∝ minutes.
+                # Temperature scales how often 12–18 MPG bench cracks the five.
+                # temp≈1 → near hard top-5; temp≈3 → heavy bench rotation.
+                # 1.35 keeps starter role shares near actual while preserving
+                # star rebound/assist levels (1.6 starved Jokic-type boards).
+                temperature = 1.35
+                logits = np.log(np.maximum(weights, 1e-6)) / temperature
+                gumbel = rng.gumbel(size=weights.shape)
+                noisy = logits + gumbel
+            else:
+                noise_sd = np.maximum(3.0, 0.25 * np.std(weights, axis=0) + 2.0)
+                noisy = weights + rng.normal(0.0, 1.0, size=(n_pool, n_runs)) * noise_sd[
+                    None, :
+                ]
             zero_runs = weights.sum(axis=0) <= 0
             if np.any(zero_runs):
                 noisy[:, zero_runs] = rng.random((n_pool, int(np.sum(zero_runs))))
@@ -897,9 +939,9 @@ def _vector_possession(
         return home_delta, away_delta, next_offense_home, ended, trace
 
     # Steal. Per-player rates are stl/def_poss; summing five on-court rates
-    # overstates team steals, so scale toward league ~8 STL / 100 possessions.
+    # Scale on-court steal-rate sum toward league ~8.4 STL / 100 possessions.
     stl_w = packed["stl_rate"][def_lineups]
-    stl_prob = np.clip(stl_w.sum(axis=1) * 0.78, 0.0, 0.095)
+    stl_prob = np.clip(stl_w.sum(axis=1) * 0.88, 0.0, 0.100)
     is_stl = remaining_after_foul & (rng.random(n_runs) < stl_prob)
     if np.any(is_stl):
         pick = _weighted_choice(rng, stl_w[is_stl])
@@ -1002,8 +1044,9 @@ def _vector_possession(
     ft_pct = np.clip(packed["ft_pct"][users], 0.4, 0.95)
 
     blk_w = packed["blk_rate"][def_lineups]
-    blk_scale = np.where(zone_i == 0, 1.4, 0.7)
-    blk_prob = np.clip(blk_w.sum(axis=1) * blk_scale * 0.78, 0.0, 0.065)
+    # RA shots are blocked more often; keep team BLK near ~4.9 / game.
+    blk_scale = np.where(zone_i == 0, 1.45, 0.88)
+    blk_prob = np.clip(blk_w.sum(axis=1) * blk_scale, 0.0, 0.085)
     is_blk = remaining & (rng.random(n_runs) < blk_prob)
     if np.any(is_blk):
         pick = _weighted_choice(rng, blk_w[is_blk])
@@ -1081,21 +1124,29 @@ def _vector_possession(
         p_orb = np.clip(o_w.sum(axis=1) / (o_w.sum(axis=1) + d_w.sum(axis=1) + 1e-9), 0.05, 0.40)
         is_orb = live_miss & (rng.random(n_runs) < p_orb)
         is_drb = live_miss & ~is_orb
-        if np.any(is_orb):
-            pick = _weighted_choice(rng, o_w[is_orb])
-            runners = np.flatnonzero(is_orb)
-            players = off_lineups[is_orb, pick]
+        # Team rebounds: possession flips/continues like a player board, but no
+        # box-score credit. Matches ~7% of misses that never land on a player.
+        team_reb_rate = float(packed.get("team_reb_rate", 0.073))
+        is_team_reb = live_miss & (rng.random(n_runs) < team_reb_rate)
+        credit_orb = is_orb & ~is_team_reb
+        credit_drb = is_drb & ~is_team_reb
+        if np.any(credit_orb):
+            pick = _weighted_choice(rng, o_w[credit_orb])
+            runners = np.flatnonzero(credit_orb)
+            players = off_lineups[credit_orb, pick]
             np.add.at(reb, (players, runners), 1)
+        if np.any(is_orb):
             next_offense_home[is_orb] = offense_home[is_orb]
             # OREB: possession continues — do NOT mark ended.
             if trace is not None:
                 trace["kind"][is_orb] = OUTCOME_OREB
                 trace["shooter"][is_orb] = users[is_orb]
-        if np.any(is_drb):
-            pick = _weighted_choice(rng, d_w[is_drb])
-            runners = np.flatnonzero(is_drb)
-            players = def_lineups[is_drb, pick]
+        if np.any(credit_drb):
+            pick = _weighted_choice(rng, d_w[credit_drb])
+            runners = np.flatnonzero(credit_drb)
+            players = def_lineups[credit_drb, pick]
             np.add.at(reb, (players, runners), 1)
+        if np.any(is_drb):
             next_offense_home[is_drb] = ~offense_home[is_drb]
             ended[is_drb] = True
             if trace is not None:

@@ -34,7 +34,11 @@ simulation:
   pace_sd: 9.0
   # Multiply sum-of-on-court ast_rates before P(assisted). Season-average rates
   # stacked in a lineup slightly overstate team assists; 0.86 centers 2025-26.
-  assist_p_scale: 0.86
+  assist_p_scale: 1.02
+  # Fraction of live misses that become team rebounds (no player credit).
+  # 2025-26 box: player REB / missed FG ≈ 0.927. Tuned with Gumbel lineups
+  # (more bench → more misses) so sim team REB stays within ±3%.
+  team_reb_rate: 0.115
 
 blending:
   season_weights:

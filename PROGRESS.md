@@ -1,14 +1,14 @@
 # Progress
 
-Last updated 2026-10-22 engine stabilize Step 2 bakeoff.
+Last updated 2026-10-22 engine stabilize Steps 3–5 (guardrail PASS).
 
 | Phase | Status | Notes |
 | --- | --- | --- |
 | Stabilize Step 1 | done | League totals + starter shares FAIL (>3%); team REB +13.6%; starter REB share +19%; bigs sim/36 ~18–20 vs prior ~12–14. |
 | Stabilize Step 2 | done | naive_last10 wins MAE; all variants fail reconcile (REB +10–14%). Do not revert to v1.0. |
-| Stabilize Step 3 | in progress | Fix engine rebound volume + role concentration; keep naive minutes. |
-| Stabilize Step 4 | not started | Permanent reconcile guardrail in tests + daily.py. |
-| Stabilize Step 5 | not started | Before/after report + rerun 10-22 slate. |
+| Stabilize Step 3 | done | Team-reb leak, TOV scale, play_prob=appear, Gumbel lineups, STL/BLK/AST scales. Guardrail PASS. |
+| Stabilize Step 4 | done | `tests/test_reconcile.py` + daily.py blocks slate if reconcile fails. |
+| Stabilize Step 5 | done | Before/after table; 10-22 slate rerun — Allen/Mobley ~9–10 REB (was ~15–16). |
 | 1. Project setup and storage | done | Config, schema, ignore files, cap, and storage report. |
 | 2. Ingestion and backfill | done | nba_api, PlayByPlayV3 possessions, live-feed fallback, backfill.py. Preseason supported. |
 | 3. Injury report and overrides | done | Official PDF parse via pypdf, overrides.yaml precedence. |
@@ -86,6 +86,52 @@ MAE: 1314g/1000r seed 1. Reconcile: 250g/200r. Artifacts: `results/backtest/stab
 | **naive_last10** | **6.25** | **5.34** | **2.33** | **1.49** | **0.74** | **0.220** | +13.6% | +19.4% |
 
 Keep naive_last10. v1.0 loses on MAE and has broken AST (−41%). REB inflation is shared across configs → possession engine, not minutes model.
+
+## Stabilize Steps 3–5 — fix + guardrail + report (2026-10-22)
+
+**Root causes fixed (one cluster, keep naive minutes):**
+1. No team-rebound leak → every live miss credited a player (`team_reb_rate: 0.115`).
+2. Non-steal TOV scale 0.32→0.37 (understated dead possessions → extra FGA/misses).
+3. `play_prob` haircut invented DNPs; now follows appear rate + role floors.
+4. Hard top-5 lineups locked stars on court; naive path uses Gumbel-top-k (temp 1.35).
+5. STL/BLK engine scales and `assist_p_scale: 1.02` recentered league totals.
+
+**Guardrail (PASS mid-season 2025-26):** league PTS/REB/AST/STL/BLK/TOV and starter PTS/REB/AST/STL shares within ±3%. Wired into `daily.py` (blocks slate on fail) and `tests/test_reconcile.py`.
+
+### Before vs after
+
+| Metric | Before (naive bakeoff / Step1) | After (200g/200r sample) |
+| --- | ---: | ---: |
+| MIN MAE | 6.25 | **5.95** |
+| PTS MAE | 5.34 | **5.09** |
+| REB MAE | 2.33 | **2.03** |
+| AST MAE | 1.49 | **1.37** |
+| 10–90 cov | 0.74 | 0.86 |
+| Brier | 0.220 | **0.217** |
+| margin MAE | 12.23 | **11.23** |
+| total MAE | 17.55 | **15.32** |
+| Team REB Δ | +13.6% | **+2.1%** |
+| Starter REB share Δ | +19.4% | **+1.0%** |
+
+### Top rebounders / scorers (mid-season sample vs prior)
+
+| Player | Sim REB | Act | Prior | Sim PTS | Act | Prior |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Jokic | ~9–12 | 11.5 | 12.7 | ~23–30 | 29.8 | 29.0 |
+| Towns | ~9–11 | 11.6 | 12.5 | — | — | — |
+| Duren | ~8–10 | 9.3 | 10.4 | — | — | — |
+
+### Tonight 10-22 centers (BEFORE → AFTER)
+
+| Player | BEFORE REB | AFTER REB |
+| --- | ---: | ---: |
+| Jarrett Allen | 15.8 | **9.8** |
+| Evan Mobley | 15.1 | **9.6** |
+| Nikola Jokić | 15.2 | **9.1** |
+| Chet Holmgren | 12.5 | **6.9** |
+| Joel Embiid | 11.3 | **7.5** |
+
+**Rules going forward:** one change at a time; must pass reconcile guardrail and hold/improve backtest or revert.
 
 ## 2026-10-22 slate (CLE@PHI, DEN@OKC)
 
