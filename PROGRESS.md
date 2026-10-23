@@ -1,12 +1,12 @@
 # Progress
 
-Last updated 2026-10-22 engine stabilize Step 1 reconcile diagnosis.
+Last updated 2026-10-22 engine stabilize Step 2 bakeoff.
 
 | Phase | Status | Notes |
 | --- | --- | --- |
 | Stabilize Step 1 | done | League totals + starter shares FAIL (>3%); team REB +13.6%; starter REB share +19%; bigs sim/36 ~18–20 vs prior ~12–14. |
-| Stabilize Step 2 | in progress | Apples-to-apples bakeoff + reconcile across v1.0 / main / Step F off / naive. |
-| Stabilize Step 3 | not started | Fix root cause of inflated starter/center boards. |
+| Stabilize Step 2 | done | naive_last10 wins MAE; all variants fail reconcile (REB +10–14%). Do not revert to v1.0. |
+| Stabilize Step 3 | in progress | Fix engine rebound volume + role concentration; keep naive minutes. |
 | Stabilize Step 4 | not started | Permanent reconcile guardrail in tests + daily.py. |
 | Stabilize Step 5 | not started | Before/after report + rerun 10-22 slate. |
 | 1. Project setup and storage | done | Config, schema, ignore files, cap, and storage report. |
@@ -73,6 +73,19 @@ Top rebounders sim/36 ~17–21 vs prior-season ~12–14 (Towns 19.7, Gobert 18.4
 **Root-cause leads:** (1) too many live misses credited to players (~102 reb/game vs ~87; no team-rebound leak + slightly high FGA mix); (2) minutes under-allocated (225 vs 240) so starters soak possession share; (3) on-court oreb/dreb rate sums ≈1.0 so contest math is fine — inflation is volume + role concentration, not rate sum >1.
 
 Harness: `backtest/reconcile.py`, `scripts/reconcile_diagnosis.py`.
+
+## Stabilize Step 2 — bakeoff + reconcile (2026-10-22)
+
+MAE: 1314g/1000r seed 1. Reconcile: 250g/200r. Artifacts: `results/backtest/stabilize_step2/`.
+
+| Version | MIN | PTS | REB | AST | 10–90 | Brier | REB Δ | starter REB Δ |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| v1.0 | 7.63 | 5.95 | 2.63 | 1.80 | 0.65 | 0.223 | +10.2% | +21.8% |
+| Step F off | 6.88 | 5.85 | 2.58 | 1.58 | 0.67 | 0.221 | +13.8% | +17.9% |
+| Step F on | 6.78 | 5.86 | 2.60 | 1.59 | 0.66 | 0.222 | +13.7% | +18.5% |
+| **naive_last10** | **6.25** | **5.34** | **2.33** | **1.49** | **0.74** | **0.220** | +13.6% | +19.4% |
+
+Keep naive_last10. v1.0 loses on MAE and has broken AST (−41%). REB inflation is shared across configs → possession engine, not minutes model.
 
 ## 2026-10-22 slate (CLE@PHI, DEN@OKC)
 
