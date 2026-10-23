@@ -1,9 +1,14 @@
 # Progress
 
-Last updated 2026-10-22 slate + play_prob + scorecard claimed conf (2026-10-22).
+Last updated 2026-10-22 engine stabilize Step 1 reconcile diagnosis.
 
 | Phase | Status | Notes |
 | --- | --- | --- |
+| Stabilize Step 1 | done | League totals + starter shares FAIL (>3%); team REB +13.6%; starter REB share +19%; bigs sim/36 ~18–20 vs prior ~12–14. |
+| Stabilize Step 2 | in progress | Apples-to-apples bakeoff + reconcile across v1.0 / main / Step F off / naive. |
+| Stabilize Step 3 | not started | Fix root cause of inflated starter/center boards. |
+| Stabilize Step 4 | not started | Permanent reconcile guardrail in tests + daily.py. |
+| Stabilize Step 5 | not started | Before/after report + rerun 10-22 slate. |
 | 1. Project setup and storage | done | Config, schema, ignore files, cap, and storage report. |
 | 2. Ingestion and backfill | done | nba_api, PlayByPlayV3 possessions, live-feed fallback, backfill.py. Preseason supported. |
 | 3. Injury report and overrides | done | Official PDF parse via pypdf, overrides.yaml precedence. |
@@ -40,6 +45,34 @@ Last updated 2026-10-22 slate + play_prob + scorecard claimed conf (2026-10-22).
 | Minutes bakeoff 2025-26 | done | Pure `naive_last10` wins MIN/PTS/REB/AST vs v1.0 / Step F off/on. Default minutes_model set; coverage ~0.80 via shoot/usage. |
 | Post-game grade 10-20/21 | done | Ingested 11 finals; filled actuals; `results/season_scorecard.md`; daily.py refreshes scorecard. |
 | 2026-10-22 slate | done | P(plays) Bernoulli; scaled top-8 picks logged to history; roster corruption guard. |
+
+## Stabilize Step 1 — reconciliation diagnosis (2026-10-22)
+
+Walk-forward 2025-26, 250 games, 200 runs, seed 1. Artifacts: `results/backtest/reconcile_step1/`.
+
+| League total | Sim | Actual | Delta |
+| --- | ---: | ---: | ---: |
+| possessions | 99.89 | 99.78 | +0.1% |
+| PTS | 117.47 | 115.09 | +2.1% |
+| **REB** | **49.63** | **43.67** | **+13.6%** |
+| AST | 24.72 | 26.51 | −6.8% |
+| STL | 7.43 | 8.40 | −11.5% |
+| BLK | 3.34 | 4.86 | −31.3% |
+| TOV | 12.22 | 13.78 | −11.3% |
+| MIN | 225.45 | 241.31 | −6.6% |
+
+| Starter share | Sim | Actual | Delta |
+| --- | ---: | ---: | ---: |
+| MIN | 0.658 | 0.620 | +6.1% |
+| PTS | 0.785 | 0.677 | +15.9% |
+| **REB** | **0.753** | **0.631** | **+19.4%** |
+| AST | 0.794 | 0.674 | +17.9% |
+
+Top rebounders sim/36 ~17–21 vs prior-season ~12–14 (Towns 19.7, Gobert 18.4, Duren 18.2, Jokic 17.4). Tonight’s slate: Allen 15.8, Mobley 15.1, Jokic 15.2 REB mean.
+
+**Root-cause leads:** (1) too many live misses credited to players (~102 reb/game vs ~87; no team-rebound leak + slightly high FGA mix); (2) minutes under-allocated (225 vs 240) so starters soak possession share; (3) on-court oreb/dreb rate sums ≈1.0 so contest math is fine — inflation is volume + role concentration, not rate sum >1.
+
+Harness: `backtest/reconcile.py`, `scripts/reconcile_diagnosis.py`.
 
 ## 2026-10-22 slate (CLE@PHI, DEN@OKC)
 
