@@ -59,6 +59,9 @@ blending:
   # weight next to season weights that sum to 1).
   regression_strength: 12.0
   min_games_for_form: 5
+  # Scale each season's blend weight by min(1, games / this). Stops a 1-game
+  # current season from taking its full 0.40 weight and wrecking FG%.
+  season_reliability_games: 20
 
 context:
   home_pace_factor: 0.012

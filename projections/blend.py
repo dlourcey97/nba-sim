@@ -134,6 +134,10 @@ def player_baseline_and_form(
     form_decay = float(blend_cfg["form_decay"])
     regression_strength = float(blend_cfg["regression_strength"])
     min_games_for_form = int(blend_cfg["min_games_for_form"])
+    # Full season-weight reliability by this many games. Without this, a 1-game
+    # current season still takes its full config weight (e.g. 0.40) and a cold
+    # opener can crush star FG% (Wemby 1/13 → ~14-pt HOU@SAS spreads).
+    season_reliability_games = float(blend_cfg.get("season_reliability_games", 20.0))
 
     weight_by_season = {}
     start = int(current_season.split("-")[0])
@@ -168,8 +172,16 @@ def player_baseline_and_form(
                 add_game_to_accumulator(form_acc, rate_row=rate, log_row=log, weight=weight)
                 form_games += 1
         season_vector = vector_from_accumulator(season_acc)
-        season_weight = weight_by_season.get(bundle.season, fallback_weight)
-        baseline_vectors.append((season_vector, season_weight))
+        base_w = weight_by_season.get(bundle.season, fallback_weight)
+        games = max(float(season_vector.sample_games), 0.0)
+        reliability = (
+            min(1.0, games / season_reliability_games)
+            if season_reliability_games > 0
+            else 1.0
+        )
+        season_weight = base_w * reliability
+        if season_weight > 0:
+            baseline_vectors.append((season_vector, season_weight))
 
     prior = priors.get(position_bucket(position)) or priors.get("G") or RateVector()
     # Season weights sum to ~1. Shrink toward the position prior using
