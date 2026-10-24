@@ -1,6 +1,6 @@
 # Progress
 
-Last updated 2026-10-23 elite REB share + coverage tighten (guardrail PASS).
+Last updated 2026-10-24 post-game grade through 2026-10-23.
 
 | Phase | Status | Notes |
 | --- | --- | --- |
@@ -11,6 +11,8 @@ Last updated 2026-10-23 elite REB share + coverage tighten (guardrail PASS).
 | Stabilize Step 5 | done | Before/after table; 10-22 slate rerun — Allen/Mobley ~9–10 REB (was ~15–16). |
 | Follow-up 1: elite REB share | done | `reb_share_power: 1.55` on who-gets-it; team totals unchanged; Jokic 9.1→12.8 REB. |
 | Follow-up 2: coverage ~0.80 | done | shoot/usage/pace SDs tightened (caps bite below shoot_sd 0.40); PTS 10–90 **0.803**. |
+| Early-season blend fix | done | `season_reliability_games: 20` — 1-game season no longer takes full 0.40 weight. |
+| Post-game through 10-23 | done | +14 finals; 28 games graded; picks 61.7% hit vs 59.5% claimed. |
 | 1. Project setup and storage | done | Config, schema, ignore files, cap, and storage report. |
 | 2. Ingestion and backfill | done | nba_api, PlayByPlayV3 possessions, live-feed fallback, backfill.py. Preseason supported. |
 | 3. Injury report and overrides | done | Official PDF parse via pypdf, overrides.yaml precedence. |
@@ -47,6 +49,46 @@ Last updated 2026-10-23 elite REB share + coverage tighten (guardrail PASS).
 | Minutes bakeoff 2025-26 | done | Pure `naive_last10` wins MIN/PTS/REB/AST vs v1.0 / Step F off/on. Default minutes_model set; coverage ~0.80 via shoot/usage. |
 | Post-game grade 10-20/21 | done | Ingested 11 finals; filled actuals; `results/season_scorecard.md`; daily.py refreshes scorecard. |
 | 2026-10-22 slate | done | P(plays) Bernoulli; scaled top-8 picks logged to history; roster corruption guard. |
+| Post-game through 10-23 | done | See section below. |
+
+## Post-game update through 2026-10-23 (2026-10-24)
+
+**Ingest:** +14 finals (10-22: 2, 10-23: 12); skipped 14 already stored.  
+**Rosters:** +SAC Sean Pedulla; −NYK Kevin McCullar Jr. (519 players).  
+**Actuals filled:** 717 prediction_history rows.
+
+### Season to date (28 games)
+
+| Metric | Value |
+| --- | ---: |
+| Winner accuracy | 64.3% |
+| Spread MAE | 13.57 |
+| Total MAE | 16.07 |
+| MIN / PTS MAE | 8.23 / 6.02 |
+| 10–90 coverage | 71.1% |
+| Top picks | **61.7%** hit (29/47) vs **59.5%** claimed |
+
+### Per night
+
+| Night | Games | Winner | Spread MAE | Total MAE | Cov | Picks hit / claimed |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| 10-20 | 3 | 66.7% | 7.83 | 17.00 | 69.1% | n/a |
+| 10-21 | 11 | 72.7% | 17.09 | 14.64 | 62.6% | n/a (not in history) |
+| 10-22 | 2 | 50.0% | 8.00 | 26.50 | 81.9% | 50.0% / 63.2% |
+| 10-23 | 12 | 58.3% | 12.71 | 15.42 | 77.6% | **70.4%** / 56.8% |
+
+### Reconcile 2026-10-23 (12g × 200r walk-forward vs actual)
+
+| | Stat | Δ | |
+| --- | --- | ---: | --- |
+| Team | AST | +3.9% | flag |
+| Team | STL | −3.5% | flag |
+| Team | TOV | −13.4% | flag |
+| Team | MIN | +7.8% | flag (sim ~259 vs 240) |
+| Team | PTS/REB/BLK | ≤1.5% | ok |
+| Starter share | PTS/REB/AST/STL/MIN | −5.5% to −8.3% | all flag (under-concentrate starters) |
+
+Storage: **10.57 MiB** total.
 
 ## Stabilize Step 1 — reconciliation diagnosis (2026-10-22)
 
