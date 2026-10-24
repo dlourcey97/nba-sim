@@ -367,19 +367,16 @@ def run_walkforward_reconcile(
 
     team_delta = {}
     team_flags = []
-    # Team MIN is informational only: play_prob means + OT + roster ghosts make
-    # raw summed means diverge from 240 even when on-court shares are healthy.
+    # Any team-level delta over threshold is a hard flag (including MIN).
+    # Regulation sims must sum to 240/team (+ OT); reconcile should catch drift.
     compare_keys = ["possessions", "pts", "reb", "ast", "stl", "blk", "tov", "min"]
-    core_team_keys = {"possessions", "pts", "reb", "ast", "stl", "blk", "tov"}
     for key in compare_keys:
         actual_v = float(full_actual.get(key) or 0.0)
         sim_v = float(sim_avg.get(key) or 0.0)
         delta = _pct_delta(sim_v, actual_v)
         team_delta[key] = delta
-        if key in core_team_keys and abs(delta) > threshold_pct and actual_v > 0:
+        if abs(delta) > threshold_pct and actual_v > 0:
             team_flags.append(key)
-        elif key == "min" and abs(delta) > threshold_pct and actual_v > 0:
-            team_delta["min_info_only"] = delta
 
     # Also flag full-season FG family using actuals-only vs sample act when useful.
     for key in ("oreb", "dreb", "fga", "fgm", "fg3a", "fg3m", "fta", "ftm", "missed_fg"):
@@ -473,14 +470,10 @@ def run_walkforward_reconcile(
         top_scorers=_player_rows(top_pts, "pts"),
         threshold_pct=threshold_pct,
     )
-    # Guardrail: league totals + role shares within threshold for core stats.
-    # Team/role MIN are informational (play_prob means ≠ box 240).
-    core_team = {"possessions", "pts", "reb", "ast", "stl", "blk", "tov"}
-    # BLK role share is noisy (rare events); still reported but not a hard fail.
-    core_role = {"pts", "reb", "ast", "stl"}
-    report.passed = not any(f in core_team for f in team_flags) and not any(
-        f in core_role for f in role_flags
-    )
+    # Guardrail: ANY team or role flag over threshold blocks projections.
+    # (Previously MIN / starter-MIN / BLK-role were informational and the
+    # 10-23 slate shipped despite MIN +7.8%, TOV −13%, starter shares −5–8%.)
+    report.passed = not team_flags and not role_flags
     _ = sample_act  # sample-matched actuals available for future FG instrumentation
     return report
 

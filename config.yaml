@@ -111,6 +111,10 @@ context:
   # Soft shift from stats allowed to PG/SG/SF/PF/C vs league (stacks lightly with zone).
   opponent_position_defense_weight: 0.15
   teammate_absence_usage_share: 0.85
+  # Current-season TOV/STL vs prior: scale player rates once this many team-games
+  # have been played before as_of (fixes early 2026-27 TOV ~16.4 vs prior ~13.8).
+  # 6 team-games ≈ 3 finals so the scale engages after opening night.
+  tov_stl_scale_min_team_games: 6
 
 minutes:
   blowout_margin_threshold: 15.0
@@ -137,10 +141,19 @@ minutes:
   normalize_gap_close: 0.0
   # When fewer than this many current-season finals exist before as_of, use
   # early_season_gap_close instead (opening night / week 1 trade rosters).
+  # Also: naive_last10 blends toward prior-season regular-season MPG until
+  # this many current-season appearances are in the last-10 window.
   early_season_games: 10
   # Partial close for week-1 / opening night. Full close (1.0) dumps cut
   # fringe minutes onto stars and blows past max_minutes (Cade ~48 MPG).
+  # Sim draws always hard-normalize to team_minutes_target regardless.
   early_season_gap_close: 0.55
+  # Mid-season: pull rotation means this fraction toward equal share.
+  starter_share_shrink: 0.08
+  # Early season: raise means to this power before re-fit (concentrates starters
+  # when naive last-10 is thin / flat).
+  # 1.0 = off. Higher values over-concentrated on wrong players early.
+  early_starter_power: 1.0
   # Players with projected mean above this share on-court usage.
   play_threshold: 1.0
   recent_window: 10

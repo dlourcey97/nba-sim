@@ -10,9 +10,10 @@ from nba_sim.settings import load_settings
 
 @pytest.mark.slow
 def test_reconcile_guardrail_midseason():
-    """Mid-season 2025-26 slice must stay within ±3% on core totals and roles.
+    """Mid-season 2025-26 slice must stay within ±3% on ALL totals and roles.
 
-    Marked slow: ~2–4 minutes with 80 games × 80 runs. Run in CI / nightly.
+    Any team or starter-share flag (including MIN) fails. Marked slow:
+    ~2–4 minutes with 80 games × 80 runs. Run in CI / nightly.
     """
     settings = load_settings()
     report = check_reconcile_guardrail(

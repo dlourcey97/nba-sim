@@ -27,8 +27,10 @@ from projections.context import (
     apply_opponent_defense,
     apply_opponent_position_defense,
     apply_team_strength_and_hca,
+    apply_tov_stl_league_scale,
     expected_possessions,
     league_strength,
+    league_tov_stl_scales,
     league_zone_fg_pct,
     match_injury_player_ids,
     opponent_zone_fg_pct,
@@ -570,6 +572,10 @@ def _build(
                     as_of=as_of,
                     window=recent_window,
                     recent_decay=min_decay,
+                    current_season=season,
+                    early_season_games=int(
+                        config["minutes"].get("early_season_games", 10)
+                    ),
                 )
                 if minutes_model == "blend":
                     blend = float((config.get("features") or {}).get("naive_blend", 0.5))
@@ -872,6 +878,26 @@ def _build(
 
     _apply_strength(home_players, home_str, away_str, "H")
     _apply_strength(away_players, away_str, home_str, "A")
+    # Early-season TOV/STL: lift rates toward current-season league level when
+    # enough finals exist (2026-27 opened ~19% above 2025-26 TOV).
+    tov_scale, stl_scale = league_tov_stl_scales(
+        settings,
+        season=season,
+        as_of=as_of,
+        prior_season=prior_label,
+        min_team_games=int(
+            config.get("context", {}).get("tov_stl_scale_min_team_games", 20)
+        ),
+    )
+    if abs(tov_scale - 1.0) > 1e-6 or abs(stl_scale - 1.0) > 1e-6:
+        for side in (home_players, away_players):
+            for pid, player in list(side.items()):
+                side[pid] = replace(
+                    player,
+                    rates=apply_tov_stl_league_scale(
+                        player.rates, tov_scale=tov_scale, stl_scale=stl_scale
+                    ),
+                )
     # Expected closeness uses Kalman nets + rest HCA when available.
     if home_team_id in kalman.ratings and away_team_id in kalman.ratings:
         expected_abs_margin = abs(

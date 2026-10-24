@@ -64,9 +64,13 @@ def test_team_minutes_near_240():
     )
     home_tot = result.minutes[home].sum(axis=0)
     away_tot = result.minutes[away].sum(axis=0)
-    # Soft gap-close: means near 240; allow OT and soft normalize.
-    assert 200.0 < float(np.mean(home_tot)) < 290.0
-    assert 200.0 < float(np.mean(away_tot)) < 290.0
+    # Regulation hard-normalized to 240; OT adds 25/period so means can exceed.
+    assert 235.0 < float(np.mean(home_tot)) < 255.0
+    assert 235.0 < float(np.mean(away_tot)) < 255.0
+    reg = ~result.overtime
+    if np.any(reg):
+        assert float(np.mean(home_tot[reg])) == pytest.approx(240.0, abs=1.0)
+        assert float(np.mean(away_tot[reg])) == pytest.approx(240.0, abs=1.0)
 
 
 def test_scores_match_player_points():

@@ -7,40 +7,40 @@ Graded from `prediction_history` after finals. No sportsbook lines or odds.
 | Metric | Value |
 | --- | ---: |
 | Games graded | 28 |
-| Winner accuracy | 64.3% |
-| Spread MAE (margin) | 13.57 |
-| Total MAE | 16.07 |
-| Player MIN MAE | 8.23 |
-| Player PTS MAE | 6.02 |
-| 10–90 coverage (player stats) | 71.1% |
-| Top confident picks hit rate | 61.7% (29/47) |
-| Top picks avg claimed confidence | 59.5% |
+| Winner accuracy | 57.1% |
+| Spread MAE (margin) | 14.16 |
+| Total MAE | 15.68 |
+| Player MIN MAE | 7.44 |
+| Player PTS MAE | 5.27 |
+| 10–90 coverage (player stats) | 78.0% |
+| Top confident picks hit rate | 64.5% (40/62) |
+| Top picks avg claimed confidence | 59.4% |
 
 ## Notes
 
-- 2026-10-20: no Top confident picks (feature landed with 2026-10-21; 10-21 picks were not logged to prediction_history).
-- 2026-10-24 post-game: graded through 2026-10-23 (+14 finals ingested). Roster: +SAC Sean Pedulla, -NYK Kevin McCullar Jr. Season reliability blend live.
+- 2026-10-20: no Top confident picks were produced that night (feature landed with the 2026-10-21 slate).
+- 2026-10-24 resim: hard 240 minutes + TOV league scale + any-flag±3% guardrail. Before→after season: MIN MAE 8.23→7.44, PTS 6.02→5.27, cov 71.1%→78.0%, picks 61.7%→64.5% hit; winner 64.3%→57.1%.
 
 ## 2026-10-20
 
 | Metric | Value |
 | --- | ---: |
 | Games graded | 3 |
-| Winner accuracy | 66.7% |
-| Spread MAE | 7.83 |
-| Total MAE | 17.00 |
-| MIN MAE | 5.76 |
-| PTS MAE | 5.76 |
-| REB MAE | 2.71 |
-| AST MAE | 1.61 |
-| 10–90 coverage | 69.1% |
+| Winner accuracy | 33.3% |
+| Spread MAE | 10.00 |
+| Total MAE | 21.67 |
+| MIN MAE | 5.30 |
+| PTS MAE | 5.49 |
+| REB MAE | 2.21 |
+| AST MAE | 1.58 |
+| 10–90 coverage | 76.0% |
 | Top confident picks | n/a (none produced) |
 
 ### Games
 
 | Matchup | Pred winner | Actual | Hit | Pred score | Actual score | Pred margin | Act margin | Pred total | Act total |
 | --- | --- | --- | --- | --- | --- | ---: | ---: | ---: | ---: |
-| BOS@DET | DET (55%) | DET | Y | BOS 114 – DET 117 | BOS 113 – DET 121 | +4.5 | +8.0 | 231.0 | 234.0 |
+| BOS@DET | BOS (52%) | DET | N | BOS 108 – DET 108 | BOS 113 – DET 121 | -2.0 | +8.0 | 217.0 | 234.0 |
 | PHI@NYK | NYK (69%) | PHI | N | PHI 114 – NYK 125 | PHI 106 – NYK 100 | +11.0 | -6.0 | 238.0 | 206.0 |
 | OKC@SAS | OKC (63%) | OKC | Y | OKC 121 – SAS 114 | OKC 116 – SAS 104 | -9.0 | -12.0 | 236.0 | 220.0 |
 
@@ -48,33 +48,33 @@ Graded from `prediction_history` after finals. No sportsbook lines or odds.
 
 | Player | Team | MIN pred/act | PTS | REB | AST | STL | BLK | in 10–90 (any miss listed) |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Paul George | BOS | 31.9/31 | 21.0/38 | 7.0/5 | 4.0/3 | 2.0/5 | 0.0/0 | PTS,STL |
+| Paul George | BOS | 29.2/31 | 14.0/38 | 4.0/5 | 2.0/3 | 1.0/5 | 0.0/0 | PTS,STL |
 | Shai Gilgeous-Alexander | OKC | 35.0/36 | 31.0/32 | 6.0/6 | 7.0/4 | 1.0/3 | 0.0/3 | BLK |
 | Tyrese Maxey | PHI | 33.4/40 | 22.0/28 | 5.0/4 | 7.0/5 | 2.0/3 | 0.0/3 | BLK |
 | Stephon Castle | SAS | 30.8/28 | 19.0/24 | 6.0/7 | 7.0/1 | 1.0/0 | 0.0/0 | AST |
-| Cade Cunningham | DET | 40.7/35 | 33.0/22 | 9.0/4 | 12.0/8 | 1.0/1 | 0.0/1 | MIN,REB |
-| Jalen Duren | DET | 34.3/28 | 25.0/22 | 20.0/9 | 3.0/1 | 1.0/1 | 1.0/1 | MIN,REB |
+| Cade Cunningham | DET | 36.9/35 | 19.0/22 | 4.0/4 | 8.0/8 | 1.0/1 | 0.0/1 | all |
+| Jalen Duren | DET | 24.9/28 | 13.0/22 | 11.0/9 | 2.0/1 | 0.0/1 | 0.0/1 | all |
 | Jalen Brunson | NYK | 36.9/34 | 31.0/21 | 5.0/5 | 8.0/3 | 1.0/0 | 0.0/0 | AST |
-| Duncan Robinson | DET | 32.0/28 | 17.0/21 | 4.0/2 | 3.0/2 | 1.0/1 | 0.0/0 | all |
+| Duncan Robinson | DET | 23.2/28 | 9.0/21 | 1.0/2 | 2.0/2 | 0.0/1 | 0.0/0 | all |
 | Jared McCain | OKC | 25.3/22 | 12.0/20 | 3.0/2 | 2.0/2 | 0.0/1 | 0.0/0 | all |
 | Karl-Anthony Towns | NYK | 30.5/24 | 29.0/19 | 18.0/12 | 4.0/1 | 1.0/1 | 0.0/2 | all |
 | Jaylen Brown | PHI | 29.2/35 | 20.0/19 | 7.0/8 | 5.0/6 | 1.0/1 | 0.0/1 | all |
-| Javonte Green | DET | 7.3/18 | 0.0/19 | 0.0/4 | 0.0/0 | 0.0/0 | 0.0/0 | MIN,PTS,REB |
+| Javonte Green | DET | 5.7/18 | 0.0/19 | 0.0/4 | 0.0/0 | 0.0/0 | 0.0/0 | MIN,PTS |
 | Dylan Harper | SAS | 22.3/32 | 4.0/18 | 2.0/7 | 1.0/5 | 0.0/0 | 0.0/0 | MIN,PTS |
-| Derrick White | BOS | 38.9/36 | 24.0/17 | 7.0/1 | 6.0/8 | 1.0/1 | 1.0/0 | REB |
-| Payton Pritchard | BOS | 37.8/28 | 19.0/17 | 6.0/4 | 5.0/1 | 1.0/0 | 0.0/0 | MIN,AST |
+| Derrick White | BOS | 32.2/36 | 14.0/17 | 3.0/1 | 4.0/8 | 1.0/1 | 1.0/0 | all |
+| Payton Pritchard | BOS | 30.1/28 | 11.0/17 | 2.0/4 | 4.0/1 | 0.0/0 | 0.0/0 | all |
 | Josh Hart | NYK | 35.3/30 | 17.0/14 | 14.0/7 | 7.0/3 | 1.0/1 | 0.0/1 | REB |
 | LeBron James | PHI | 31.2/34 | 22.0/14 | 9.0/9 | 9.0/7 | 1.0/1 | 0.0/1 | all |
 | De'Aaron Fox | SAS | 35.1/32 | 22.0/14 | 6.0/7 | 7.0/7 | 1.0/1 | 0.0/0 | all |
 | Chet Holmgren | OKC | 29.0/31 | 21.0/14 | 13.0/7 | 2.0/2 | 1.0/0 | 2.0/4 | all |
 | Joel Embiid | PHI | 29.4/33 | 22.0/13 | 9.0/11 | 4.0/6 | 0.0/2 | 1.0/3 | BLK |
 | Anfernee Simons | PHI | 7.8/25 | 0.0/13 | 0.0/2 | 0.0/0 | 0.0/0 | 0.0/0 | MIN,PTS,REB |
-| Jayson Tatum | BOS | 38.6/38 | 28.0/13 | 11.0/4 | 6.0/11 | 1.0/0 | 0.0/0 | PTS,REB,AST |
+| Jayson Tatum | BOS | 30.2/38 | 16.0/13 | 6.0/4 | 3.0/11 | 1.0/0 | 0.0/0 | MIN,AST |
 | Andre Drummond | NYK | 0.0/24 | 0.0/12 | 0.0/14 | 0.0/4 | 0.0/1 | 0.0/2 | MIN,PTS,REB,AST,STL,BLK |
 | Victor Wembanyama | SAS | 36.1/34 | 31.0/12 | 17.0/13 | 4.0/3 | 1.0/1 | 3.0/6 | PTS |
 | Jalen Williams | OKC | 24.1/30 | 15.0/12 | 5.0/7 | 4.0/2 | 1.0/1 | 0.0/1 | all |
-| Ausar Thompson | DET | 36.2/33 | 16.0/11 | 11.0/11 | 4.0/5 | 3.0/1 | 1.0/0 | all |
-| Sam Hauser | BOS | 26.0/18 | 8.0/11 | 4.0/4 | 1.0/1 | 0.0/0 | 0.0/0 | MIN |
+| Ausar Thompson | DET | 26.2/33 | 9.0/11 | 5.0/11 | 3.0/5 | 2.0/1 | 0.0/0 | MIN |
+| Sam Hauser | BOS | 20.7/18 | 6.0/11 | 2.0/4 | 1.0/1 | 0.0/0 | 0.0/0 | all |
 | OG Anunoby | NYK | 36.6/32 | 21.0/10 | 7.0/5 | 2.0/0 | 2.0/1 | 1.0/1 | PTS,AST |
 | Kentavious Caldwell-Pope | PHI | 9.4/26 | 0.0/10 | 0.0/4 | 0.0/1 | 0.0/0 | 0.0/1 | MIN,PTS,REB,AST,BLK |
 | Keldon Johnson | SAS | 14.8/20 | 0.0/10 | 0.0/4 | 0.0/1 | 0.0/2 | 0.0/0 | MIN,PTS,REB,STL |
@@ -82,13 +82,13 @@ Graded from `prediction_history` after finals. No sportsbook lines or odds.
 | Alex Caruso | OKC | 28.8/25 | 11.0/9 | 5.0/6 | 4.0/1 | 2.0/1 | 0.0/0 | all |
 | Jose Alvarado | NYK | 14.1/16 | 0.0/8 | 0.0/3 | 0.0/3 | 0.0/2 | 0.0/0 | PTS,REB,AST,STL |
 | Julian Champagnie | SAS | 29.8/30 | 10.0/8 | 6.0/3 | 2.0/1 | 1.0/2 | 0.0/3 | BLK |
-| Isaiah Joe | DET | 0.0/19 | 0.0/8 | 0.0/2 | 0.0/2 | 0.0/1 | 0.0/1 | MIN,PTS,REB,AST,STL,BLK |
-| Baylor Scheierman | BOS | 10.6/18 | 0.0/8 | 0.0/3 | 0.0/0 | 0.0/1 | 0.0/0 | MIN,PTS,REB,STL |
+| Isaiah Joe | DET | 9.7/19 | 3.0/8 | 0.0/2 | 0.0/2 | 0.0/1 | 0.0/1 | MIN |
+| Baylor Scheierman | BOS | 15.2/18 | 3.0/8 | 2.0/3 | 1.0/0 | 0.0/1 | 0.0/0 | all |
 | Devin Vassell | SAS | 35.8/31 | 17.0/7 | 6.0/3 | 3.0/1 | 1.0/0 | 0.0/0 | MIN,PTS |
 | Aday Mara | OKC | 0.0/12 | 0.0/7 | 0.0/2 | 0.0/1 | 0.0/0 | 0.0/1 | MIN,PTS,REB,AST,BLK |
 | Cason Wallace | OKC | 24.2/19 | 5.0/6 | 3.0/3 | 2.0/2 | 1.0/1 | 0.0/0 | all |
-| John Collins | DET | 13.0/25 | 0.0/6 | 0.0/5 | 0.0/1 | 0.0/1 | 0.0/1 | MIN |
-| Paul Reed | DET | 10.7/17 | 0.0/6 | 0.0/6 | 0.0/2 | 0.0/1 | 0.0/0 | PTS,REB,AST,STL |
+| John Collins | DET | 19.3/25 | 9.0/6 | 5.0/5 | 0.0/1 | 0.0/1 | 0.0/1 | MIN |
+| Paul Reed | DET | 8.6/17 | 3.0/6 | 2.0/6 | 0.0/2 | 0.0/1 | 0.0/0 | MIN |
 | Landry Shamet | NYK | 17.0/25 | 0.0/5 | 0.0/2 | 0.0/4 | 0.0/0 | 0.0/0 | MIN,AST |
 | Jaylin Williams | OKC | 16.2/17 | 0.0/5 | 0.0/4 | 0.0/1 | 0.0/0 | 0.0/0 | all |
 | Mikal Bridges | NYK | 36.0/33 | 19.0/4 | 5.0/3 | 4.0/1 | 1.0/0 | 0.0/1 | PTS,AST |
@@ -96,313 +96,327 @@ Graded from `prediction_history` after finals. No sportsbook lines or odds.
 | Luke Kornet | SAS | 4.8/13 | 0.0/4 | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/1 | MIN,PTS,REB,BLK |
 | Ajay Mitchell | OKC | 23.3/23 | 7.0/4 | 2.0/5 | 2.0/6 | 0.0/0 | 0.0/0 | AST |
 | Isaiah Hartenstein | OKC | 22.9/17 | 7.0/4 | 8.0/3 | 2.0/3 | 0.0/1 | 0.0/1 | all |
-| Mitchell Robinson | BOS | 0.0/18 | 0.0/4 | 0.0/3 | 0.0/1 | 0.0/1 | 0.0/2 | MIN,PTS,REB,AST,STL,BLK |
+| Mitchell Robinson | BOS | 12.7/18 | 4.0/4 | 5.0/3 | 0.0/1 | 0.0/1 | 0.0/2 | MIN |
 | Miles McBride | NYK | 13.9/14 | 0.0/3 | 0.0/1 | 0.0/1 | 0.0/0 | 0.0/1 | BLK |
 | Harrison Barnes | SAS | 20.1/9 | 2.0/3 | 1.0/0 | 0.0/0 | 0.0/0 | 0.0/1 | MIN,BLK |
 | Kenrich Williams | OKC | 5.5/7 | 0.0/3 | 0.0/2 | 0.0/0 | 0.0/0 | 0.0/0 | PTS,REB |
-| Daniss Jenkins | DET | 28.8/15 | 14.0/3 | 6.0/2 | 6.0/3 | 1.0/0 | 0.0/0 | MIN |
+| Daniss Jenkins | DET | 28.6/15 | 10.0/3 | 2.0/2 | 4.0/3 | 1.0/0 | 0.0/0 | MIN |
 | Kevin Huerter | DET | 0.0/18 | 0.0/3 | 0.0/3 | 0.0/2 | 0.0/0 | 0.0/0 | MIN,PTS,REB,AST |
-| Neemias Queta | BOS | 25.4/22 | 9.0/3 | 8.0/4 | 1.0/2 | 0.0/1 | 1.0/2 | all |
+| Neemias Queta | BOS | 21.8/22 | 8.0/3 | 7.0/4 | 1.0/2 | 0.0/1 | 0.0/2 | all |
 | David Jones Garcia | SAS | 0.0/1 | 0.0/2 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | MIN,PTS |
 | Ja'Kobi Gillespie | SAS | 0.0/1 | 0.0/2 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | MIN,PTS |
-| Luka Garza | BOS | 6.4/8 | 0.0/2 | 0.0/2 | 0.0/0 | 0.0/0 | 0.0/0 | PTS,REB |
+| Luka Garza | BOS | 0.0/8 | 0.0/2 | 0.0/2 | 0.0/0 | 0.0/0 | 0.0/0 | MIN,PTS,REB |
 | Adem Bona | PHI | 14.5/10 | 0.0/0 | 0.0/3 | 0.0/1 | 0.0/0 | 0.0/1 | AST |
 | Jabari Walker | PHI | 0.0/3 | 0.0/0 | 0.0/0 | 0.0/1 | 0.0/0 | 0.0/0 | MIN,AST |
 | Carter Bryant | SAS | 2.9/6 | 0.0/0 | 0.0/0 | 0.0/1 | 0.0/0 | 0.0/0 | MIN,AST |
 | Maliq Brown | SAS | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/1 | 0.0/0 | 0.0/0 | MIN,AST |
 | Tarris Reed Jr. | SAS | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | MIN |
-| Ronald Holland II | DET | 0.0/3 | 0.0/0 | 0.0/1 | 0.0/1 | 0.0/0 | 0.0/1 | MIN,REB,AST,BLK |
-| Jordan Walsh | BOS | 8.1/13 | 0.0/0 | 0.0/6 | 0.0/1 | 0.0/1 | 0.0/1 | REB,AST,STL,BLK |
-| Hugo González | BOS | 5.3/10 | 0.0/0 | 0.0/3 | 0.0/0 | 0.0/0 | 0.0/0 | REB |
+| Ronald Holland II | DET | 0.0/3 | 0.0/0 | 0.0/1 | 0.0/1 | 0.0/0 | 0.0/1 | MIN,AST,BLK |
+| Jordan Walsh | BOS | 11.1/13 | 2.0/0 | 2.0/6 | 0.0/1 | 0.0/1 | 0.0/1 | REB |
+| Hugo González | BOS | 0.0/10 | 0.0/0 | 0.0/3 | 0.0/0 | 0.0/0 | 0.0/0 | MIN,REB |
 
 ## 2026-10-21
 
 | Metric | Value |
 | --- | ---: |
 | Games graded | 11 |
-| Winner accuracy | 72.7% |
-| Spread MAE | 17.09 |
-| Total MAE | 14.64 |
-| MIN MAE | 9.92 |
-| PTS MAE | 7.23 |
-| REB MAE | 3.05 |
-| AST MAE | 1.76 |
-| 10–90 coverage | 62.6% |
-| Top confident picks | n/a (none produced) |
+| Winner accuracy | 63.6% |
+| Spread MAE | 18.18 |
+| Total MAE | 14.55 |
+| MIN MAE | 7.96 |
+| PTS MAE | 5.47 |
+| REB MAE | 2.05 |
+| AST MAE | 1.41 |
+| 10–90 coverage | 77.5% |
+| Top picks hit rate | 62.5% (5/8) |
+| Top picks avg claimed confidence | 61.0% |
 
 ### Games
 
 | Matchup | Pred winner | Actual | Hit | Pred score | Actual score | Pred margin | Act margin | Pred total | Act total |
 | --- | --- | --- | --- | --- | --- | ---: | ---: | ---: | ---: |
-| MIN@MIA | MIN (50%) | MIN | Y | MIN 121 – MIA 121 | MIN 131 – MIA 106 | -1.0 | -25.0 | 242.0 | 237.0 |
-| GSW@LAL | LAL (68%) | LAL | Y | GSW 116 – LAL 127 | GSW 105 – LAL 127 | +11.0 | +22.0 | 244.0 | 232.0 |
-| ATL@ORL | ORL (59%) | ATL | N | ATL 116 – ORL 120 | ATL 132 – ORL 125 | +6.0 | -7.0 | 236.0 | 257.0 |
-| MIL@WAS | MIL (53%) | WAS | N | MIL 123 – WAS 121 | MIL 116 – WAS 128 | -3.0 | +12.0 | 243.0 | 244.0 |
-| CHA@BKN | CHA (85%) | CHA | Y | CHA 133 – BKN 109 | CHA 110 – BKN 103 | -24.0 | -7.0 | 242.0 | 213.0 |
-| CHI@TOR | TOR (61%) | TOR | Y | CHI 116 – TOR 122 | CHI 92 – TOR 135 | +7.0 | +43.0 | 238.0 | 227.0 |
-| UTA@MEM | MEM (66%) | MEM | Y | UTA 114 – MEM 123 | UTA 103 – MEM 123 | +9.0 | +20.0 | 238.0 | 226.0 |
-| IND@NOP | NOP (53%) | IND | N | IND 120 – NOP 122 | IND 123 – NOP 120 | +2.0 | -3.0 | 242.0 | 243.0 |
-| DAL@HOU | HOU (64%) | HOU | Y | DAL 114 – HOU 121 | DAL 110 – HOU 128 | +8.0 | +18.0 | 235.0 | 238.0 |
-| PHX@POR | POR (72%) | POR | Y | PHX 115 – POR 128 | PHX 83 – POR 124 | +13.0 | +41.0 | 243.0 | 207.0 |
-| SAC@LAC | LAC (61%) | LAC | Y | SAC 121 – LAC 127 | SAC 96 – LAC 121 | +7.0 | +25.0 | 247.0 | 217.0 |
+| MIN@MIA | MIA (57%) | MIN | N | MIN 118 – MIA 122 | MIN 131 – MIA 106 | +5.0 | -25.0 | 240.0 | 237.0 |
+| GSW@LAL | LAL (60%) | LAL | Y | GSW 114 – LAL 120 | GSW 105 – LAL 127 | +6.0 | +22.0 | 234.0 | 232.0 |
+| ATL@ORL | ORL (66%) | ATL | N | ATL 113 – ORL 122 | ATL 132 – ORL 125 | +9.0 | -7.0 | 234.0 | 257.0 |
+| MIL@WAS | MIL (51%) | WAS | N | MIL 120 – WAS 120 | MIL 116 – WAS 128 | -1.0 | +12.0 | 240.0 | 244.0 |
+| CHA@BKN | CHA (70%) | CHA | Y | CHA 122 – BKN 110 | CHA 110 – BKN 103 | -12.0 | -7.0 | 232.0 | 213.0 |
+| CHI@TOR | TOR (62%) | TOR | Y | CHI 122 – TOR 130 | CHI 92 – TOR 135 | +8.0 | +43.0 | 252.0 | 227.0 |
+| UTA@MEM | MEM (61%) | MEM | Y | UTA 115 – MEM 120 | UTA 103 – MEM 123 | +7.0 | +20.0 | 235.0 | 226.0 |
+| IND@NOP | NOP (55%) | IND | N | IND 115 – NOP 118 | IND 123 – NOP 120 | +4.0 | -3.0 | 233.0 | 243.0 |
+| DAL@HOU | HOU (62%) | HOU | Y | DAL 108 – HOU 114 | DAL 110 – HOU 128 | +7.0 | +18.0 | 222.0 | 238.0 |
+| PHX@POR | POR (59%) | POR | Y | PHX 113 – POR 118 | PHX 83 – POR 124 | +6.0 | +41.0 | 230.0 | 207.0 |
+| SAC@LAC | LAC (58%) | LAC | Y | SAC 119 – LAC 124 | SAC 96 – LAC 121 | +6.0 | +25.0 | 243.0 | 217.0 |
+
+### Top confident picks
+
+| Player | Matchup | Stat | Range | Actual | Hit |
+| --- | --- | --- | --- | ---: | --- |
+| player:1630217 | ORL vs ATL | AST | 2-6 | 2 | Y |
+| player:1627832 | HOU vs DAL | AST | 2-6 | 11 | N |
+| player:202695 | TOR vs CHI | STL | 1-3 | 4 | N |
+| player:1641708 | HOU vs DAL | AST | 2-6 | 4 | Y |
+| player:1629628 | TOR vs CHI | AST | 2-6 | 3 | Y |
+| player:1631094 | ORL vs ATL | AST | 3-7 | 10 | N |
+| player:1630166 | POR vs PHX | AST | 2-6 | 4 | Y |
+| player:1630552 | ATL vs ORL | AST | 2-6 | 6 | Y |
 
 ### Player grades (MIN / PTS / REB / AST / STL / BLK)
 
 | Player | Team | MIN pred/act | PTS | REB | AST | STL | BLK | in 10–90 (any miss listed) |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Anthony Edwards | MIN | 36.5/33 | 35.0/45 | 8.0/10 | 6.0/3 | 1.0/2 | 0.0/1 | all |
-| Ty Jerome | MEM | 17.1/32 | 2.0/45 | 0.0/7 | 0.0/6 | 0.0/0 | 0.0/1 | MIN,PTS,REB,AST,BLK |
-| Giannis Antetokounmpo | MIA | 18.1/30 | 12.0/35 | 5.0/6 | 1.0/1 | 0.0/1 | 0.0/0 | MIN,PTS |
-| Paolo Banchero | ORL | 37.1/41 | 28.0/35 | 11.0/7 | 8.0/10 | 1.0/1 | 0.0/0 | MIN |
-| Anthony Davis | WAS | 28.3/34 | 25.0/34 | 15.0/12 | 2.0/4 | 1.0/2 | 1.0/1 | all |
-| Julius Randle | BKN | 12.2/38 | 0.0/33 | 0.0/8 | 0.0/7 | 0.0/0 | 0.0/1 | MIN,PTS,REB,AST,BLK |
-| Cooper Flagg | DAL | 35.9/33 | 22.0/32 | 8.0/5 | 4.0/2 | 1.0/3 | 1.0/1 | all |
-| Nickeil Alexander-Walker | ATL | 36.8/30 | 20.0/31 | 5.0/4 | 4.0/3 | 1.0/1 | 0.0/1 | MIN |
-| Pascal Siakam | IND | 32.3/35 | 29.0/30 | 9.0/8 | 5.0/1 | 1.0/1 | 0.0/0 | AST |
-| Jabari Smith Jr. | HOU | 32.3/36 | 18.0/30 | 10.0/5 | 2.0/1 | 1.0/2 | 1.0/0 | MIN |
-| Kevin Durant | HOU | 21.6/37 | 9.0/30 | 2.0/6 | 1.0/3 | 0.0/1 | 0.0/1 | MIN,PTS |
-| Darius Garland | LAC | 38.2/32 | 32.0/30 | 5.0/1 | 8.0/4 | 1.0/1 | 0.0/0 | REB |
-| Luka Dončić | LAL | 42.0/30 | 43.0/28 | 12.0/8 | 11.0/7 | 2.0/3 | 0.0/0 | MIN |
-| Zach LaVine | SAC | 27.5/34 | 18.0/28 | 3.0/4 | 2.0/4 | 0.0/0 | 0.0/0 | MIN |
-| Walker Kessler | LAL | 26.1/30 | 14.0/26 | 13.0/9 | 2.0/1 | 1.0/0 | 1.0/2 | MIN |
-| Michael Porter Jr. | BKN | 29.4/34 | 25.0/26 | 10.0/7 | 2.0/1 | 1.0/3 | 0.0/0 | STL |
-| Damian Lillard | POR | 13.1/24 | 0.0/25 | 0.0/3 | 0.0/6 | 0.0/1 | 0.0/0 | MIN,PTS,AST |
-| Tyler Herro | MIL | 12.2/32 | 0.0/24 | 0.0/2 | 0.0/9 | 0.0/1 | 0.0/0 | MIN,PTS,AST,STL |
-| Austin Reaves | LAL | 37.5/32 | 30.0/23 | 7.0/4 | 8.0/6 | 1.0/2 | 0.0/1 | MIN |
-| Stephen Curry | GSW | 37.5/21 | 39.0/23 | 6.0/2 | 6.0/1 | 1.0/2 | 0.0/0 | MIN,REB,AST |
-| Scottie Barnes | TOR | 33.9/26 | 22.0/23 | 10.0/6 | 9.0/5 | 1.0/0 | 1.0/0 | MIN |
-| Kawhi Leonard | TOR | 28.5/24 | 27.0/23 | 9.0/6 | 2.0/2 | 2.0/4 | 0.0/1 | all |
-| Immanuel Quickley | TOR | 22.6/28 | 8.0/23 | 2.0/4 | 3.0/7 | 0.0/2 | 0.0/0 | PTS |
-| Dejounte Murray | NOP | 25.1/34 | 14.0/23 | 5.0/3 | 4.0/7 | 1.0/2 | 0.0/3 | MIN,BLK |
-| Tyrese Haliburton | IND | 25.7/34 | 19.0/23 | 4.0/2 | 8.0/12 | 1.0/1 | 0.0/0 | MIN |
-| Alperen Sengun | HOU | 32.5/30 | 26.0/23 | 13.0/10 | 7.0/5 | 1.0/0 | 1.0/0 | all |
-| Devin Booker | PHX | 36.9/29 | 33.0/23 | 6.0/4 | 8.0/2 | 1.0/1 | 0.0/1 | MIN,AST |
-| Wendell Carter Jr. | ORL | 37.2/31 | 16.0/22 | 14.0/7 | 3.0/0 | 1.0/1 | 1.0/0 | MIN,REB,AST |
-| Franz Wagner | ORL | 33.4/29 | 26.0/22 | 9.0/6 | 5.0/5 | 1.0/1 | 0.0/0 | all |
-| Jaime Jaquez Jr. | MIL | 27.1/31 | 17.0/22 | 7.0/7 | 2.0/2 | 1.0/0 | 0.0/0 | all |
-| Keyonte George | UTA | 30.0/29 | 17.0/22 | 4.0/3 | 5.0/5 | 1.0/1 | 0.0/0 | all |
-| Zion Williamson | NOP | 29.3/32 | 29.0/22 | 9.0/3 | 5.0/3 | 1.0/3 | 0.0/0 | REB |
-| LaMelo Ball | MIN | 15.2/29 | 0.0/21 | 0.0/2 | 0.0/6 | 0.0/2 | 0.0/0 | MIN,PTS,AST,STL |
-| Grayson Allen | CHA | 23.0/29 | 12.0/21 | 3.0/3 | 2.0/4 | 1.0/0 | 0.0/0 | all |
-| Jalen Johnson | ATL | 37.6/28 | 24.0/20 | 13.0/14 | 7.0/6 | 1.0/0 | 0.0/0 | MIN |
-| Dyson Daniels | ATL | 31.1/35 | 11.0/20 | 7.0/4 | 5.0/3 | 2.0/5 | 0.0/0 | STL |
-| Trae Young | WAS | 23.1/38 | 15.0/20 | 2.0/0 | 4.0/13 | 0.0/2 | 0.0/0 | MIN,AST |
-| Naz Reid | CHA | 28.7/33 | 23.0/20 | 10.0/11 | 2.0/7 | 1.0/0 | 1.0/0 | AST |
-| RJ Barrett | TOR | 33.9/26 | 24.0/20 | 8.0/4 | 5.0/3 | 1.0/0 | 0.0/0 | MIN |
-| Obi Toppin | IND | 12.1/25 | 0.0/20 | 0.0/3 | 0.0/1 | 0.0/2 | 0.0/0 | MIN,PTS,REB,STL |
-| CJ McCollum | ATL | 36.8/25 | 28.0/19 | 6.0/2 | 4.0/3 | 1.0/0 | 0.0/0 | MIN,REB |
-| Dennis Schröder | CHA | 8.5/35 | 0.0/19 | 0.0/4 | 0.0/6 | 0.0/0 | 0.0/0 | MIN,PTS,REB,AST |
-| Desmond Bane | ORL | 37.1/33 | 23.0/18 | 7.0/5 | 6.0/2 | 1.0/3 | 0.0/0 | AST |
-| Kyshawn George | WAS | 14.8/29 | 0.0/18 | 0.0/5 | 0.0/3 | 0.0/1 | 0.0/1 | MIN,PTS,REB,AST,STL,BLK |
-| Brandon Miller | CHA | 42.0/36 | 40.0/18 | 9.0/3 | 7.0/1 | 1.0/0 | 1.0/1 | MIN,PTS,REB,AST |
-| Lauri Markkanen | UTA | 33.6/36 | 21.0/18 | 9.0/9 | 2.0/3 | 1.0/0 | 0.0/1 | all |
-| Andrew Nembhard | IND | 25.5/34 | 16.0/18 | 3.0/2 | 8.0/9 | 1.0/1 | 0.0/0 | MIN |
-| Deni Avdija | POR | 37.0/23 | 33.0/18 | 13.0/10 | 8.0/4 | 1.0/2 | 0.0/0 | MIN,PTS,AST |
-| Toumani Camara | POR | 37.0/23 | 17.0/18 | 9.0/2 | 4.0/3 | 1.0/0 | 0.0/0 | MIN,REB |
-| Jaden McDaniels | MIN | 34.9/29 | 21.0/17 | 8.0/8 | 4.0/1 | 1.0/3 | 1.0/0 | all |
-| Moussa Diabaté | CHA | 37.2/34 | 18.0/17 | 17.0/8 | 3.0/3 | 1.0/5 | 1.0/0 | REB,STL |
-| Matas Buzelis | CHI | 33.0/25 | 21.0/17 | 8.0/6 | 2.0/0 | 1.0/0 | 1.0/2 | MIN |
-| Marcus Sasser | DAL | 7.7/24 | 0.0/17 | 0.0/1 | 0.0/1 | 0.0/1 | 0.0/0 | MIN,PTS,REB,AST,STL |
-| Brook Lopez | LAC | 38.5/27 | 22.0/17 | 11.0/11 | 3.0/1 | 1.0/1 | 2.0/1 | MIN |
-| Ayo Dosunmu | MIN | 34.4/29 | 21.0/16 | 6.0/5 | 5.0/3 | 1.0/0 | 0.0/0 | all |
-| Aaron Wiggins | ATL | 1.6/32 | 0.0/16 | 0.0/3 | 0.0/0 | 0.0/2 | 0.0/0 | MIN,PTS,REB,STL |
+| Anthony Edwards | MIN | 29.1/33 | 16.0/45 | 3.0/10 | 3.0/3 | 1.0/2 | 0.0/1 | PTS,REB |
+| Ty Jerome | MEM | 19.7/32 | 12.0/45 | 2.0/7 | 3.0/6 | 1.0/0 | 0.0/1 | MIN,PTS,REB |
+| Giannis Antetokounmpo | MIA | 24.1/30 | 18.0/35 | 8.0/6 | 3.0/1 | 0.0/1 | 0.0/0 | MIN |
+| Paolo Banchero | ORL | 34.6/41 | 19.0/35 | 7.0/7 | 5.0/10 | 0.0/1 | 0.0/0 | MIN |
+| Anthony Davis | WAS | 21.1/34 | 12.0/34 | 8.0/12 | 1.0/4 | 0.0/2 | 0.0/1 | MIN,PTS,AST |
+| Julius Randle | BKN | 25.7/38 | 13.0/33 | 5.0/8 | 2.0/7 | 0.0/0 | 0.0/1 | MIN,PTS,AST |
+| Cooper Flagg | DAL | 21.1/33 | 10.0/32 | 3.0/5 | 3.0/2 | 0.0/3 | 0.0/1 | MIN,PTS,STL |
+| Nickeil Alexander-Walker | ATL | 29.0/30 | 11.0/31 | 2.0/4 | 3.0/3 | 1.0/1 | 0.0/1 | PTS |
+| Pascal Siakam | IND | 19.1/35 | 11.0/30 | 3.0/8 | 2.0/1 | 0.0/1 | 0.0/0 | MIN,PTS |
+| Jabari Smith Jr. | HOU | 27.2/36 | 10.0/30 | 5.0/5 | 1.0/1 | 0.0/2 | 0.0/0 | MIN,PTS |
+| Kevin Durant | HOU | 25.2/37 | 15.0/30 | 3.0/6 | 3.0/3 | 0.0/1 | 0.0/1 | MIN |
+| Darius Garland | LAC | 25.1/32 | 14.0/30 | 1.0/1 | 5.0/4 | 1.0/1 | 0.0/0 | MIN |
+| Luka Dončić | LAL | 32.4/30 | 22.0/28 | 6.0/8 | 6.0/7 | 1.0/3 | 0.0/0 | all |
+| Zach LaVine | SAC | 20.0/34 | 13.0/28 | 1.0/4 | 2.0/4 | 0.0/0 | 0.0/0 | MIN |
+| Walker Kessler | LAL | 30.2/30 | 10.0/26 | 11.0/9 | 1.0/1 | 0.0/0 | 1.0/2 | PTS |
+| Michael Porter Jr. | BKN | 25.1/34 | 13.0/26 | 5.0/7 | 2.0/1 | 0.0/3 | 0.0/0 | MIN,STL |
+| Damian Lillard | POR | 18.6/24 | 12.0/25 | 2.0/3 | 2.0/6 | 0.0/1 | 0.0/0 | all |
+| Tyler Herro | MIL | 18.3/32 | 11.0/24 | 2.0/2 | 2.0/9 | 0.0/1 | 0.0/0 | MIN,AST |
+| Austin Reaves | LAL | 37.8/32 | 17.0/23 | 3.0/4 | 5.0/6 | 1.0/2 | 0.0/1 | all |
+| Stephen Curry | GSW | 22.0/21 | 13.0/23 | 2.0/2 | 3.0/1 | 0.0/2 | 0.0/0 | all |
+| Scottie Barnes | TOR | 30.0/26 | 15.0/23 | 6.0/6 | 7.0/5 | 1.0/0 | 1.0/0 | all |
+| Kawhi Leonard | TOR | 26.7/24 | 25.0/23 | 8.0/6 | 2.0/2 | 2.0/4 | 0.0/1 | all |
+| Immanuel Quickley | TOR | 16.2/28 | 10.0/23 | 2.0/4 | 4.0/7 | 0.0/2 | 0.0/0 | MIN |
+| Dejounte Murray | NOP | 17.6/34 | 8.0/23 | 3.0/3 | 3.0/7 | 1.0/2 | 0.0/3 | MIN,PTS,BLK |
+| Tyrese Haliburton | IND | 14.0/34 | 7.0/23 | 1.0/2 | 3.0/12 | 0.0/1 | 0.0/0 | MIN,PTS,AST |
+| Alperen Sengun | HOU | 25.2/30 | 14.0/23 | 7.0/10 | 4.0/5 | 1.0/0 | 0.0/0 | all |
+| Devin Booker | PHX | 29.6/29 | 16.0/23 | 2.0/4 | 5.0/2 | 0.0/1 | 0.0/1 | all |
+| Wendell Carter Jr. | ORL | 30.0/31 | 11.0/22 | 8.0/7 | 2.0/0 | 1.0/1 | 0.0/0 | all |
+| Franz Wagner | ORL | 24.4/29 | 14.0/22 | 4.0/6 | 3.0/5 | 1.0/1 | 0.0/0 | all |
+| Jaime Jaquez Jr. | MIL | 19.5/31 | 8.0/22 | 3.0/7 | 2.0/2 | 0.0/0 | 0.0/0 | MIN |
+| Keyonte George | UTA | 19.7/29 | 10.0/22 | 1.0/3 | 3.0/5 | 0.0/1 | 0.0/0 | MIN |
+| Zion Williamson | NOP | 17.6/32 | 11.0/22 | 3.0/3 | 2.0/3 | 0.0/3 | 0.0/0 | MIN,STL |
+| LaMelo Ball | MIN | 25.0/29 | 16.0/21 | 4.0/2 | 4.0/6 | 1.0/2 | 0.0/0 | all |
+| Grayson Allen | CHA | 17.8/29 | 8.0/21 | 1.0/3 | 1.0/4 | 0.0/0 | 0.0/0 | MIN |
+| Jalen Johnson | ATL | 29.7/28 | 13.0/20 | 8.0/14 | 4.0/6 | 1.0/0 | 0.0/0 | all |
+| Dyson Daniels | ATL | 21.0/35 | 7.0/20 | 4.0/4 | 3.0/3 | 1.0/5 | 0.0/0 | MIN,PTS,STL |
+| Trae Young | WAS | 13.7/38 | 8.0/20 | 1.0/0 | 3.0/13 | 0.0/2 | 0.0/0 | MIN,AST |
+| Naz Reid | CHA | 27.6/33 | 12.0/20 | 6.0/11 | 1.0/7 | 1.0/0 | 0.0/0 | AST |
+| RJ Barrett | TOR | 30.3/26 | 16.0/20 | 5.0/4 | 4.0/3 | 0.0/0 | 0.0/0 | all |
+| Obi Toppin | IND | 12.4/25 | 6.0/20 | 2.0/3 | 1.0/1 | 0.0/2 | 0.0/0 | MIN,PTS,STL |
+| CJ McCollum | ATL | 25.7/25 | 14.0/19 | 2.0/2 | 3.0/3 | 0.0/0 | 0.0/0 | all |
+| Dennis Schröder | CHA | 13.4/35 | 5.0/19 | 1.0/4 | 2.0/6 | 0.0/0 | 0.0/0 | MIN,PTS,REB,AST |
+| Desmond Bane | ORL | 31.4/33 | 15.0/18 | 3.0/5 | 4.0/2 | 1.0/3 | 0.0/0 | STL |
+| Kyshawn George | WAS | 13.5/29 | 6.0/18 | 2.0/5 | 2.0/3 | 0.0/1 | 0.0/1 | MIN,PTS |
+| Brandon Miller | CHA | 28.8/36 | 17.0/18 | 4.0/3 | 3.0/1 | 1.0/0 | 0.0/1 | MIN |
+| Lauri Markkanen | UTA | 21.7/36 | 11.0/18 | 3.0/9 | 1.0/3 | 0.0/0 | 0.0/1 | MIN,REB |
+| Andrew Nembhard | IND | 21.0/34 | 8.0/18 | 1.0/2 | 4.0/9 | 0.0/1 | 0.0/0 | MIN |
+| Deni Avdija | POR | 27.1/23 | 14.0/18 | 5.0/10 | 4.0/4 | 0.0/2 | 0.0/0 | all |
+| Toumani Camara | POR | 26.4/23 | 7.5/18 | 3.0/2 | 2.0/3 | 1.0/0 | 0.0/0 | MIN |
+| Jaden McDaniels | MIN | 24.7/29 | 10.0/17 | 3.0/8 | 2.0/1 | 1.0/3 | 0.0/0 | STL |
+| Moussa Diabaté | CHA | 23.6/34 | 7.0/17 | 7.0/8 | 1.0/3 | 0.0/5 | 0.0/0 | MIN,STL |
+| Matas Buzelis | CHI | 23.7/25 | 10.0/17 | 3.0/6 | 2.0/0 | 0.0/0 | 1.0/2 | all |
+| Marcus Sasser | DAL | 12.8/24 | 3.0/17 | 0.0/1 | 1.0/1 | 0.0/1 | 0.0/0 | MIN,PTS |
+| Brook Lopez | LAC | 25.3/27 | 10.0/17 | 4.0/11 | 2.0/1 | 0.0/1 | 1.0/1 | REB |
+| Ayo Dosunmu | MIN | 22.9/29 | 9.0/16 | 2.0/5 | 3.0/3 | 0.0/0 | 0.0/0 | MIN |
+| Aaron Wiggins | ATL | 0.0/32 | 0.0/16 | 0.0/3 | 0.0/0 | 0.0/2 | 0.0/0 | MIN,PTS,REB,STL |
 | Caleb Wilson | CHI | 0.0/32 | 0.0/16 | 0.0/4 | 0.0/0 | 0.0/3 | 0.0/1 | MIN,PTS,REB,STL,BLK |
-| Ivica Zubac | IND | 26.4/34 | 19.0/16 | 14.0/15 | 2.0/0 | 0.0/0 | 1.0/2 | MIN |
-| Amen Thompson | HOU | 32.4/33 | 18.0/16 | 10.0/10 | 6.0/4 | 1.0/1 | 0.0/0 | all |
-| Naji Marshall | DAL | 36.4/29 | 17.0/16 | 7.0/2 | 5.0/6 | 1.0/1 | 0.0/0 | MIN,REB |
-| Bam Adebayo | MIA | 34.7/31 | 29.0/15 | 16.0/7 | 5.0/4 | 1.0/3 | 1.0/0 | PTS,REB |
-| Kasparas Jakučionis | MIL | 0.0/26 | 0.0/15 | 0.0/3 | 0.0/3 | 0.0/0 | 0.0/1 | MIN,PTS,REB,AST,BLK |
-| Jalen Smith | CHI | 14.7/19 | 0.0/15 | 0.0/8 | 0.0/1 | 0.0/0 | 0.0/1 | PTS,REB,BLK |
-| Norman Powell | CHI | 8.7/22 | 0.0/15 | 0.0/5 | 0.0/1 | 0.0/1 | 0.0/0 | MIN,PTS,REB,AST,STL |
-| Jerami Grant | MEM | 9.4/24 | 0.0/15 | 0.0/2 | 0.0/3 | 0.0/0 | 0.0/1 | MIN,PTS,AST,BLK |
-| Jaren Jackson Jr. | UTA | 29.9/28 | 22.0/15 | 8.0/5 | 1.0/2 | 1.0/1 | 1.0/2 | all |
-| Kyrie Irving | DAL | 36.4/24 | 26.0/15 | 6.0/4 | 4.0/2 | 1.0/1 | 0.0/0 | MIN |
-| Scoot Henderson | POR | 30.8/19 | 22.0/15 | 5.0/2 | 6.0/1 | 1.0/1 | 0.0/0 | MIN,AST |
+| Ivica Zubac | IND | 16.0/34 | 8.0/16 | 7.0/15 | 1.0/0 | 0.0/0 | 0.0/2 | MIN |
+| Amen Thompson | HOU | 27.9/33 | 11.0/16 | 5.0/10 | 4.0/4 | 1.0/1 | 0.0/0 | MIN |
+| Naji Marshall | DAL | 22.3/29 | 8.0/16 | 2.0/2 | 3.0/6 | 0.0/1 | 0.0/0 | MIN |
+| Bam Adebayo | MIA | 22.8/31 | 12.0/15 | 7.0/7 | 3.0/4 | 1.0/3 | 0.0/0 | MIN,STL |
+| Kasparas Jakučionis | MIL | 11.1/26 | 3.0/15 | 1.0/3 | 1.0/3 | 0.0/0 | 0.0/1 | MIN,PTS |
+| Norman Powell | CHI | 18.7/22 | 13.0/15 | 1.0/5 | 1.0/1 | 1.0/1 | 0.0/0 | REB |
+| Jalen Smith | CHI | 14.8/19 | 8.0/15 | 5.0/8 | 1.0/1 | 0.0/0 | 0.0/1 | all |
+| Jerami Grant | MEM | 18.0/24 | 9.0/15 | 1.0/2 | 1.0/3 | 0.0/0 | 0.0/1 | all |
+| Jaren Jackson Jr. | UTA | 20.9/28 | 13.0/15 | 4.0/5 | 1.0/2 | 1.0/1 | 0.0/2 | MIN |
+| Kyrie Irving | DAL | 23.4/24 | 12.0/15 | 2.0/4 | 2.0/2 | 1.0/1 | 0.0/0 | all |
+| Scoot Henderson | POR | 20.3/19 | 9.0/15 | 1.0/2 | 3.0/1 | 0.0/1 | 0.0/0 | all |
 | Keaton Wagler | LAC | 0.0/29 | 0.0/15 | 0.0/5 | 0.0/5 | 0.0/2 | 0.0/0 | MIN,PTS,REB,AST,STL |
-| Precious Achiuwa | SAC | 33.5/29 | 14.0/15 | 12.0/5 | 2.0/2 | 1.0/2 | 1.0/0 | all |
-| Brandon Williams | GSW | 10.1/18 | 0.0/14 | 0.0/4 | 0.0/3 | 0.0/3 | 0.0/0 | MIN,PTS,REB,AST,STL |
-| Tristan da Silva | ORL | 9.7/28 | 0.0/14 | 0.0/2 | 0.0/3 | 0.0/1 | 0.0/1 | MIN,PTS,REB,AST,STL,BLK |
-| Ja Morant | POR | 15.5/23 | 0.0/14 | 0.0/5 | 0.0/8 | 0.0/3 | 0.0/0 | MIN,REB,AST,STL |
-| Domantas Sabonis | SAC | 30.0/34 | 21.0/14 | 16.0/18 | 5.0/8 | 1.0/1 | 0.0/0 | all |
-| Tre Jones | CHI | 30.0/13 | 17.0/13 | 5.0/3 | 7.0/0 | 1.0/0 | 0.0/0 | MIN,AST |
-| Saddiq Bey | NOP | 34.6/24 | 20.0/13 | 8.0/5 | 4.0/0 | 1.0/0 | 0.0/0 | MIN,AST |
-| Yves Missi | NOP | 17.4/30 | 0.0/13 | 0.0/14 | 0.0/5 | 0.0/2 | 0.0/3 | MIN,PTS,REB,AST,STL,BLK |
-| Isaiah Jackson | LAC | 0.0/15 | 0.0/13 | 0.0/5 | 0.0/0 | 0.0/1 | 0.0/0 | MIN,PTS,REB,STL |
-| Jonathan Kuminga | MIN | 10.0/30 | 0.0/12 | 0.0/1 | 0.0/3 | 0.0/4 | 0.0/1 | MIN,PTS,AST,STL,BLK |
-| Gui Santos | GSW | 37.6/25 | 18.0/12 | 9.0/5 | 4.0/0 | 1.0/1 | 0.0/0 | MIN,AST |
+| Precious Achiuwa | SAC | 25.1/29 | 9.0/15 | 6.0/5 | 1.0/2 | 1.0/2 | 0.0/0 | all |
+| Brandon Williams | GSW | 16.0/18 | 6.0/14 | 1.0/4 | 1.0/3 | 0.0/3 | 0.0/0 | STL |
+| Tristan da Silva | ORL | 12.6/28 | 5.0/14 | 2.0/2 | 1.0/3 | 0.0/1 | 0.0/1 | MIN |
+| Ja Morant | POR | 23.2/23 | 13.0/14 | 2.0/5 | 4.0/8 | 1.0/3 | 0.0/0 | STL |
+| Domantas Sabonis | SAC | 22.3/34 | 13.0/14 | 9.0/18 | 3.0/8 | 0.0/1 | 0.0/0 | MIN |
+| Tre Jones | CHI | 21.4/13 | 9.0/13 | 2.0/3 | 5.0/0 | 1.0/0 | 0.0/0 | MIN,AST |
+| Saddiq Bey | NOP | 20.8/24 | 8.0/13 | 2.0/5 | 1.0/0 | 0.0/0 | 0.0/0 | all |
+| Yves Missi | NOP | 17.2/30 | 5.0/13 | 5.0/14 | 1.0/5 | 0.0/2 | 0.0/3 | MIN,REB,AST,STL,BLK |
+| Isaiah Jackson | LAC | 14.0/15 | 6.0/13 | 5.0/5 | 1.0/0 | 0.0/1 | 0.0/0 | all |
+| Jonathan Kuminga | MIN | 19.0/30 | 10.0/12 | 4.0/1 | 1.0/3 | 0.0/4 | 0.0/1 | MIN,STL |
+| Gui Santos | GSW | 19.3/25 | 6.0/12 | 3.0/5 | 2.0/0 | 0.0/1 | 0.0/0 | all |
 | Yaxel Lendeborg | GSW | 0.0/29 | 0.0/12 | 0.0/3 | 0.0/2 | 0.0/1 | 0.0/0 | MIN,PTS,REB,AST,STL |
 | Brayden Burries | MIL | 0.0/16 | 0.0/12 | 0.0/5 | 0.0/0 | 0.0/0 | 0.0/0 | MIN,PTS,REB |
-| GG Jackson | MEM | 28.8/19 | 22.0/12 | 9.0/8 | 3.0/0 | 1.0/0 | 0.0/2 | MIN,AST |
-| Jaylen Wells | MEM | 16.3/28 | 0.0/12 | 0.0/5 | 0.0/0 | 0.0/4 | 0.0/0 | MIN,REB,STL |
-| Ace Bailey | UTA | 36.1/24 | 16.0/12 | 7.0/5 | 2.0/3 | 1.0/0 | 1.0/3 | MIN,BLK |
-| Gradey Dick | LAC | 8.1/19 | 0.0/12 | 0.0/4 | 0.0/0 | 0.0/0 | 0.0/1 | MIN,PTS,REB,BLK |
+| GG Jackson | MEM | 18.5/19 | 9.0/12 | 3.0/8 | 1.0/0 | 0.0/0 | 0.0/2 | BLK |
+| Jaylen Wells | MEM | 18.2/28 | 7.0/12 | 2.0/5 | 1.0/0 | 0.0/4 | 0.0/0 | MIN,STL |
+| Ace Bailey | UTA | 24.6/24 | 8.0/12 | 2.0/5 | 1.0/3 | 0.0/0 | 0.0/3 | BLK |
+| Gradey Dick | LAC | 0.0/19 | 0.0/12 | 0.0/4 | 0.0/0 | 0.0/0 | 0.0/1 | MIN,PTS,REB,BLK |
 | Darius Acuff Jr. | SAC | 0.0/35 | 0.0/12 | 0.0/3 | 0.0/3 | 0.0/3 | 0.0/0 | MIN,PTS,REB,AST,STL |
-| Andrew Wiggins | MIA | 36.9/27 | 25.0/11 | 8.0/2 | 4.0/1 | 1.0/0 | 1.0/0 | MIN,PTS,REB |
-| Davion Mitchell | MIA | 36.9/33 | 15.0/11 | 4.0/0 | 9.0/11 | 1.0/0 | 0.0/1 | REB |
-| Bilal Coulibaly | WAS | 23.1/29 | 8.0/11 | 4.0/2 | 2.0/1 | 1.0/4 | 0.0/2 | MIN,STL,BLK |
-| Deandre Ayton | WAS | 0.0/15 | 0.0/11 | 0.0/4 | 0.0/0 | 0.0/0 | 0.0/2 | MIN,PTS,REB,BLK |
-| Myles Turner | MIL | 24.1/32 | 17.0/11 | 7.0/5 | 1.0/3 | 0.0/0 | 1.0/1 | MIN |
-| Trey Murphy III | NOP | 25.3/32 | 15.0/11 | 5.0/4 | 4.0/1 | 1.0/0 | 0.0/0 | MIN |
-| Bennedict Mathurin | NOP | 7.8/18 | 0.0/11 | 0.0/3 | 0.0/2 | 0.0/1 | 0.0/0 | MIN,PTS,REB,AST,STL |
-| Donovan Clingan | POR | 25.6/21 | 15.0/11 | 16.0/7 | 2.0/2 | 0.0/0 | 1.0/0 | all |
-| Klay Thompson | MIA | 0.0/16 | 0.0/10 | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | MIN,PTS,REB |
-| Terrence Shannon Jr | MIN | 15.6/20 | 0.0/10 | 0.0/1 | 0.0/1 | 0.0/0 | 0.0/0 | all |
-| Jake LaRavia | LAL | 27.5/18 | 12.0/10 | 6.0/2 | 3.0/2 | 1.0/1 | 0.0/0 | MIN,REB |
-| Quentin Grimes | LAL | 21.4/27 | 9.0/10 | 3.0/2 | 1.0/4 | 0.0/1 | 0.0/1 | MIN |
-| Gary Payton II | GSW | 19.2/18 | 4.0/10 | 2.0/1 | 1.0/0 | 0.0/0 | 0.0/0 | all |
-| Jock Landale | ATL | 17.6/19 | 0.0/10 | 0.0/2 | 0.0/3 | 0.0/0 | 0.0/1 | PTS,AST,BLK |
-| Bub Carrington | WAS | 30.7/18 | 15.0/10 | 6.0/1 | 8.0/4 | 1.0/2 | 0.0/0 | MIN,REB |
-| Ja'Kobe Walter | TOR | 33.5/23 | 13.0/10 | 6.0/3 | 2.0/4 | 1.0/3 | 0.0/0 | MIN |
-| Svi Mykhailiuk | UTA | 0.0/19 | 0.0/10 | 0.0/1 | 0.0/2 | 0.0/3 | 0.0/0 | MIN,PTS,REB,AST,STL |
-| Derik Queen | NOP | 21.8/18 | 6.0/10 | 4.0/10 | 2.0/1 | 0.0/2 | 0.0/0 | all |
-| Marcus Smart | HOU | 26.2/26 | 8.0/10 | 2.0/2 | 1.0/2 | 1.0/1 | 0.0/0 | all |
-| P.J. Washington | DAL | 35.3/31 | 17.0/10 | 10.0/4 | 3.0/2 | 1.0/0 | 1.0/1 | REB |
-| Dillon Brooks | PHX | 36.9/27 | 22.0/10 | 6.0/4 | 2.0/0 | 1.0/0 | 0.0/0 | MIN,PTS |
-| Jalen Green | PHX | 36.7/25 | 26.0/10 | 8.0/2 | 3.0/3 | 1.0/0 | 0.0/1 | MIN,PTS,REB |
-| Rui Hachimura | LAC | 41.5/32 | 24.0/10 | 9.0/8 | 1.0/2 | 1.0/1 | 0.0/1 | MIN,PTS |
-| Ziaire Williams | LAL | 20.4/24 | 7.0/9 | 3.0/3 | 1.0/4 | 1.0/1 | 0.0/0 | MIN,AST |
-| LJ Cryer | GSW | 1.4/9 | 0.0/9 | 0.0/1 | 0.0/3 | 0.0/0 | 0.0/0 | MIN,PTS,REB,AST |
-| Ryan Rollins | MIL | 0.0/24 | 0.0/9 | 0.0/6 | 0.0/3 | 0.0/0 | 0.0/0 | MIN,PTS,REB,AST |
-| Noah Clowney | BKN | 22.9/22 | 10.0/9 | 5.0/3 | 1.0/1 | 0.0/1 | 0.0/0 | all |
-| Trayce Jackson-Davis | TOR | 0.0/10 | 0.0/9 | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | MIN,PTS,REB |
-| Scotty Pippen Jr. | MEM | 27.2/20 | 22.0/9 | 5.0/2 | 8.0/5 | 2.0/3 | 0.0/0 | MIN |
+| Davion Mitchell | MIA | 31.3/33 | 7.0/11 | 1.0/0 | 5.0/11 | 1.0/0 | 0.0/1 | AST |
+| Andrew Wiggins | MIA | 28.0/27 | 12.0/11 | 3.0/2 | 2.0/1 | 1.0/0 | 0.0/0 | all |
+| Deandre Ayton | WAS | 14.9/15 | 7.0/11 | 6.0/4 | 0.0/0 | 0.0/0 | 0.0/2 | BLK |
+| Bilal Coulibaly | WAS | 13.9/29 | 5.0/11 | 2.0/2 | 1.0/1 | 0.0/4 | 0.0/2 | MIN,STL,BLK |
+| Myles Turner | MIL | 14.3/32 | 8.0/11 | 4.0/5 | 1.0/3 | 0.0/0 | 0.0/1 | MIN |
+| Trey Murphy III | NOP | 21.4/32 | 9.0/11 | 2.0/4 | 2.0/1 | 0.0/0 | 0.0/0 | MIN |
+| Bennedict Mathurin | NOP | 15.7/18 | 8.0/11 | 2.0/3 | 0.5/2 | 0.0/1 | 0.0/0 | all |
+| Donovan Clingan | POR | 17.9/21 | 7.0/11 | 9.0/7 | 1.0/2 | 0.0/0 | 1.0/0 | all |
+| Klay Thompson | MIA | 15.2/16 | 8.0/10 | 1.0/1 | 1.0/0 | 0.0/0 | 0.0/0 | all |
+| Terrence Shannon Jr | MIN | 17.6/20 | 6.0/10 | 1.0/1 | 1.0/1 | 0.0/0 | 0.0/0 | all |
+| Quentin Grimes | LAL | 20.5/27 | 8.0/10 | 2.0/2 | 2.0/4 | 0.0/1 | 0.0/1 | MIN |
+| Jake LaRavia | LAL | 11.4/18 | 3.0/10 | 1.0/2 | 1.0/2 | 0.0/1 | 0.0/0 | all |
+| Gary Payton II | GSW | 14.3/18 | 4.0/10 | 2.0/1 | 1.0/0 | 0.0/0 | 0.0/0 | all |
+| Jock Landale | ATL | 19.0/19 | 7.0/10 | 4.0/2 | 1.0/3 | 0.0/0 | 0.0/1 | all |
+| Bub Carrington | WAS | 19.8/18 | 6.0/10 | 2.0/1 | 4.0/4 | 0.0/2 | 0.0/0 | STL |
+| Ja'Kobe Walter | TOR | 27.0/23 | 9.0/10 | 2.0/3 | 2.0/4 | 1.0/3 | 0.0/0 | all |
+| Svi Mykhailiuk | UTA | 14.5/19 | 5.0/10 | 1.0/1 | 1.0/2 | 0.0/3 | 0.0/0 | STL |
+| Derik Queen | NOP | 21.8/18 | 8.0/10 | 5.0/10 | 3.0/1 | 1.0/2 | 0.0/0 | all |
+| Marcus Smart | HOU | 22.6/26 | 8.0/10 | 1.0/2 | 2.0/2 | 1.0/1 | 0.0/0 | MIN |
+| P.J. Washington | DAL | 25.6/31 | 9.0/10 | 4.0/4 | 2.0/2 | 1.0/0 | 0.0/1 | all |
+| Jalen Green | PHX | 28.2/25 | 13.0/10 | 3.0/2 | 2.0/3 | 1.0/0 | 0.0/1 | all |
+| Dillon Brooks | PHX | 28.0/27 | 11.0/10 | 2.0/4 | 1.0/0 | 1.0/0 | 0.0/0 | all |
+| Rui Hachimura | LAC | 32.2/32 | 12.0/10 | 4.0/8 | 1.0/2 | 0.0/1 | 0.0/1 | all |
+| Ziaire Williams | LAL | 22.9/24 | 9.0/9 | 3.0/3 | 1.0/4 | 1.0/1 | 0.0/0 | AST |
+| LJ Cryer | GSW | 12.9/9 | 5.0/9 | 1.0/1 | 0.0/3 | 0.0/0 | 0.0/0 | AST |
+| Ryan Rollins | MIL | 18.8/24 | 8.0/9 | 2.0/6 | 3.0/3 | 1.0/0 | 0.0/0 | REB |
+| Noah Clowney | BKN | 18.0/22 | 6.0/9 | 3.0/3 | 1.0/1 | 0.0/1 | 0.0/0 | all |
+| Trayce Jackson-Davis | TOR | 0.0/10 | 0.0/9 | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | MIN,PTS |
+| Scotty Pippen Jr. | MEM | 18.2/20 | 9.0/9 | 2.0/2 | 3.0/5 | 1.0/3 | 0.0/0 | all |
 | Darryn Peterson | UTA | 0.0/31 | 0.0/9 | 0.0/4 | 0.0/3 | 0.0/0 | 0.0/0 | MIN,PTS,REB,AST |
-| Will Richard | GSW | 9.5/20 | 0.0/8 | 0.0/5 | 0.0/1 | 0.0/1 | 0.0/0 | MIN,PTS,REB,AST,STL |
-| Graham Ike | GSW | 0.0/12 | 0.0/8 | 0.0/2 | 0.0/1 | 0.0/1 | 0.0/1 | MIN,PTS,REB,AST,STL,BLK |
-| Onyeka Okongwu | ATL | 36.7/29 | 19.0/8 | 13.0/5 | 4.0/7 | 1.0/0 | 1.0/0 | MIN,PTS,REB,AST |
-| Luguentz Dort | ATL | 7.1/28 | 0.0/8 | 0.0/4 | 0.0/0 | 0.0/1 | 0.0/0 | MIN,PTS,REB,STL |
-| Justin Champagnie | WAS | 22.6/21 | 7.0/8 | 6.0/8 | 1.0/1 | 0.0/0 | 0.0/0 | all |
-| Tre Johnson | WAS | 14.8/19 | 0.0/8 | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/1 | BLK |
-| Day'Ron Sharpe | BKN | 11.9/30 | 0.0/8 | 0.0/8 | 0.0/3 | 0.0/0 | 0.0/3 | MIN,PTS,REB,AST,BLK |
-| Royce O'Neale | CHA | 18.9/17 | 3.0/8 | 2.0/4 | 0.0/0 | 0.0/1 | 0.0/1 | all |
-| Jamison Battle | TOR | 22.5/11 | 3.0/8 | 2.0/5 | 0.0/0 | 0.0/1 | 0.0/0 | MIN |
-| Jeremiah Fears | NOP | 31.4/21 | 17.0/8 | 5.0/3 | 4.0/1 | 1.0/0 | 0.0/0 | MIN |
-| Jrue Holiday | POR | 37.1/21 | 22.0/8 | 8.0/4 | 7.0/1 | 1.0/2 | 0.0/0 | MIN,PTS,REB,AST |
-| Oso Ighodaro | PHX | 30.2/15 | 10.0/8 | 9.0/3 | 3.0/3 | 1.0/0 | 1.0/0 | MIN,REB |
-| Miles Bridges | PHX | 14.1/29 | 0.0/8 | 0.0/4 | 0.0/0 | 0.0/1 | 0.0/1 | MIN,BLK |
-| Derrick Jones Jr. | LAC | 38.6/26 | 22.0/8 | 9.0/6 | 2.0/5 | 2.0/1 | 1.0/0 | MIN,PTS |
+| Graham Ike | GSW | 0.0/12 | 0.0/8 | 0.0/2 | 0.0/1 | 0.0/1 | 0.0/1 | MIN,PTS,AST,STL,BLK |
+| Will Richard | GSW | 0.0/20 | 0.0/8 | 0.0/5 | 0.0/1 | 0.0/1 | 0.0/0 | MIN,PTS,REB,AST,STL |
+| Onyeka Okongwu | ATL | 28.3/29 | 11.0/8 | 7.0/5 | 2.0/7 | 1.0/0 | 0.0/0 | AST |
+| Luguentz Dort | ATL | 16.6/28 | 6.0/8 | 2.0/4 | 0.0/0 | 0.0/1 | 0.0/0 | MIN |
+| Justin Champagnie | WAS | 15.8/21 | 6.0/8 | 4.0/8 | 1.0/1 | 0.0/0 | 0.0/0 | all |
+| Tre Johnson | WAS | 14.9/19 | 6.0/8 | 1.0/1 | 1.0/0 | 0.0/0 | 0.0/1 | MIN |
+| Day'Ron Sharpe | BKN | 15.3/30 | 6.0/8 | 6.0/8 | 1.0/3 | 0.0/0 | 0.0/3 | MIN,BLK |
+| Royce O'Neale | CHA | 20.4/17 | 6.0/8 | 3.0/4 | 1.0/0 | 0.0/1 | 0.0/1 | all |
+| Jamison Battle | TOR | 16.1/11 | 6.0/8 | 2.0/5 | 1.0/0 | 0.0/1 | 0.0/0 | all |
+| Jeremiah Fears | NOP | 24.0/21 | 10.0/8 | 2.0/3 | 3.0/1 | 1.0/0 | 0.0/0 | all |
+| Jrue Holiday | POR | 30.2/21 | 10.0/8 | 3.0/4 | 5.0/1 | 1.0/2 | 0.0/0 | MIN |
+| Oso Ighodaro | PHX | 24.2/15 | 6.0/8 | 4.0/3 | 2.0/3 | 0.0/0 | 0.0/0 | MIN |
+| Miles Bridges | PHX | 23.6/29 | 11.0/8 | 4.0/4 | 2.0/0 | 0.0/1 | 0.0/1 | all |
+| Derrick Jones Jr. | LAC | 19.2/26 | 8.0/8 | 3.0/6 | 1.0/5 | 1.0/1 | 0.0/0 | MIN,AST |
 | Emanuel Sharp | SAC | 0.0/17 | 0.0/8 | 0.0/1 | 0.0/0 | 0.0/1 | 0.0/0 | MIN,PTS,REB,STL |
-| Bobby Portis Jr. | MIA | 11.9/25 | 0.0/7 | 0.0/4 | 0.0/1 | 0.0/1 | 0.0/1 | MIN,STL,BLK |
-| Georges Niang | GSW | 9.0/20 | 0.0/7 | 0.0/2 | 0.0/2 | 0.0/2 | 0.0/0 | MIN,PTS,REB,AST,STL |
-| Kel'el Ware | MIL | 7.4/14 | 0.0/7 | 0.0/3 | 0.0/1 | 0.0/1 | 0.0/0 | MIN,PTS,REB,AST,STL |
+| Bobby Portis Jr. | MIA | 20.8/25 | 8.0/7 | 5.0/4 | 1.0/1 | 0.0/1 | 0.0/1 | all |
+| Georges Niang | GSW | 14.8/20 | 5.0/7 | 1.0/2 | 0.0/2 | 0.0/2 | 0.0/0 | MIN,STL |
+| Kel'el Ware | MIL | 17.5/14 | 8.0/7 | 8.0/3 | 0.0/1 | 0.0/1 | 0.0/0 | all |
 | Keon Ellis | BKN | 0.0/34 | 0.0/7 | 0.0/2 | 0.0/4 | 0.0/2 | 0.0/1 | MIN,PTS,REB,AST,STL,BLK |
 | Moritz Wagner | BKN | 0.0/16 | 0.0/7 | 0.0/0 | 0.0/1 | 0.0/0 | 0.0/0 | MIN,PTS,AST |
-| Cedric Coward | MEM | 16.9/28 | 0.0/7 | 0.0/7 | 0.0/2 | 0.0/0 | 0.0/1 | MIN,REB,BLK |
+| Cedric Coward | MEM | 18.3/28 | 8.0/7 | 4.0/7 | 2.0/2 | 0.0/0 | 0.0/1 | MIN |
+| Quinten Post | MEM | 10.9/19 | 4.0/7 | 2.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | MIN |
 | Cameron Boozer | MEM | 0.0/33 | 0.0/7 | 0.0/11 | 0.0/5 | 0.0/0 | 0.0/0 | MIN,PTS,REB,AST |
-| Quinten Post | MEM | 0.0/19 | 0.0/7 | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | MIN,PTS,REB |
-| Isaiah Collier | UTA | 32.1/16 | 13.0/7 | 4.0/3 | 10.0/3 | 1.0/1 | 0.0/0 | MIN,AST |
-| Kris Dunn | LAC | 40.0/27 | 15.0/7 | 8.0/5 | 7.0/7 | 3.0/3 | 0.0/2 | MIN,BLK |
-| Kevon Looney | LAL | 12.4/15 | 0.0/6 | 0.0/5 | 0.0/1 | 0.0/0 | 0.0/0 | PTS |
-| Jalen Suggs | ORL | 37.2/32 | 21.0/6 | 7.0/3 | 7.0/5 | 2.0/2 | 1.0/0 | PTS,REB |
-| Goga Bitadze | ORL | 9.6/12 | 0.0/6 | 0.0/6 | 0.0/1 | 0.0/0 | 0.0/0 | PTS,REB,AST |
-| Alex Sarr | WAS | 14.7/24 | 0.0/6 | 0.0/9 | 0.0/2 | 0.0/0 | 0.0/0 | MIN,REB |
-| AJ Green | MIL | 34.7/15 | 17.0/6 | 5.0/0 | 3.0/1 | 0.0/0 | 0.0/0 | MIN,REB |
+| Isaiah Collier | UTA | 21.3/16 | 7.0/7 | 1.0/3 | 5.0/3 | 1.0/1 | 0.0/0 | MIN |
+| Kris Dunn | LAC | 22.6/27 | 6.0/7 | 3.0/5 | 4.0/7 | 1.0/3 | 0.0/2 | BLK |
+| Kevon Looney | LAL | 19.0/15 | 3.0/6 | 6.0/5 | 1.0/1 | 0.0/0 | 0.0/0 | all |
+| Jalen Suggs | ORL | 31.1/32 | 13.0/6 | 3.0/3 | 5.0/5 | 1.0/2 | 0.0/0 | all |
+| Goga Bitadze | ORL | 11.5/12 | 4.0/6 | 5.0/6 | 1.0/1 | 0.0/0 | 0.0/0 | all |
+| Alex Sarr | WAS | 13.6/24 | 7.0/6 | 4.0/9 | 1.0/2 | 0.0/0 | 0.0/0 | MIN |
+| AJ Green | MIL | 21.3/15 | 6.0/6 | 1.0/0 | 1.0/1 | 0.0/0 | 0.0/0 | all |
 | Mikel Brown Jr. | BKN | 0.0/20 | 0.0/6 | 0.0/3 | 0.0/3 | 0.0/0 | 0.0/0 | MIN,PTS,REB,AST |
-| Collin Murray-Boyles | TOR | 17.1/20 | 0.0/6 | 0.0/8 | 0.0/3 | 0.0/1 | 0.0/1 | REB,AST |
-| Zach Edey | MEM | 28.5/21 | 24.0/6 | 18.0/9 | 2.0/0 | 1.0/0 | 2.0/2 | MIN,PTS |
-| Quenton Jackson | IND | 17.2/16 | 0.0/6 | 0.0/4 | 0.0/1 | 0.0/3 | 0.0/0 | STL |
-| Fred VanVleet | HOU | 32.4/30 | 17.0/6 | 4.0/2 | 6.0/11 | 1.0/3 | 0.0/1 | PTS,AST |
+| Collin Murray-Boyles | TOR | 21.1/20 | 9.0/6 | 5.0/8 | 2.0/3 | 1.0/1 | 0.0/1 | all |
+| Zach Edey | MEM | 21.1/21 | 11.0/6 | 10.0/9 | 1.0/0 | 0.0/0 | 1.0/2 | all |
+| Quenton Jackson | IND | 17.5/16 | 7.0/6 | 1.0/4 | 2.0/1 | 0.0/3 | 0.0/0 | STL |
+| Fred VanVleet | HOU | 26.6/30 | 9.0/6 | 1.0/2 | 4.0/11 | 1.0/3 | 0.0/1 | AST |
 | Morez Johnson Jr. | DAL | 0.0/14 | 0.0/6 | 0.0/3 | 0.0/1 | 0.0/0 | 0.0/0 | MIN,PTS,REB,AST |
-| Nique Clifford | SAC | 36.1/17 | 15.0/6 | 7.0/1 | 4.0/3 | 1.0/1 | 0.0/0 | MIN,PTS,REB |
-| De'Andre Hunter | SAC | 29.6/20 | 18.0/6 | 5.0/3 | 1.0/1 | 0.0/0 | 0.0/0 | MIN |
-| Rudy Gobert | MIN | 31.0/33 | 19.0/5 | 19.0/15 | 3.0/1 | 1.0/0 | 1.5/0 | PTS |
-| Sandro Mamukelashvili | LAL | 0.0/22 | 0.0/5 | 0.0/4 | 0.0/2 | 0.0/2 | 0.0/0 | MIN,PTS,REB,AST,STL |
-| Ousmane Dieng | MIL | 34.7/21 | 17.0/5 | 8.0/4 | 4.0/3 | 1.0/0 | 0.0/0 | MIN,PTS |
-| Kyle Kuzma | MIL | 23.7/27 | 14.0/5 | 5.0/6 | 2.0/3 | 0.0/3 | 0.0/0 | STL |
+| Nique Clifford | SAC | 30.9/17 | 9.0/6 | 3.0/1 | 3.0/3 | 1.0/1 | 0.0/0 | MIN |
+| De'Andre Hunter | SAC | 19.6/20 | 10.0/6 | 2.0/3 | 1.0/1 | 0.0/0 | 0.0/0 | all |
+| Rudy Gobert | MIN | 21.3/33 | 9.0/5 | 10.0/15 | 2.0/1 | 0.0/0 | 1.0/0 | MIN |
+| Sandro Mamukelashvili | LAL | 12.2/22 | 5.0/5 | 3.0/4 | 1.0/2 | 0.0/2 | 0.0/0 | MIN,STL |
+| Ousmane Dieng | MIL | 21.0/21 | 7.0/5 | 3.0/4 | 2.0/3 | 0.0/0 | 0.0/0 | all |
+| Kyle Kuzma | MIL | 13.4/27 | 7.0/5 | 3.0/6 | 1.0/3 | 0.0/3 | 0.0/0 | MIN,STL |
 | Allen Graves | TOR | 0.0/19 | 0.0/5 | 0.0/5 | 0.0/0 | 0.0/1 | 0.0/3 | MIN,PTS,REB,STL,BLK |
-| Jaxson Hayes | UTA | 4.3/26 | 0.0/5 | 0.0/5 | 0.0/3 | 0.0/2 | 0.0/6 | MIN,PTS,REB,AST,STL,BLK |
-| Herbert Jones | NOP | 24.8/17 | 9.0/5 | 4.0/2 | 3.0/0 | 1.0/1 | 0.0/0 | MIN |
-| Bogdan Bogdanović | HOU | 0.0/13 | 0.0/5 | 0.0/1 | 0.0/2 | 0.0/0 | 0.0/0 | MIN,PTS,REB,AST |
-| Max Christie | DAL | 34.3/29 | 12.0/5 | 4.0/3 | 2.0/2 | 1.0/0 | 0.0/0 | all |
+| Jaxson Hayes | UTA | 13.9/26 | 5.0/5 | 3.0/5 | 0.0/3 | 0.0/2 | 0.0/6 | MIN,AST,STL,BLK |
+| Herbert Jones | NOP | 13.2/17 | 4.0/5 | 1.0/2 | 1.0/0 | 1.0/1 | 0.0/0 | all |
+| Bogdan Bogdanović | HOU | 8.5/13 | 3.0/5 | 1.0/1 | 1.0/2 | 0.0/0 | 0.0/0 | all |
+| Max Christie | DAL | 20.4/29 | 6.0/5 | 1.0/3 | 1.0/2 | 0.0/0 | 0.0/0 | MIN |
 | Yang Hansen | POR | 0.0/12 | 0.0/5 | 0.0/3 | 0.0/0 | 0.0/0 | 0.0/0 | MIN,PTS,REB |
-| Duop Reath | PHX | 0.0/9 | 0.0/5 | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | MIN,PTS,REB |
-| Nikola Jović | MIA | 18.6/24 | 5.0/4 | 2.0/4 | 1.0/2 | 0.0/0 | 0.0/1 | MIN |
-| Nick Richards | MIA | 4.9/3 | 0.0/4 | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | PTS,REB |
-| Myron Gardner | MIA | 0.0/3 | 0.0/4 | 0.0/2 | 0.0/0 | 0.0/0 | 0.0/0 | MIN,PTS,REB |
-| Egor Dëmin | BKN | 24.5/27 | 11.0/4 | 4.0/4 | 3.0/2 | 1.0/1 | 0.0/0 | all |
-| Ryan Kalkbrenner | CHA | 22.8/14 | 10.0/4 | 7.0/5 | 1.0/3 | 0.0/0 | 1.0/2 | MIN |
-| Leonard Miller | CHI | 36.4/26 | 21.0/4 | 14.0/6 | 1.0/1 | 1.0/1 | 0.0/0 | MIN,PTS,REB |
-| Isaac Okoro | CHI | 30.5/18 | 12.0/4 | 4.0/0 | 2.0/1 | 1.0/0 | 0.0/0 | MIN,REB |
-| Jordan Poole | NOP | 12.0/15 | 0.0/4 | 0.0/2 | 0.0/3 | 0.0/0 | 0.0/0 | REB,AST |
-| Kelly Oubre Jr. | IND | 13.9/28 | 0.0/4 | 0.0/2 | 0.0/3 | 0.0/1 | 0.0/1 | MIN,AST,BLK |
-| Zaccharie Risacher | DAL | 4.8/27 | 0.0/4 | 0.0/6 | 0.0/2 | 0.0/5 | 0.0/0 | MIN,PTS,REB,AST,STL |
-| Micah Potter | POR | 8.9/12 | 0.0/4 | 0.0/3 | 0.0/0 | 0.0/0 | 0.0/0 | PTS,REB |
-| Koa Peat | PHX | 0.0/7 | 0.0/4 | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | MIN,PTS,REB |
+| Duop Reath | PHX | 8.4/9 | 2.0/5 | 1.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | all |
+| Nikola Jović | MIA | 19.2/24 | 7.0/4 | 3.0/4 | 2.0/2 | 0.0/0 | 0.0/1 | all |
+| Nick Richards | MIA | 16.0/3 | 7.0/4 | 7.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | all |
+| Myron Gardner | MIA | 0.0/3 | 0.0/4 | 0.0/2 | 0.0/0 | 0.0/0 | 0.0/0 | MIN,PTS |
+| Egor Dëmin | BKN | 20.9/27 | 8.0/4 | 2.0/4 | 2.0/2 | 0.0/1 | 0.0/0 | MIN |
+| Ryan Kalkbrenner | CHA | 16.5/14 | 6.0/4 | 4.0/5 | 1.0/3 | 0.0/0 | 0.0/2 | AST |
+| Leonard Miller | CHI | 29.5/26 | 12.0/4 | 8.0/6 | 1.0/1 | 1.0/1 | 0.0/0 | all |
+| Isaac Okoro | CHI | 21.8/18 | 7.0/4 | 1.0/0 | 1.0/1 | 0.0/0 | 0.0/0 | all |
+| Jordan Poole | NOP | 13.9/15 | 6.0/4 | 0.0/2 | 1.0/3 | 0.0/0 | 0.0/0 | all |
+| Kelly Oubre Jr. | IND | 20.1/28 | 8.0/4 | 3.0/2 | 0.0/3 | 1.0/1 | 0.0/1 | MIN,AST |
+| Zaccharie Risacher | DAL | 9.6/27 | 4.0/4 | 1.0/6 | 0.0/2 | 0.0/5 | 0.0/0 | MIN,REB,STL |
+| Micah Potter | POR | 21.2/12 | 7.0/4 | 4.0/3 | 1.0/0 | 0.0/0 | 0.0/0 | MIN |
+| Koa Peat | PHX | 0.0/7 | 0.0/4 | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | MIN,PTS |
 | Baba Miller | LAC | 0.0/9 | 0.0/4 | 0.0/3 | 0.0/1 | 0.0/0 | 0.0/0 | MIN,PTS,REB,AST |
-| Daeqwon Plowden | SAC | 31.0/13 | 16.0/4 | 5.0/2 | 1.0/1 | 0.0/1 | 0.0/0 | MIN |
-| Tim Hardaway Jr. | MIA | 9.4/18 | 0.0/3 | 0.0/4 | 0.0/1 | 0.0/1 | 0.0/0 | MIN,REB,AST,STL |
-| Bones Hyland | MIN | 7.4/4 | 0.0/3 | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | PTS,REB |
-| Jaden Hardy | LAL | 11.6/7 | 0.0/3 | 0.0/2 | 0.0/0 | 0.0/0 | 0.0/0 | all |
-| Matisse Thybulle | LAL | 5.5/23 | 0.0/3 | 0.0/3 | 0.0/1 | 0.0/1 | 0.0/1 | MIN,PTS,REB,AST,STL,BLK |
-| Nolan Traore | BKN | 18.2/16 | 3.0/3 | 0.0/2 | 1.0/0 | 0.0/0 | 0.0/0 | all |
-| Sion James | CHA | 23.0/27 | 7.0/3 | 4.0/3 | 2.0/0 | 0.0/1 | 0.0/0 | all |
-| Jakob Poeltl | TOR | 22.1/22 | 6.0/3 | 4.0/6 | 1.0/0 | 0.0/1 | 0.0/1 | all |
+| Daeqwon Plowden | SAC | 23.9/13 | 10.0/4 | 2.0/2 | 1.0/1 | 0.0/1 | 0.0/0 | MIN |
+| Tim Hardaway Jr. | MIA | 18.5/18 | 7.0/3 | 1.0/4 | 1.0/1 | 0.0/1 | 0.0/0 | REB |
+| Bones Hyland | MIN | 0.0/4 | 0.0/3 | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | MIN,PTS,REB |
+| Jaden Hardy | LAL | 17.7/7 | 7.0/3 | 1.0/2 | 1.0/0 | 0.0/0 | 0.0/0 | all |
+| Matisse Thybulle | LAL | 12.5/23 | 3.0/3 | 1.0/3 | 1.0/1 | 1.0/1 | 0.0/1 | MIN |
+| Nolan Traore | BKN | 17.9/16 | 7.0/3 | 1.0/2 | 3.0/0 | 0.0/0 | 0.0/0 | all |
+| Sion James | CHA | 16.6/27 | 4.0/3 | 2.0/3 | 2.0/0 | 0.0/1 | 0.0/0 | MIN |
+| Jakob Poeltl | TOR | 16.5/22 | 10.0/3 | 7.0/6 | 2.0/0 | 1.0/1 | 0.0/1 | MIN |
 | Alijah Martin | TOR | 0.0/5 | 0.0/3 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | MIN,PTS |
-| Jaylin Sellers | CHI | 0.0/14 | 0.0/3 | 0.0/1 | 0.0/2 | 0.0/0 | 0.0/0 | MIN,PTS,REB,AST |
-| Cam Spencer | MEM | 0.0/16 | 0.0/3 | 0.0/3 | 0.0/2 | 0.0/1 | 0.0/0 | MIN,PTS,REB,AST,STL |
-| Kyle Filipowski | UTA | 27.4/9 | 9.0/3 | 8.0/0 | 2.0/0 | 1.0/1 | 0.0/0 | MIN |
-| Jarace Walker | IND | 26.2/19 | 12.0/3 | 6.0/6 | 4.0/2 | 1.0/0 | 0.0/1 | MIN |
-| Ben Sheppard | IND | 14.4/12 | 0.0/3 | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | all |
-| Reed Sheppard | HOU | 23.4/16 | 5.0/3 | 1.0/2 | 1.0/4 | 0.0/2 | 0.0/0 | MIN |
+| Jaylin Sellers | CHI | 0.0/14 | 0.0/3 | 0.0/1 | 0.0/2 | 0.0/0 | 0.0/0 | MIN,PTS,AST |
+| Cam Spencer | MEM | 17.1/16 | 6.0/3 | 1.0/3 | 3.0/2 | 0.0/1 | 0.0/0 | all |
+| Kyle Filipowski | UTA | 21.5/9 | 8.0/3 | 6.0/0 | 2.0/0 | 0.0/1 | 0.0/0 | MIN |
+| Jarace Walker | IND | 17.2/19 | 6.0/3 | 3.0/6 | 2.0/2 | 0.0/0 | 0.0/1 | all |
+| Ben Sheppard | IND | 13.9/12 | 3.0/3 | 1.0/1 | 1.0/0 | 0.0/0 | 0.0/0 | all |
+| Reed Sheppard | HOU | 22.1/16 | 9.0/3 | 1.0/2 | 3.0/4 | 1.0/2 | 0.0/0 | MIN |
 | Isaiah Crawford | HOU | 0.0/3 | 0.0/3 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | MIN,PTS |
-| Moussa Cissé | DAL | 22.2/2 | 2.0/3 | 4.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | MIN |
-| Sidy Cissoko | POR | 8.4/25 | 0.0/3 | 0.0/4 | 0.0/3 | 0.0/0 | 0.0/0 | MIN,PTS,REB,AST |
-| Ryan Dunn | PHX | 24.6/14 | 7.0/3 | 6.0/2 | 1.0/0 | 1.0/0 | 0.0/0 | MIN |
-| Jordan Goodwin | PHX | 12.0/22 | 0.0/3 | 0.0/4 | 0.0/0 | 0.0/2 | 0.0/0 | MIN,STL |
+| Moussa Cissé | DAL | 23.5/2 | 6.0/3 | 8.0/0 | 0.0/0 | 0.0/0 | 1.0/0 | MIN,REB |
+| Sidy Cissoko | POR | 0.0/25 | 0.0/3 | 0.0/4 | 0.0/3 | 0.0/0 | 0.0/0 | MIN,PTS,REB,AST |
+| Ryan Dunn | PHX | 16.7/14 | 5.0/3 | 3.0/2 | 1.0/0 | 0.0/0 | 0.0/0 | all |
+| Jordan Goodwin | PHX | 13.9/22 | 3.0/3 | 3.0/4 | 1.0/0 | 1.0/2 | 0.0/0 | MIN |
+| Pat Spencer | PHX | 10.8/7 | 3.0/3 | 1.0/3 | 1.0/1 | 0.0/1 | 0.0/1 | all |
 | Jamaree Bouyea | PHX | 0.0/7 | 0.0/3 | 0.0/2 | 0.0/2 | 0.0/0 | 0.0/0 | MIN,PTS,REB,AST |
-| Pat Spencer | PHX | 0.0/7 | 0.0/3 | 0.0/3 | 0.0/1 | 0.0/1 | 0.0/1 | MIN,PTS,REB,AST,STL,BLK |
-| Jalen Pickett | LAC | 2.7/2 | 0.0/3 | 0.0/0 | 0.0/0 | 0.0/1 | 0.0/0 | PTS,STL |
-| Pelle Larsson | MIA | 29.7/24 | 15.0/2 | 5.0/3 | 4.0/4 | 1.0/1 | 0.0/1 | PTS |
-| Chris Mañon | LAL | 11.7/6 | 0.0/2 | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | MIN |
+| Jalen Pickett | LAC | 0.0/2 | 0.0/3 | 0.0/0 | 0.0/0 | 0.0/1 | 0.0/0 | PTS,STL |
+| Pelle Larsson | MIA | 23.2/24 | 7.0/2 | 2.0/3 | 2.0/4 | 0.0/1 | 0.0/1 | all |
 | Bronny James | LAL | 0.0/7 | 0.0/2 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | MIN,PTS |
-| Draymond Green | GSW | 37.7/21 | 17.0/2 | 11.0/4 | 10.0/8 | 2.0/1 | 1.0/1 | MIN,PTS,REB |
+| Chris Mañon | LAL | 0.0/6 | 0.0/2 | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | MIN,PTS |
+| Draymond Green | GSW | 21.3/21 | 6.0/2 | 4.0/4 | 4.0/8 | 1.0/1 | 0.0/1 | all |
 | Jase Richardson | ORL | 0.0/14 | 0.0/2 | 0.0/2 | 0.0/3 | 0.0/1 | 0.0/2 | MIN,PTS,REB,AST,STL,BLK |
-| Khris Middleton | WAS | 23.1/12 | 11.0/2 | 4.0/2 | 2.0/0 | 0.0/0 | 0.0/0 | MIN |
-| Jamal Shead | TOR | 31.0/16 | 9.0/2 | 3.0/2 | 7.0/5 | 1.0/1 | 0.0/0 | MIN |
-| Josh Giddey | CHI | 29.3/24 | 21.0/2 | 10.0/7 | 8.0/6 | 1.0/0 | 0.0/0 | PTS |
+| Khris Middleton | WAS | 13.4/12 | 6.0/2 | 2.0/2 | 2.0/0 | 0.0/0 | 0.0/0 | all |
+| Jamal Shead | TOR | 24.9/16 | 7.0/2 | 1.0/2 | 6.0/5 | 1.0/1 | 0.0/0 | MIN |
+| Josh Giddey | CHI | 26.5/24 | 14.0/2 | 7.0/7 | 7.0/6 | 1.0/0 | 0.0/0 | PTS |
 | Tobe Awaka | CHI | 0.0/14 | 0.0/2 | 0.0/7 | 0.0/2 | 0.0/1 | 0.0/1 | MIN,PTS,REB,AST,STL,BLK |
-| Brice Sensabaugh | UTA | 28.2/14 | 11.0/2 | 4.0/2 | 2.0/1 | 0.0/0 | 0.0/0 | MIN |
-| Tari Eason | HOU | 27.7/3 | 10.0/2 | 6.0/1 | 1.0/0 | 1.0/1 | 0.0/0 | MIN |
-| Daniel Gafford | DAL | 27.5/22 | 11.0/2 | 7.0/3 | 1.0/1 | 0.0/1 | 1.0/2 | all |
-| Robert Williams III | POR | 16.2/15 | 0.0/2 | 1.0/10 | 0.0/1 | 0.0/0 | 0.0/1 | all |
-| Khaman Maluach | PHX | 6.5/17 | 0.0/2 | 0.0/6 | 0.0/1 | 0.0/0 | 0.0/1 | MIN,PTS,REB,AST,BLK |
-| Kobe Sanders | LAC | 24.7/19 | 6.0/2 | 2.0/0 | 1.0/3 | 0.0/3 | 0.0/0 | STL |
-| Keegan Murray | SAC | 27.7/28 | 11.0/2 | 6.0/4 | 1.0/0 | 0.0/1 | 0.0/0 | all |
-| Trey Lyles | MIN | 10.3/12 | 0.0/1 | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | all |
-| Jaylen Clark | MIN | 7.1/3 | 0.0/1 | 0.0/1 | 0.0/1 | 0.0/0 | 0.0/0 | PTS,REB,AST |
-| Noa Essengue | CHI | 1.7/10 | 0.0/1 | 0.0/3 | 0.0/0 | 0.0/0 | 0.0/0 | MIN,PTS,REB |
-| Vít Krejčí | POR | 5.5/15 | 0.0/1 | 0.0/2 | 0.0/3 | 0.0/2 | 0.0/0 | MIN,PTS,REB,AST,STL |
-| Rasheer Fleming | PHX | 4.6/12 | 0.0/1 | 0.0/2 | 0.0/0 | 0.0/1 | 0.0/1 | MIN,PTS,REB,STL,BLK |
-| Alex Karaban | SAC | 0.0/5 | 0.0/1 | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | MIN,PTS,REB |
-| Simone Fontecchio | MIA | 19.6/3 | 5.0/0 | 2.0/0 | 0.0/0 | 0.0/0 | 0.0/1 | MIN |
+| Brice Sensabaugh | UTA | 20.2/14 | 8.0/2 | 2.0/2 | 1.0/1 | 0.0/0 | 0.0/0 | all |
+| Tari Eason | HOU | 22.3/3 | 8.0/2 | 4.0/1 | 1.0/0 | 1.0/1 | 0.0/0 | MIN |
+| Daniel Gafford | DAL | 18.2/22 | 8.0/2 | 5.0/3 | 1.0/1 | 0.0/1 | 0.0/2 | all |
+| Robert Williams III | POR | 16.8/15 | 6.0/2 | 6.0/10 | 1.0/1 | 0.0/0 | 1.0/1 | all |
+| Khaman Maluach | PHX | 0.0/17 | 0.0/2 | 0.0/6 | 0.0/1 | 0.0/0 | 0.0/1 | MIN,PTS,REB,AST,BLK |
+| Kobe Sanders | LAC | 12.5/19 | 5.0/2 | 1.0/0 | 1.0/3 | 0.0/3 | 0.0/0 | STL |
+| Keegan Murray | SAC | 20.4/28 | 9.0/2 | 3.0/4 | 1.0/0 | 0.0/1 | 0.0/0 | MIN |
+| Trey Lyles | MIN | 20.8/12 | 6.0/1 | 4.0/1 | 1.0/0 | 0.0/0 | 0.0/0 | MIN |
+| Jaylen Clark | MIN | 0.0/3 | 0.0/1 | 0.0/1 | 0.0/1 | 0.0/0 | 0.0/0 | MIN,PTS,REB,AST |
+| Noa Essengue | CHI | 0.0/10 | 0.0/1 | 0.0/3 | 0.0/0 | 0.0/0 | 0.0/0 | MIN,PTS,REB |
+| Vít Krejčí | POR | 0.0/15 | 0.0/1 | 0.0/2 | 0.0/3 | 0.0/2 | 0.0/0 | MIN,PTS,REB,AST,STL |
+| Rasheer Fleming | PHX | 0.0/12 | 0.0/1 | 0.0/2 | 0.0/0 | 0.0/1 | 0.0/1 | MIN,PTS,REB,STL,BLK |
+| Alex Karaban | SAC | 0.0/5 | 0.0/1 | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | MIN,PTS |
+| Simone Fontecchio | MIA | 9.3/3 | 2.0/0 | 1.0/0 | 0.0/0 | 0.0/0 | 0.0/1 | all |
 | Ryan Conwell | MIA | 0.0/3 | 0.0/0 | 0.0/0 | 0.0/2 | 0.0/0 | 0.0/0 | MIN,AST |
-| Cody Williams | MIN | 36.6/3 | 13.0/0 | 6.0/0 | 2.0/0 | 1.0/0 | 0.0/0 | MIN,PTS,REB |
-| Isaiah Evans | MIN | 0.0/2 | 0.0/0 | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | MIN,REB |
+| Cody Williams | MIN | 29.8/3 | 6.0/0 | 2.0/0 | 1.0/0 | 0.0/0 | 0.0/0 | MIN |
+| Isaiah Evans | MIN | 0.0/2 | 0.0/0 | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | all |
 | Joan Beringer | MIN | 0.0/14 | 0.0/0 | 0.0/6 | 0.0/1 | 0.0/0 | 0.0/0 | MIN,REB,AST |
-| Al Horford | GSW | 29.3/17 | 13.0/0 | 9.0/4 | 3.0/2 | 1.0/1 | 1.0/0 | MIN,PTS |
-| De'Anthony Melton | GSW | 26.1/21 | 15.0/0 | 5.0/2 | 3.0/2 | 2.0/1 | 0.0/0 | PTS |
-| Malevy Leons | GSW | 16.2/9 | 0.0/0 | 0.0/1 | 0.0/0 | 0.0/1 | 0.0/0 | MIN |
-| Jamal Cain | ORL | 16.5/14 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | all |
-| Nikola Vučević | ORL | 6.9/5 | 0.0/0 | 0.0/1 | 0.0/1 | 0.0/0 | 0.0/0 | REB,AST |
+| De'Anthony Melton | GSW | 16.2/21 | 6.0/0 | 2.0/2 | 1.0/2 | 1.0/1 | 0.0/0 | all |
+| Al Horford | GSW | 14.9/17 | 3.0/0 | 3.0/4 | 1.0/2 | 0.0/1 | 0.0/0 | all |
+| Malevy Leons | GSW | 11.1/9 | 2.0/0 | 2.0/1 | 0.0/0 | 0.0/1 | 0.0/0 | all |
+| Jamal Cain | ORL | 18.7/14 | 7.0/0 | 3.0/0 | 1.0/0 | 0.0/0 | 0.0/0 | all |
+| Nikola Vučević | ORL | 14.1/5 | 7.0/0 | 5.0/1 | 1.0/1 | 0.0/0 | 0.0/0 | all |
 | Kingston Flemings | ATL | 0.0/15 | 0.0/0 | 0.0/4 | 0.0/3 | 0.0/0 | 0.0/1 | MIN,REB,AST,BLK |
-| Jericho Sims | MIL | 24.3/2 | 6.0/0 | 8.0/0 | 1.0/0 | 0.0/0 | 0.0/0 | MIN |
-| Chaney Johnson | BKN | 14.7/5 | 0.0/0 | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | MIN |
-| Liam McNeeley | CHA | 3.0/3 | 0.0/0 | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | REB |
+| Jericho Sims | MIL | 18.9/2 | 4.0/0 | 6.0/0 | 1.0/0 | 0.0/0 | 0.0/0 | MIN,REB |
+| Chaney Johnson | BKN | 18.9/5 | 7.0/0 | 5.0/1 | 1.0/0 | 0.0/0 | 0.0/0 | all |
 | Christian Anderson | CHA | 0.0/13 | 0.0/0 | 0.0/2 | 0.0/2 | 0.0/2 | 0.0/0 | MIN,REB,AST,STL |
-| Kyle Anderson | TOR | 1.7/5 | 0.0/0 | 0.0/1 | 0.0/2 | 0.0/1 | 0.0/0 | MIN,REB,AST,STL |
+| Liam McNeeley | CHA | 0.0/3 | 0.0/0 | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | MIN |
+| Kyle Anderson | TOR | 4.9/5 | 0.0/0 | 0.0/1 | 0.0/2 | 0.0/1 | 0.0/0 | all |
 | Jaden Bradley | TOR | 0.0/5 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | MIN |
-| Zach Collins | CHI | 16.4/9 | 0.0/0 | 0.0/5 | 0.0/0 | 0.0/0 | 0.0/0 | MIN |
-| Buddy Hield | CHI | 2.7/14 | 0.0/0 | 0.0/2 | 0.0/2 | 0.0/0 | 0.0/0 | MIN,REB,AST |
-| Josh Okogie | UTA | 3.8/8 | 0.0/0 | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | REB |
+| Zach Collins | CHI | 17.1/9 | 8.0/0 | 5.0/5 | 1.0/0 | 0.0/0 | 0.0/0 | all |
+| Buddy Hield | CHI | 0.0/14 | 0.0/0 | 0.0/2 | 0.0/2 | 0.0/0 | 0.0/0 | MIN,REB,AST |
+| Josh Okogie | UTA | 12.5/8 | 3.0/0 | 1.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | all |
 | Larry Nance Jr. | IND | 0.0/5 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | MIN |
-| Jae'Sean Tate | HOU | 3.5/2 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | all |
 | Bruce Thornton | HOU | 0.0/2 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | MIN |
 | Clint Capela | HOU | 0.0/8 | 0.0/0 | 0.0/3 | 0.0/0 | 0.0/0 | 0.0/0 | MIN,REB |
+| Jae'Sean Tate | HOU | 0.0/2 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | all |
 | Sergio de Larrea | DAL | 0.0/7 | 0.0/0 | 0.0/2 | 0.0/1 | 0.0/0 | 0.0/0 | MIN,REB,AST |
-| Jayson Kent | POR | 0.0/7 | 0.0/0 | 0.0/1 | 0.0/0 | 0.0/1 | 0.0/0 | MIN,REB,STL |
-| Collin Gillespie | PHX | 22.7/21 | 7.0/0 | 3.0/1 | 3.0/2 | 1.0/4 | 0.0/0 | STL |
-| Cam Christie | LAC | 3.5/2 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | all |
-| Nick Martinelli | LAC | 0.0/2 | 0.0/0 | 0.0/1 | 0.0/1 | 0.0/0 | 0.0/0 | MIN,REB,AST |
+| Jayson Kent | POR | 0.0/7 | 0.0/0 | 0.0/1 | 0.0/0 | 0.0/1 | 0.0/0 | MIN,STL |
+| Collin Gillespie | PHX | 21.0/21 | 6.0/0 | 2.0/1 | 3.0/2 | 1.0/4 | 0.0/0 | STL |
+| Cam Christie | LAC | 0.0/2 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | all |
+| Nick Martinelli | LAC | 0.0/2 | 0.0/0 | 0.0/1 | 0.0/1 | 0.0/0 | 0.0/0 | AST |
 | Jonathan Mogbo | SAC | 0.0/8 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | MIN |
 
 ## 2026-10-22
@@ -411,22 +425,22 @@ Graded from `prediction_history` after finals. No sportsbook lines or odds.
 | --- | ---: |
 | Games graded | 2 |
 | Winner accuracy | 50.0% |
-| Spread MAE | 8.00 |
-| Total MAE | 26.50 |
-| MIN MAE | 7.28 |
-| PTS MAE | 5.09 |
-| REB MAE | 2.58 |
-| AST MAE | 1.47 |
-| 10–90 coverage | 81.9% |
-| Top picks hit rate | 50.0% (10/20) |
-| Top picks avg claimed confidence | 63.2% |
+| Spread MAE | 9.50 |
+| Total MAE | 25.50 |
+| MIN MAE | 7.40 |
+| PTS MAE | 4.07 |
+| REB MAE | 2.56 |
+| AST MAE | 1.22 |
+| 10–90 coverage | 85.6% |
+| Top picks hit rate | 60.9% (14/23) |
+| Top picks avg claimed confidence | 61.4% |
 
 ### Games
 
 | Matchup | Pred winner | Actual | Hit | Pred score | Actual score | Pred margin | Act margin | Pred total | Act total |
 | --- | --- | --- | --- | --- | --- | ---: | ---: | ---: | ---: |
-| CLE@PHI | CLE (58%) | PHI | N | CLE 115 – PHI 111 | CLE 106 – PHI 114 | -5.0 | +8.0 | 225.0 | 220.0 |
-| DEN@OKC | OKC (63%) | OKC | Y | DEN 110 – OKC 118 | DEN 84 – OKC 96 | +9.0 | +12.0 | 228.0 | 180.0 |
+| CLE@PHI | CLE (63%) | PHI | N | CLE 123 – PHI 115 | CLE 106 – PHI 114 | -8.0 | +8.0 | 238.0 | 220.0 |
+| DEN@OKC | OKC (65%) | OKC | Y | DEN 102 – OKC 110 | DEN 84 – OKC 96 | +9.0 | +12.0 | 213.0 | 180.0 |
 
 ### Top confident picks
 
@@ -444,64 +458,67 @@ Graded from `prediction_history` after finals. No sportsbook lines or odds.
 | player:1630596 | CLE vs PHI | BLK | 1-3 | 0 | N |
 | player:1628378 | CLE vs PHI | REB | 3-7 | 10 | N |
 | player:201935 | CLE vs PHI | REB | 3-7 | 3 | Y |
-| player:1630596 | CLE vs PHI | AST | 2-6 | 2 | Y |
 | player:1631096 | OKC vs DEN | BLK | 1-3 | 4 | N |
 | player:203954 | PHI vs CLE | AST | 2-6 | 1 | N |
-| player:202331 | PHI vs CLE | STL | 1-3 | — | N |
-| player:1628378 | CLE vs PHI | AST | 4-8 | 3 | N |
-| player:1628983 | OKC vs DEN | AST | 3-7 | 3 | Y |
-| player:1627750 | DEN vs OKC | AST | 4-8 | 3 | N |
 | player:203932 | DEN vs OKC | REB | 4-8 | 6 | Y |
+| player:1630596 | CLE vs PHI | AST | 2-6 | 2 | Y |
+| player:202331 | PHI vs CLE | STL | 1-3 | — | N |
+| player:1628378 | CLE vs PHI | AST | 3-7 | 3 | Y |
+| player:1628983 | OKC vs DEN | AST | 3-7 | 3 | Y |
+| player:1627750 | DEN vs OKC | AST | 3-7 | 3 | Y |
+| player:1630178 | PHI vs CLE | AST | 3-7 | 6 | Y |
+| player:203999 | DEN vs OKC | AST | 5-9 | 5 | Y |
+| player:1631096 | OKC vs DEN | REB | 5-9 | 17 | N |
 
 ### Player grades (MIN / PTS / REB / AST / STL / BLK)
 
 | Player | Team | MIN pred/act | PTS | REB | AST | STL | BLK | in 10–90 (any miss listed) |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Tyrese Maxey | PHI | 38.3/42 | 19.0/32 | 2.0/3 | 6.0/6 | 1.0/2 | 1.0/0 | all |
-| Donovan Mitchell | CLE | 35.0/35 | 20.0/32 | 4.0/10 | 6.0/3 | 1.0/2 | 0.0/1 | REB |
-| Joel Embiid | PHI | 31.1/34 | 16.0/24 | 8.0/7 | 4.0/1 | 1.0/0 | 1.0/0 | all |
+| Tyrese Maxey | PHI | 32.9/42 | 18.0/32 | 2.0/3 | 5.0/6 | 1.0/2 | 0.0/0 | MIN |
+| Donovan Mitchell | CLE | 37.1/35 | 21.0/32 | 3.0/10 | 5.0/3 | 1.0/2 | 0.0/1 | REB |
+| Joel Embiid | PHI | 27.3/34 | 18.0/24 | 7.0/7 | 3.0/1 | 0.0/0 | 1.0/0 | MIN |
 | Jaylen Brown | PHI | 19.5/38 | 3.0/21 | 2.0/8 | 1.0/4 | 0.0/1 | 0.0/0 | all |
-| Jalen Williams | OKC | 21.6/33 | 8.0/21 | 4.0/5 | 3.0/3 | 1.0/0 | 0.0/0 | MIN |
-| Aaron Gordon | DEN | 27.8/29 | 12.0/20 | 6.0/6 | 3.0/1 | 0.0/2 | 0.0/1 | all |
-| Evan Mobley | CLE | 34.8/34 | 16.0/18 | 10.0/8 | 4.0/2 | 1.0/0 | 1.0/0 | all |
+| Jalen Williams | OKC | 20.3/33 | 10.0/21 | 3.0/5 | 3.0/3 | 1.0/0 | 0.0/0 | MIN |
+| Aaron Gordon | DEN | 25.4/29 | 11.0/20 | 5.0/6 | 2.0/1 | 0.0/2 | 0.0/1 | all |
+| Evan Mobley | CLE | 37.2/34 | 15.0/18 | 10.0/8 | 4.0/2 | 1.0/0 | 1.0/0 | all |
 | LeBron James | PHI | 27.4/33 | 5.0/17 | 4.0/10 | 2.0/5 | 0.0/3 | 0.0/1 | all |
-| Shai Gilgeous-Alexander | OKC | 35.8/35 | 13.0/17 | 2.0/2 | 5.0/3 | 1.0/0 | 1.0/1 | all |
-| James Harden | CLE | 35.6/33 | 18.0/16 | 4.0/3 | 7.0/5 | 1.0/1 | 0.0/0 | all |
-| Jarrett Allen | CLE | 29.4/28 | 14.0/14 | 11.0/7 | 2.0/0 | 1.0/0 | 1.0/2 | all |
-| Nikola Jokić | DEN | 38.3/35 | 18.0/13 | 13.0/7 | 9.0/5 | 1.0/1 | 0.0/1 | all |
-| DeMar DeRozan | DEN | 21.4/28 | 11.0/13 | 2.0/2 | 2.0/0 | 0.0/0 | 0.0/0 | MIN |
-| Chet Holmgren | OKC | 29.2/28 | 11.0/12 | 7.0/17 | 2.0/2 | 0.0/1 | 2.0/4 | REB |
-| Ajay Mitchell | OKC | 23.7/23 | 4.0/12 | 2.0/0 | 3.0/0 | 0.0/5 | 0.0/1 | STL,BLK |
-| VJ Edgecombe | PHI | 34.6/33 | 7.0/11 | 2.0/7 | 3.0/6 | 1.0/3 | 0.0/0 | REB,AST,STL |
+| Shai Gilgeous-Alexander | OKC | 32.6/35 | 17.0/17 | 2.0/2 | 5.0/3 | 1.0/0 | 0.0/1 | all |
+| James Harden | CLE | 37.5/33 | 18.0/16 | 4.0/3 | 6.0/5 | 1.0/1 | 0.0/0 | MIN |
+| Jarrett Allen | CLE | 31.6/28 | 14.0/14 | 10.0/7 | 2.0/0 | 1.0/0 | 1.0/2 | all |
+| Nikola Jokić | DEN | 34.2/35 | 17.0/13 | 10.0/7 | 7.0/5 | 1.0/1 | 0.0/1 | all |
+| DeMar DeRozan | DEN | 20.3/28 | 11.0/13 | 2.0/2 | 2.0/0 | 0.0/0 | 0.0/0 | MIN |
+| Chet Holmgren | OKC | 26.9/28 | 12.0/12 | 7.0/17 | 1.0/2 | 0.0/1 | 1.0/4 | REB,BLK |
+| Ajay Mitchell | OKC | 22.3/23 | 8.0/12 | 1.0/0 | 2.0/0 | 1.0/5 | 0.0/1 | STL |
+| VJ Edgecombe | PHI | 29.9/33 | 10.0/11 | 3.0/7 | 3.0/6 | 1.0/3 | 0.0/0 | all |
 | Mario Hezonja | CLE | 0.0/19 | 0.0/10 | 0.0/3 | 0.0/2 | 0.0/2 | 0.0/1 | MIN,PTS,REB,AST,STL,BLK |
-| Cason Wallace | OKC | 24.8/24 | 3.0/9 | 1.0/1 | 3.0/1 | 1.0/4 | 0.0/0 | STL |
-| Peyton Watson | CLE | 17.8/30 | 7.0/8 | 3.0/1 | 1.0/2 | 0.0/2 | 1.0/1 | MIN |
-| Alex Caruso | OKC | 26.4/20 | 6.0/7 | 4.0/4 | 2.0/5 | 1.0/1 | 0.0/1 | MIN |
-| Christian Braun | DEN | 29.2/33 | 8.0/7 | 4.0/6 | 2.0/1 | 0.0/1 | 0.0/0 | all |
-| Isaiah Hartenstein | OKC | 21.5/23 | 9.0/6 | 9.0/6 | 5.0/2 | 2.0/0 | 1.0/1 | all |
-| Jamal Murray | DEN | 38.8/37 | 18.0/6 | 4.0/10 | 6.0/3 | 1.0/1 | 0.0/0 | REB |
-| Sam Merrill | CLE | 20.1/24 | 8.0/5 | 1.0/5 | 2.0/2 | 0.0/1 | 0.0/0 | REB |
-| Cameron Johnson | DEN | 32.9/11 | 13.0/5 | 4.0/2 | 2.0/1 | 1.0/0 | 0.0/0 | MIN |
-| Ryan Nembhard | DEN | 30.6/2 | 7.0/5 | 2.0/1 | 5.0/1 | 0.0/0 | 0.0/0 | MIN |
-| Jared McCain | OKC | 23.9/18 | 11.0/4 | 1.0/0 | 1.0/1 | 1.0/0 | 0.0/0 | all |
+| Cason Wallace | OKC | 23.2/24 | 5.0/9 | 2.0/1 | 2.0/1 | 1.0/4 | 0.0/0 | all |
+| Peyton Watson | CLE | 20.0/30 | 7.0/8 | 2.0/1 | 1.0/2 | 0.0/2 | 0.0/1 | MIN |
+| Alex Caruso | OKC | 24.9/20 | 7.0/7 | 2.0/4 | 2.0/5 | 1.0/1 | 0.0/1 | all |
+| Christian Braun | DEN | 26.5/33 | 7.0/7 | 3.0/6 | 2.0/1 | 0.0/1 | 0.0/0 | all |
+| Isaiah Hartenstein | OKC | 20.1/23 | 8.0/6 | 9.0/6 | 3.0/2 | 1.0/0 | 0.0/1 | all |
+| Jamal Murray | DEN | 34.4/37 | 15.0/6 | 3.0/10 | 5.0/3 | 1.0/1 | 0.0/0 | REB |
+| Sam Merrill | CLE | 22.3/24 | 8.0/5 | 1.0/5 | 2.0/2 | 0.0/1 | 0.0/0 | REB |
+| Cameron Johnson | DEN | 29.7/11 | 11.0/5 | 3.0/2 | 2.0/1 | 1.0/0 | 0.0/0 | MIN |
+| Ryan Nembhard | DEN | 27.8/2 | 7.0/5 | 2.0/1 | 4.0/1 | 0.0/0 | 0.0/0 | MIN |
+| Jared McCain | OKC | 22.5/18 | 9.0/4 | 1.0/0 | 1.0/1 | 0.0/0 | 0.0/0 | all |
 | Alpha Diallo | DEN | 0.0/22 | 0.0/4 | 0.0/2 | 0.0/3 | 0.0/1 | 0.0/0 | MIN,PTS,REB,AST,STL |
 | Trevon Brazile | DEN | 0.0/18 | 0.0/4 | 0.0/12 | 0.0/0 | 0.0/0 | 0.0/0 | MIN,PTS,REB |
 | Kentavious Caldwell-Pope | PHI | 0.0/25 | 0.0/3 | 0.0/3 | 0.0/2 | 0.0/1 | 0.0/0 | all |
-| Jaylon Tyson | CLE | 9.9/24 | 4.0/3 | 2.0/6 | 1.0/2 | 0.0/1 | 0.0/2 | MIN,BLK |
-| Jaylin Williams | OKC | 20.0/15 | 33.0/3 | 9.0/7 | 1.0/3 | 0.0/0 | 0.0/0 | PTS |
-| Kenrich Williams | OKC | 6.0/6 | 0.0/3 | 0.0/1 | 0.0/1 | 0.0/0 | 0.0/0 | all |
-| DaRon Holmes II | DEN | 0.0/2 | 0.0/3 | 0.0/1 | 0.0/1 | 0.0/0 | 0.0/0 | MIN,PTS,REB,AST |
+| Jaylon Tyson | CLE | 12.1/24 | 5.0/3 | 2.0/6 | 1.0/2 | 0.0/1 | 0.0/2 | MIN,BLK |
+| Jaylin Williams | OKC | 19.1/15 | 12.0/3 | 5.0/7 | 2.0/3 | 0.0/0 | 0.0/0 | all |
+| Kenrich Williams | OKC | 6.9/6 | 0.0/3 | 1.0/1 | 0.0/1 | 0.0/0 | 0.0/0 | all |
+| DaRon Holmes II | DEN | 0.0/2 | 0.0/3 | 0.0/1 | 0.0/1 | 0.0/0 | 0.0/0 | PTS,AST |
 | Anfernee Simons | PHI | 0.0/17 | 0.0/2 | 0.0/3 | 0.0/0 | 0.0/0 | 0.0/0 | all |
-| Adem Bona | PHI | 20.9/14 | 3.0/2 | 4.0/2 | 1.0/0 | 0.0/0 | 1.0/1 | all |
-| Jabari Walker | PHI | 0.0/4 | 0.0/2 | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | MIN,PTS,REB |
-| Aday Mara | OKC | 9.4/13 | 0.0/2 | 0.0/3 | 0.0/0 | 0.0/1 | 0.0/1 | REB,STL |
-| Marvin Bagley III | DEN | 17.8/11 | 8.0/2 | 6.0/3 | 1.0/1 | 0.0/0 | 0.0/0 | all |
+| Adem Bona | PHI | 19.1/14 | 6.0/2 | 5.0/2 | 0.0/0 | 0.0/0 | 1.0/1 | all |
+| Jabari Walker | PHI | 0.0/4 | 0.0/2 | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | MIN,PTS |
+| Aday Mara | OKC | 9.5/13 | 2.0/2 | 0.0/3 | 0.0/0 | 0.0/1 | 0.0/1 | REB,STL |
+| Marvin Bagley III | DEN | 17.2/11 | 8.0/2 | 5.0/3 | 0.0/1 | 0.0/0 | 0.0/0 | all |
 | Tyus Jones | DEN | 0.0/10 | 0.0/2 | 0.0/0 | 0.0/0 | 0.0/1 | 0.0/0 | MIN,PTS,STL |
-| Tyrese Proctor | CLE | 0.0/5 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | all |
-| Craig Porter Jr. | CLE | 0.0/8 | 0.0/0 | 0.0/3 | 0.0/0 | 0.0/1 | 0.0/0 | MIN |
-| Brooks Barnhizer | OKC | 9.4/2 | 0.0/0 | 0.0/0 | 0.0/1 | 0.0/0 | 0.0/0 | all |
-| Bennett Stirtz | OKC | 0.0/2 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | MIN |
-| Bryce Hopkins | DEN | 0.0/2 | 0.0/0 | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | MIN,REB |
+| Tyrese Proctor | CLE | 1.1/5 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | all |
+| Craig Porter Jr. | CLE | 2.6/8 | 0.0/0 | 0.0/3 | 0.0/0 | 0.0/1 | 0.0/0 | all |
+| Brooks Barnhizer | OKC | 9.6/2 | 0.0/0 | 1.0/0 | 0.0/1 | 0.0/0 | 0.0/0 | all |
+| Bennett Stirtz | OKC | 0.0/2 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | all |
+| Bryce Hopkins | DEN | 0.0/2 | 0.0/0 | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | all |
 
 ## 2026-10-23
 
@@ -509,32 +526,32 @@ Graded from `prediction_history` after finals. No sportsbook lines or odds.
 | --- | ---: |
 | Games graded | 12 |
 | Winner accuracy | 58.3% |
-| Spread MAE | 12.71 |
-| Total MAE | 15.42 |
-| MIN MAE | 7.44 |
-| PTS MAE | 5.13 |
-| REB MAE | 2.20 |
-| AST MAE | 1.24 |
-| 10–90 coverage | 77.6% |
-| Top picks hit rate | 70.4% (19/27) |
-| Top picks avg claimed confidence | 56.8% |
+| Spread MAE | 12.29 |
+| Total MAE | 13.58 |
+| MIN MAE | 7.50 |
+| PTS MAE | 5.23 |
+| REB MAE | 2.19 |
+| AST MAE | 1.29 |
+| 10–90 coverage | 77.8% |
+| Top picks hit rate | 67.7% (21/31) |
+| Top picks avg claimed confidence | 57.6% |
 
 ### Games
 
 | Matchup | Pred winner | Actual | Hit | Pred score | Actual score | Pred margin | Act margin | Pred total | Act total |
 | --- | --- | --- | --- | --- | --- | ---: | ---: | ---: | ---: |
-| NYK@BOS | BOS (63%) | BOS | Y | NYK 110 – BOS 118 | NYK 103 – BOS 107 | +8.5 | +4.0 | 227.0 | 210.0 |
-| HOU@SAS | HOU (59%) | HOU | Y | HOU 115 – SAS 110 | HOU 114 – SAS 110 | -6.0 | -4.0 | 225.0 | 224.0 |
-| ATL@CHA | CHA (71%) | ATL | N | ATL 114 – CHA 127 | ATL 128 – CHA 81 | +13.0 | -47.0 | 241.0 | 209.0 |
-| DAL@IND | DAL (52%) | DAL | Y | DAL 113 – IND 112 | DAL 121 – IND 105 | -2.0 | -16.0 | 225.0 | 226.0 |
-| MIN@ORL | ORL (55%) | MIN | N | MIN 118 – ORL 121 | MIN 115 – ORL 93 | +4.0 | -22.0 | 239.0 | 208.0 |
-| TOR@WAS | TOR (71%) | TOR | Y | TOR 125 – WAS 112 | TOR 112 – WAS 102 | -13.0 | -10.0 | 237.0 | 214.0 |
-| DET@MIA | DET (55%) | DET | Y | DET 117 – MIA 115 | DET 128 – MIA 111 | -3.0 | -17.0 | 232.0 | 239.0 |
-| CHI@MIL | MIL (60%) | CHI | N | CHI 115 – MIL 121 | CHI 132 – MIL 125 | +6.0 | -7.0 | 236.0 | 257.0 |
-| NOP@UTA | NOP (56%) | UTA | N | NOP 118 – UTA 115 | NOP 119 – UTA 120 | -4.0 | +1.0 | 233.0 | 239.0 |
-| MEM@GSW | GSW (56%) | MEM | N | MEM 113 – GSW 116 | MEM 111 – GSW 108 | +4.0 | -3.0 | 229.0 | 219.0 |
-| LAC@LAL | LAL (64%) | LAL | Y | LAC 114 – LAL 122 | LAC 117 – LAL 125 | +9.0 | +8.0 | 236.0 | 242.0 |
-| POR@SAC | POR (69%) | POR | Y | POR 114 – SAC 103 | POR 128 – SAC 120 | -11.0 | -8.0 | 218.0 | 248.0 |
+| NYK@BOS | BOS (63%) | BOS | Y | NYK 102 – BOS 109 | NYK 103 – BOS 107 | +8.0 | +4.0 | 212.0 | 210.0 |
+| HOU@SAS | HOU (57%) | HOU | Y | HOU 111 – SAS 107 | HOU 114 – SAS 110 | -5.0 | -4.0 | 218.0 | 224.0 |
+| ATL@CHA | CHA (69%) | ATL | N | ATL 107 – CHA 118 | ATL 128 – CHA 81 | +11.0 | -47.0 | 226.0 | 209.0 |
+| DAL@IND | DAL (52%) | DAL | Y | DAL 110 – IND 108 | DAL 121 – IND 105 | -2.0 | -16.0 | 218.0 | 226.0 |
+| MIN@ORL | ORL (55%) | MIN | N | MIN 111 – ORL 114 | MIN 115 – ORL 93 | +4.0 | -22.0 | 226.0 | 208.0 |
+| TOR@WAS | TOR (70%) | TOR | Y | TOR 121 – WAS 109 | TOR 112 – WAS 102 | -12.0 | -10.0 | 230.0 | 214.0 |
+| DET@MIA | DET (55%) | DET | Y | DET 115 – MIA 112 | DET 128 – MIA 111 | -4.0 | -17.0 | 226.0 | 239.0 |
+| CHI@MIL | MIL (59%) | CHI | N | CHI 115 – MIL 120 | CHI 132 – MIL 125 | +6.0 | -7.0 | 235.0 | 257.0 |
+| NOP@UTA | NOP (55%) | UTA | N | NOP 114 – UTA 111 | NOP 119 – UTA 120 | -3.0 | +1.0 | 224.0 | 239.0 |
+| MEM@GSW | GSW (58%) | MEM | N | MEM 106 – GSW 110 | MEM 111 – GSW 108 | +5.0 | -3.0 | 216.0 | 219.0 |
+| LAC@LAL | LAL (62%) | LAL | Y | LAC 112 – LAL 118 | LAC 117 – LAL 125 | +7.0 | +8.0 | 230.0 | 242.0 |
+| POR@SAC | POR (70%) | POR | Y | POR 114 – SAC 102 | POR 128 – SAC 120 | -11.5 | -8.0 | 217.0 | 248.0 |
 
 ### Top confident picks
 
@@ -553,13 +570,9 @@ Graded from `prediction_history` after finals. No sportsbook lines or odds.
 | player:1627739 | LAC vs LAL | STL | 1-3 | 2 | Y |
 | player:1630183 | MIN vs ORL | STL | 1-3 | 0 | N |
 | player:1630217 | ORL vs MIN | AST | 2-6 | 0 | N |
-| player:1630591 | ORL vs MIN | STL | 1-3 | 1 | Y |
 | player:1642852 | NOP vs UTA | AST | 2-6 | 2 | Y |
 | player:1628389 | MIA vs DET | AST | 2-6 | 3 | Y |
-| player:1641709 | DET vs MIA | STL | 1-3 | 1 | Y |
-| player:1628404 | NYK vs BOS | AST | 2-6 | 5 | Y |
 | player:203507 | MIA vs DET | AST | 2-6 | 5 | Y |
-| player:201142 | HOU vs SAS | AST | 2-6 | 6 | Y |
 | player:1641708 | HOU vs SAS | AST | 3-7 | 4 | Y |
 | player:1628368 | SAS vs HOU | AST | 3-7 | 9 | N |
 | player:1627832 | HOU vs SAS | AST | 3-7 | 5 | Y |
@@ -567,271 +580,279 @@ Graded from `prediction_history` after finals. No sportsbook lines or odds.
 | player:202699 | SAS vs HOU | REB | 3-7 | — | N |
 | player:1630578 | HOU vs SAS | AST | 4-8 | 7 | Y |
 | player:1641705 | SAS vs HOU | BLK | 2-4 | 2 | Y |
+| player:201142 | HOU vs SAS | AST | 2-6 | 6 | Y |
+| player:1630591 | ORL vs MIN | STL | 1-3 | 1 | Y |
+| player:1628404 | NYK vs BOS | AST | 2-6 | 5 | Y |
+| player:1628369 | BOS vs NYK | AST | 2-6 | 7 | N |
+| player:1641709 | DET vs MIA | STL | 1-3 | 1 | Y |
+| player:1641764 | GSW vs MEM | AST | 2-6 | 3 | Y |
+| player:1630591 | ORL vs MIN | AST | 2-6 | 6 | Y |
+| player:201950 | POR vs SAC | AST | 2-6 | 8 | N |
 
 ### Player grades (MIN / PTS / REB / AST / STL / BLK)
 
 | Player | Team | MIN pred/act | PTS | REB | AST | STL | BLK | in 10–90 (any miss listed) |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Jayson Tatum | BOS | 35.2/37 | 17.0/36 | 7.0/9 | 4.0/7 | 1.0/3 | 0.0/0 | PTS,STL |
-| Giannis Antetokounmpo | MIA | 27.3/33 | 19.0/36 | 9.0/12 | 4.0/5 | 1.0/2 | 0.0/1 | MIN |
-| Tyler Herro | MIL | 30.2/32 | 15.0/34 | 4.0/5 | 3.0/4 | 0.0/1 | 0.0/0 | PTS |
-| Darius Acuff Jr. | SAC | 34.2/37 | 18.0/33 | 4.0/2 | 2.0/4 | 3.0/0 | 0.0/0 | all |
-| Alperen Sengun | HOU | 34.4/36 | 18.0/29 | 11.0/7 | 6.0/7 | 1.0/0 | 1.0/1 | all |
-| Scottie Barnes | TOR | 34.4/37 | 15.0/28 | 7.0/14 | 6.0/5 | 1.0/2 | 1.0/2 | REB |
-| Ty Jerome | MEM | 26.4/32 | 14.0/28 | 2.0/2 | 4.0/5 | 1.0/1 | 0.0/0 | MIN |
-| Austin Reaves | LAL | 35.4/38 | 17.0/28 | 3.0/2 | 6.0/9 | 1.0/2 | 0.0/0 | all |
-| Domantas Sabonis | SAC | 28.3/39 | 12.0/27 | 10.0/19 | 4.0/10 | 0.0/0 | 0.0/0 | MIN,AST |
-| Darius Garland | LAC | 30.5/37 | 15.0/26 | 2.0/0 | 5.0/6 | 1.0/1 | 0.0/0 | all |
-| Deni Avdija | POR | 29.6/38 | 14.0/26 | 5.0/7 | 4.0/6 | 0.0/1 | 0.0/0 | MIN |
-| Norman Powell | CHI | 20.5/33 | 11.0/25 | 2.0/4 | 1.0/1 | 0.0/0 | 0.0/0 | MIN |
-| Cameron Boozer | MEM | 32.2/37 | 7.0/25 | 8.0/13 | 2.0/6 | 0.0/2 | 0.0/0 | PTS,AST,STL |
-| Victor Wembanyama | SAS | 36.8/32 | 19.0/25 | 13.0/13 | 3.0/2 | 1.0/0 | 3.0/2 | all |
-| Kyrie Irving | DAL | 25.5/25 | 13.0/24 | 2.0/1 | 3.0/3 | 1.0/1 | 0.0/1 | all |
-| Jaren Jackson Jr. | UTA | 25.8/33 | 15.0/24 | 4.0/10 | 2.0/3 | 1.0/0 | 1.0/3 | MIN,REB |
-| Stephen Curry | GSW | 27.6/30 | 18.0/24 | 3.0/2 | 4.0/4 | 1.0/0 | 0.0/0 | all |
-| Pascal Siakam | IND | 31.0/29 | 16.0/23 | 5.0/3 | 3.0/3 | 1.0/0 | 0.0/0 | all |
-| RJ Barrett | TOR | 34.5/34 | 16.0/23 | 5.0/9 | 5.0/4 | 0.0/0 | 0.0/1 | all |
-| John Collins | DET | 21.6/29 | 10.0/23 | 5.0/7 | 0.0/1 | 0.0/0 | 0.0/0 | MIN |
-| Zion Williamson | NOP | 29.2/33 | 16.0/23 | 4.0/5 | 4.0/2 | 1.0/3 | 0.0/0 | MIN,STL |
-| Luka Dončić | LAL | 30.7/37 | 21.0/23 | 6.0/6 | 6.0/7 | 1.0/0 | 0.0/1 | MIN |
-| Karl-Anthony Towns | NYK | 26.1/37 | 16.0/22 | 11.0/10 | 2.0/3 | 1.0/0 | 0.0/0 | MIN |
-| Trae Young | WAS | 27.5/37 | 16.0/22 | 1.0/1 | 5.0/12 | 1.0/1 | 0.0/0 | MIN,AST |
-| Walker Kessler | LAL | 29.5/35 | 11.0/22 | 12.0/8 | 1.0/3 | 0.0/3 | 2.0/6 | MIN,STL,BLK |
-| Brook Lopez | LAC | 29.1/20 | 10.0/22 | 5.0/4 | 2.0/0 | 0.0/0 | 1.0/3 | MIN |
-| Zach LaVine | SAC | 26.7/39 | 13.0/22 | 1.0/5 | 2.0/1 | 0.0/2 | 0.0/1 | MIN,REB |
-| Caleb Wilson | CHI | 31.6/33 | 12.0/21 | 3.0/6 | 0.0/1 | 2.0/1 | 0.0/2 | all |
-| OG Anunoby | NYK | 33.4/34 | 11.0/20 | 3.0/10 | 2.0/8 | 1.0/0 | 0.0/0 | REB,AST |
-| Miles McBride | NYK | 12.3/30 | 4.0/20 | 0.0/2 | 1.0/1 | 0.0/1 | 0.0/0 | MIN,PTS |
-| P.J. Washington | DAL | 29.8/33 | 10.0/20 | 5.0/13 | 2.0/0 | 1.0/0 | 0.0/3 | REB,BLK |
-| Wendell Carter Jr. | ORL | 32.8/29 | 12.0/20 | 10.0/9 | 2.0/1 | 1.0/0 | 1.0/2 | all |
+| Jayson Tatum | BOS | 31.1/37 | 16.0/36 | 6.0/9 | 4.0/7 | 1.0/3 | 0.0/0 | MIN,PTS,STL |
+| Giannis Antetokounmpo | MIA | 26.7/33 | 18.0/36 | 8.0/12 | 3.0/5 | 1.0/2 | 0.0/1 | MIN |
+| Tyler Herro | MIL | 26.6/32 | 15.0/34 | 3.0/5 | 3.0/4 | 0.0/1 | 0.0/0 | PTS |
+| Darius Acuff Jr. | SAC | 29.7/37 | 17.0/33 | 4.0/2 | 2.0/4 | 2.0/0 | 0.0/0 | MIN |
+| Alperen Sengun | HOU | 30.9/36 | 17.0/29 | 10.0/7 | 5.0/7 | 1.0/0 | 0.0/1 | all |
+| Scottie Barnes | TOR | 28.8/37 | 14.0/28 | 6.0/14 | 6.0/5 | 1.0/2 | 0.0/2 | MIN,REB |
+| Ty Jerome | MEM | 23.3/32 | 13.0/28 | 2.0/2 | 3.0/5 | 1.0/1 | 0.0/0 | MIN |
+| Austin Reaves | LAL | 33.2/38 | 15.0/28 | 3.0/2 | 5.0/9 | 1.0/2 | 0.0/0 | all |
+| Domantas Sabonis | SAC | 25.1/39 | 12.0/27 | 10.0/19 | 4.0/10 | 1.0/0 | 0.0/0 | MIN,REB,AST |
+| Darius Garland | LAC | 27.1/37 | 14.0/26 | 1.0/0 | 5.0/6 | 1.0/1 | 0.0/0 | MIN |
+| Deni Avdija | POR | 25.8/38 | 14.0/26 | 5.0/7 | 4.0/6 | 1.0/1 | 0.0/0 | MIN |
+| Victor Wembanyama | SAS | 32.7/32 | 18.0/25 | 11.0/13 | 3.0/2 | 1.0/0 | 1.0/2 | all |
+| Norman Powell | CHI | 18.6/33 | 11.0/25 | 2.0/4 | 1.0/1 | 1.0/0 | 0.0/0 | MIN |
+| Cameron Boozer | MEM | 28.0/37 | 6.0/25 | 8.0/13 | 1.0/6 | 0.0/2 | 0.0/0 | MIN,PTS,AST,STL |
+| Kyrie Irving | DAL | 22.8/25 | 13.0/24 | 2.0/1 | 3.0/3 | 1.0/1 | 0.0/1 | all |
+| Jaren Jackson Jr. | UTA | 23.8/33 | 15.0/24 | 4.0/10 | 1.0/3 | 1.0/0 | 1.0/3 | MIN,REB,BLK |
+| Stephen Curry | GSW | 25.6/30 | 16.0/24 | 3.0/2 | 3.0/4 | 1.0/0 | 0.0/0 | all |
+| Pascal Siakam | IND | 27.4/29 | 15.0/23 | 4.0/3 | 3.0/3 | 1.0/0 | 0.0/0 | all |
+| RJ Barrett | TOR | 28.8/34 | 15.0/23 | 4.0/9 | 4.0/4 | 0.0/0 | 0.0/1 | all |
+| John Collins | DET | 19.7/29 | 10.0/23 | 4.0/7 | 0.0/1 | 0.0/0 | 0.0/0 | MIN |
+| Zion Williamson | NOP | 25.0/33 | 15.0/23 | 4.0/5 | 3.0/2 | 1.0/3 | 0.0/0 | MIN |
+| Luka Dončić | LAL | 29.1/37 | 19.0/23 | 6.0/6 | 5.0/7 | 1.0/0 | 0.0/1 | MIN |
+| Karl-Anthony Towns | NYK | 25.3/37 | 15.0/22 | 10.0/10 | 2.0/3 | 1.0/0 | 0.0/0 | MIN |
+| Trae Young | WAS | 24.2/37 | 15.0/22 | 1.0/1 | 4.0/12 | 1.0/1 | 0.0/0 | MIN,AST |
+| Walker Kessler | LAL | 28.2/35 | 10.0/22 | 11.0/8 | 1.0/3 | 0.0/3 | 1.0/6 | MIN,STL,BLK |
+| Brook Lopez | LAC | 26.1/20 | 10.0/22 | 5.0/4 | 2.0/0 | 1.0/0 | 1.0/3 | MIN,BLK |
+| Zach LaVine | SAC | 24.0/39 | 13.0/22 | 1.0/5 | 2.0/1 | 0.0/2 | 0.0/1 | MIN,REB |
+| Caleb Wilson | CHI | 27.3/33 | 11.0/21 | 3.0/6 | 0.0/1 | 2.0/1 | 0.0/2 | MIN |
+| OG Anunoby | NYK | 32.0/34 | 11.0/20 | 3.0/10 | 1.0/8 | 1.0/0 | 0.0/0 | REB,AST |
+| Miles McBride | NYK | 13.1/30 | 3.0/20 | 0.5/2 | 1.0/1 | 0.0/1 | 0.0/0 | MIN,PTS |
+| Dylan Harper | SAS | 27.6/36 | 10.0/20 | 3.0/3 | 3.0/2 | 1.0/0 | 0.0/0 | MIN |
+| Amen Thompson | HOU | 34.6/36 | 13.0/20 | 6.0/10 | 5.0/4 | 1.0/2 | 0.0/2 | all |
+| Kevin Durant | HOU | 33.1/37 | 19.0/20 | 4.0/7 | 4.0/6 | 0.0/0 | 1.0/0 | all |
+| P.J. Washington | DAL | 26.1/33 | 9.0/20 | 5.0/13 | 2.0/0 | 1.0/0 | 0.0/3 | MIN,REB,BLK |
+| Wendell Carter Jr. | ORL | 29.5/29 | 11.0/20 | 9.0/9 | 2.0/1 | 1.0/0 | 0.0/2 | all |
 | Tre Johnson | WAS | 0.0/26 | 0.0/20 | 0.0/2 | 0.0/0 | 0.0/1 | 0.0/0 | MIN,PTS,REB,STL |
-| Saddiq Bey | NOP | 29.4/22 | 11.0/20 | 3.0/3 | 2.0/1 | 0.0/0 | 0.0/1 | MIN,BLK |
-| Dylan Harper | SAS | 30.5/36 | 11.0/20 | 4.0/3 | 3.0/2 | 1.0/0 | 0.0/0 | all |
-| Amen Thompson | HOU | 39.3/36 | 13.0/20 | 7.0/10 | 5.0/4 | 1.0/2 | 1.0/2 | all |
-| Kevin Durant | HOU | 37.2/37 | 20.0/20 | 4.0/7 | 4.0/6 | 0.0/0 | 1.0/0 | all |
-| Jalen Brunson | NYK | 37.2/37 | 17.0/19 | 2.0/2 | 5.0/4 | 0.0/0 | 0.0/2 | BLK |
-| Jalen Johnson | ATL | 31.0/29 | 14.0/19 | 8.0/7 | 4.0/8 | 1.0/3 | 0.0/1 | STL |
-| Aaron Wiggins | ATL | 14.6/22 | 6.0/19 | 2.0/1 | 0.0/1 | 0.0/2 | 0.0/0 | all |
-| Paul Reed | DET | 11.7/26 | 4.0/19 | 3.0/11 | 1.0/3 | 0.0/0 | 0.0/0 | MIN,PTS,REB |
-| Jaime Jaquez Jr. | MIL | 31.6/35 | 12.0/19 | 5.0/11 | 3.0/5 | 1.0/0 | 0.0/0 | REB |
-| Leonard Miller | CHI | 30.8/24 | 11.0/19 | 9.0/3 | 1.0/2 | 1.0/0 | 0.0/1 | all |
-| Keyonte George | UTA | 25.2/32 | 11.0/19 | 1.0/1 | 5.0/10 | 0.0/1 | 0.0/0 | MIN |
-| Toumani Camara | POR | 28.8/27 | 8.0/19 | 3.0/2 | 2.0/1 | 1.0/2 | 0.0/0 | all |
-| Damian Lillard | POR | 22.5/33 | 12.0/19 | 2.0/5 | 3.0/2 | 0.0/2 | 0.0/0 | MIN |
-| De'Aaron Fox | SAS | 34.0/34 | 14.0/19 | 3.0/4 | 5.0/9 | 1.0/2 | 0.0/0 | all |
-| Tyrese Haliburton | IND | 25.5/32 | 12.0/18 | 2.0/6 | 6.0/7 | 1.0/1 | 0.0/2 | MIN,REB,BLK |
-| Franz Wagner | ORL | 28.2/33 | 15.0/18 | 4.0/6 | 3.0/5 | 1.0/1 | 0.0/0 | all |
-| Davion Mitchell | MIA | 34.0/33 | 7.0/18 | 1.0/2 | 6.0/5 | 1.0/0 | 0.0/2 | BLK |
-| Brandin Podziemski | GSW | 33.3/33 | 11.0/18 | 6.0/2 | 4.0/3 | 1.0/3 | 0.0/1 | all |
-| Yaxel Lendeborg | GSW | 27.9/37 | 7.0/18 | 2.0/13 | 2.0/6 | 1.0/3 | 0.0/0 | MIN,PTS,REB,AST,STL |
-| Naz Reid | CHA | 30.4/25 | 13.0/17 | 7.0/6 | 2.0/2 | 1.0/1 | 1.0/0 | all |
-| Duncan Robinson | DET | 25.6/28 | 10.0/17 | 1.0/1 | 2.0/2 | 0.0/2 | 0.0/0 | all |
-| Jaxson Hayes | UTA | 19.7/26 | 6.0/17 | 4.0/5 | 0.0/2 | 0.0/0 | 1.0/1 | PTS |
-| Jaylen Wells | MEM | 23.8/25 | 9.0/17 | 2.0/4 | 2.0/3 | 1.0/0 | 0.0/0 | all |
-| Andrew Nembhard | IND | 32.6/32 | 11.0/16 | 1.0/2 | 6.0/5 | 1.0/1 | 0.0/0 | all |
-| Max Christie | DAL | 24.9/38 | 7.0/16 | 2.0/4 | 2.0/4 | 0.0/1 | 0.0/0 | MIN |
-| Kawhi Leonard | TOR | 30.5/28 | 23.0/16 | 8.0/9 | 2.0/1 | 2.0/3 | 0.0/0 | all |
-| Cade Cunningham | DET | 37.8/30 | 20.0/16 | 4.0/2 | 8.0/8 | 1.0/1 | 0.0/3 | MIN,BLK |
-| Lauri Markkanen | UTA | 29.7/34 | 13.0/16 | 4.0/6 | 2.0/3 | 0.0/1 | 0.0/0 | all |
-| Dejounte Murray | NOP | 30.0/30 | 13.0/16 | 4.0/6 | 5.0/6 | 1.0/3 | 0.0/0 | all |
-| Rui Hachimura | LAC | 35.8/33 | 12.0/16 | 5.0/6 | 1.0/1 | 1.0/2 | 0.0/0 | all |
-| Derrick Jones Jr. | LAC | 23.7/35 | 9.0/16 | 4.0/4 | 1.0/1 | 1.0/2 | 1.0/0 | MIN |
-| Paul George | BOS | 31.6/34 | 16.0/15 | 4.0/7 | 2.0/2 | 1.0/2 | 0.0/0 | all |
-| Neemias Queta | BOS | 22.7/22 | 8.0/15 | 7.0/6 | 1.0/1 | 0.0/0 | 1.0/3 | all |
-| Naji Marshall | DAL | 26.4/33 | 9.0/15 | 2.0/4 | 3.0/6 | 1.0/3 | 0.0/0 | MIN,STL |
-| Anthony Edwards | MIN | 33.7/33 | 17.0/15 | 4.0/4 | 4.0/4 | 1.0/4 | 0.0/0 | STL |
-| Jaden McDaniels | MIN | 28.9/30 | 10.0/15 | 4.0/6 | 2.0/3 | 1.0/0 | 1.0/2 | all |
-| Daniss Jenkins | DET | 25.1/22 | 9.0/15 | 2.0/5 | 4.0/5 | 0.0/1 | 0.0/0 | all |
-| Darryn Peterson | UTA | 30.2/30 | 11.0/15 | 4.0/3 | 4.0/1 | 0.0/0 | 0.0/0 | all |
-| Sidy Cissoko | POR | 13.9/26 | 2.0/15 | 1.0/7 | 1.0/1 | 0.0/1 | 0.0/0 | MIN,PTS,REB |
-| Stephon Castle | SAS | 29.7/33 | 12.0/15 | 3.0/7 | 5.0/5 | 1.0/1 | 0.0/0 | all |
-| Nickeil Alexander-Walker | ATL | 31.1/27 | 12.0/14 | 2.0/3 | 3.0/5 | 1.0/2 | 0.0/0 | all |
-| Cooper Flagg | DAL | 27.1/17 | 12.0/14 | 4.0/5 | 3.0/6 | 1.0/3 | 0.0/1 | MIN,STL |
-| Paolo Banchero | ORL | 40.0/26 | 20.0/14 | 7.0/6 | 5.0/5 | 1.0/1 | 0.0/0 | MIN |
-| Jalen Suggs | ORL | 34.0/34 | 13.0/14 | 3.0/6 | 5.0/6 | 2.0/1 | 1.0/1 | all |
-| Rudy Gobert | MIN | 27.9/30 | 9.0/14 | 11.0/9 | 2.0/1 | 0.0/0 | 1.0/0 | all |
-| Ayo Dosunmu | MIN | 27.6/27 | 9.0/14 | 2.0/7 | 3.0/10 | 0.0/1 | 0.0/1 | REB,AST |
-| Kyle Kuzma | MIL | 23.4/30 | 11.0/14 | 5.0/9 | 2.0/4 | 0.0/0 | 0.0/0 | all |
-| Jalen Smith | CHI | 17.0/24 | 7.0/14 | 6.0/13 | 1.0/1 | 0.0/3 | 0.0/0 | MIN,STL |
-| Ziaire Williams | LAL | 22.5/31 | 8.0/14 | 3.0/5 | 1.0/0 | 1.0/2 | 0.0/1 | MIN |
-| Precious Achiuwa | SAC | 29.2/26 | 8.0/14 | 6.0/6 | 2.0/1 | 1.0/2 | 1.0/0 | all |
-| Fred VanVleet | HOU | 35.3/32 | 11.0/14 | 2.0/3 | 5.0/5 | 1.0/3 | 0.0/0 | all |
-| CJ McCollum | ATL | 26.9/22 | 14.0/13 | 2.0/1 | 3.0/2 | 0.0/0 | 0.0/1 | all |
-| Obi Toppin | IND | 0.0/25 | 0.0/13 | 0.0/5 | 0.0/1 | 0.0/0 | 0.0/1 | MIN,PTS,REB,AST,BLK |
-| Terrence Shannon Jr | MIN | 20.8/22 | 7.0/13 | 1.0/4 | 1.0/1 | 0.0/0 | 0.0/1 | BLK |
+| Saddiq Bey | NOP | 25.1/22 | 10.0/20 | 3.0/3 | 2.0/1 | 0.0/0 | 0.0/1 | all |
+| Jalen Brunson | NYK | 35.2/37 | 16.0/19 | 1.0/2 | 5.0/4 | 1.0/0 | 0.0/2 | BLK |
+| De'Aaron Fox | SAS | 30.5/34 | 13.0/19 | 2.0/4 | 5.0/9 | 1.0/2 | 0.0/0 | all |
+| Jalen Johnson | ATL | 27.3/29 | 13.0/19 | 7.0/7 | 4.0/8 | 1.0/3 | 0.0/1 | STL |
+| Aaron Wiggins | ATL | 14.0/22 | 6.0/19 | 2.0/1 | 0.0/1 | 0.0/2 | 0.0/0 | MIN,PTS |
+| Paul Reed | DET | 11.4/26 | 5.0/19 | 3.0/11 | 1.0/3 | 0.0/0 | 0.0/0 | MIN,PTS,REB |
+| Jaime Jaquez Jr. | MIL | 27.4/35 | 12.0/19 | 5.0/11 | 2.0/5 | 1.0/0 | 0.0/0 | MIN,REB |
+| Leonard Miller | CHI | 26.7/24 | 10.0/19 | 8.0/3 | 1.0/2 | 1.0/0 | 0.0/1 | all |
+| Keyonte George | UTA | 23.2/32 | 11.0/19 | 1.0/1 | 4.0/10 | 0.0/1 | 0.0/0 | MIN,AST |
+| Toumani Camara | POR | 25.0/27 | 8.0/19 | 3.0/2 | 2.0/1 | 1.0/2 | 0.0/0 | all |
+| Damian Lillard | POR | 19.9/33 | 12.0/19 | 2.0/5 | 3.0/2 | 0.0/2 | 0.0/0 | MIN |
+| Tyrese Haliburton | IND | 22.7/32 | 11.0/18 | 2.0/6 | 5.0/7 | 1.0/1 | 0.0/2 | MIN,REB,BLK |
+| Franz Wagner | ORL | 25.6/33 | 14.0/18 | 4.0/6 | 3.0/5 | 1.0/1 | 0.0/0 | MIN |
+| Davion Mitchell | MIA | 32.2/33 | 7.0/18 | 1.0/2 | 6.0/5 | 1.0/0 | 0.0/2 | PTS,BLK |
+| Brandin Podziemski | GSW | 30.2/33 | 10.0/18 | 5.0/2 | 4.0/3 | 1.0/3 | 0.0/1 | all |
+| Yaxel Lendeborg | GSW | 25.9/37 | 7.0/18 | 2.0/13 | 1.0/6 | 1.0/3 | 0.0/0 | MIN,PTS,REB,AST,STL |
+| Naz Reid | CHA | 26.7/25 | 11.0/17 | 6.0/6 | 2.0/2 | 1.0/1 | 0.0/0 | all |
+| Duncan Robinson | DET | 23.1/28 | 9.0/17 | 1.0/1 | 2.0/2 | 0.0/2 | 0.0/0 | all |
+| Jaxson Hayes | UTA | 18.6/26 | 6.0/17 | 3.0/5 | 0.0/2 | 0.0/0 | 0.0/1 | MIN,PTS |
+| Jaylen Wells | MEM | 21.2/25 | 8.0/17 | 2.0/4 | 2.0/3 | 1.0/0 | 0.0/0 | all |
+| Andrew Nembhard | IND | 28.3/32 | 11.0/16 | 1.0/2 | 5.0/5 | 1.0/1 | 0.0/0 | all |
+| Max Christie | DAL | 22.4/38 | 7.0/16 | 1.0/4 | 2.0/4 | 0.0/1 | 0.0/0 | MIN |
+| Kawhi Leonard | TOR | 25.9/28 | 22.0/16 | 7.0/9 | 2.0/1 | 2.0/3 | 0.0/0 | all |
+| Cade Cunningham | DET | 33.1/30 | 19.0/16 | 4.0/2 | 7.0/8 | 1.0/1 | 0.0/3 | BLK |
+| Lauri Markkanen | UTA | 26.8/34 | 12.0/16 | 3.0/6 | 1.0/3 | 0.0/1 | 0.0/0 | MIN |
+| Dejounte Murray | NOP | 25.6/30 | 12.0/16 | 4.0/6 | 5.0/6 | 1.0/3 | 0.0/0 | MIN |
+| Rui Hachimura | LAC | 31.4/33 | 12.0/16 | 5.0/6 | 1.0/1 | 1.0/2 | 0.0/0 | all |
+| Derrick Jones Jr. | LAC | 21.7/35 | 8.0/16 | 3.0/4 | 1.0/1 | 1.0/2 | 0.0/0 | MIN |
+| Paul George | BOS | 28.4/34 | 14.0/15 | 4.0/7 | 2.0/2 | 1.0/2 | 0.0/0 | all |
+| Neemias Queta | BOS | 21.0/22 | 7.0/15 | 6.0/6 | 1.0/1 | 0.0/0 | 0.0/3 | BLK |
+| Stephon Castle | SAS | 26.9/33 | 12.0/15 | 3.0/7 | 5.0/5 | 1.0/1 | 0.0/0 | MIN |
+| Naji Marshall | DAL | 23.6/33 | 9.0/15 | 2.0/4 | 3.0/6 | 1.0/3 | 0.0/0 | MIN,STL |
+| Anthony Edwards | MIN | 28.9/33 | 15.0/15 | 3.0/4 | 3.0/4 | 1.0/4 | 0.0/0 | STL |
+| Jaden McDaniels | MIN | 25.3/30 | 9.0/15 | 3.0/6 | 2.0/3 | 1.0/0 | 0.0/2 | all |
+| Daniss Jenkins | DET | 22.7/22 | 9.0/15 | 2.0/5 | 4.0/5 | 1.0/1 | 0.0/0 | all |
+| Darryn Peterson | UTA | 27.4/30 | 10.0/15 | 4.0/3 | 3.0/1 | 0.0/0 | 0.0/0 | all |
+| Sidy Cissoko | POR | 13.1/26 | 2.0/15 | 1.0/7 | 1.0/1 | 0.0/1 | 0.0/0 | MIN,PTS,REB |
+| Fred VanVleet | HOU | 31.6/32 | 10.0/14 | 2.0/3 | 5.0/5 | 1.0/3 | 0.0/0 | all |
+| Nickeil Alexander-Walker | ATL | 27.5/27 | 11.0/14 | 2.0/3 | 2.0/5 | 1.0/2 | 0.0/0 | all |
+| Cooper Flagg | DAL | 24.2/17 | 11.0/14 | 3.0/5 | 3.0/6 | 1.0/3 | 0.0/1 | MIN,STL |
+| Paolo Banchero | ORL | 35.4/26 | 18.0/14 | 6.0/6 | 5.0/5 | 1.0/1 | 0.0/0 | MIN |
+| Jalen Suggs | ORL | 30.6/34 | 12.0/14 | 3.0/6 | 4.0/6 | 2.0/1 | 0.0/1 | all |
+| Rudy Gobert | MIN | 24.5/30 | 9.0/14 | 10.0/9 | 2.0/1 | 1.0/0 | 1.0/0 | all |
+| Ayo Dosunmu | MIN | 24.1/27 | 9.0/14 | 2.0/7 | 2.0/10 | 1.0/1 | 0.0/1 | REB,AST |
+| Kyle Kuzma | MIL | 21.0/30 | 10.0/14 | 4.0/9 | 2.0/4 | 0.0/0 | 0.0/0 | MIN |
+| Jalen Smith | CHI | 15.6/24 | 7.0/14 | 6.0/13 | 1.0/1 | 0.0/3 | 0.0/0 | MIN,STL |
+| Ziaire Williams | LAL | 21.8/31 | 8.0/14 | 3.0/5 | 1.0/0 | 1.0/2 | 0.0/1 | MIN |
+| Precious Achiuwa | SAC | 26.0/26 | 8.0/14 | 6.0/6 | 1.0/1 | 1.0/2 | 0.0/0 | all |
+| CJ McCollum | ATL | 24.2/22 | 13.0/13 | 2.0/1 | 2.0/2 | 0.0/0 | 0.0/1 | all |
+| Obi Toppin | IND | 0.0/25 | 0.0/13 | 0.0/5 | 0.0/1 | 0.0/0 | 0.0/1 | MIN,PTS,REB,BLK |
+| Terrence Shannon Jr | MIN | 18.8/22 | 6.0/13 | 1.0/4 | 1.0/1 | 0.0/0 | 0.0/1 | REB |
 | Buddy Hield | CHI | 0.0/15 | 0.0/13 | 0.0/2 | 0.0/2 | 0.0/1 | 0.0/0 | MIN,PTS,REB,AST,STL |
-| Quentin Grimes | LAL | 22.0/31 | 8.0/13 | 2.0/8 | 2.0/4 | 0.0/1 | 0.0/0 | MIN,REB |
-| Matisse Thybulle | LAL | 15.6/24 | 4.0/13 | 2.0/1 | 1.0/2 | 1.0/2 | 0.0/1 | MIN |
-| Keaton Wagler | LAC | 28.0/24 | 10.0/13 | 4.0/3 | 3.0/3 | 1.0/1 | 0.0/0 | all |
-| Robert Williams III | POR | 18.5/18 | 6.0/13 | 6.0/6 | 1.0/0 | 0.0/0 | 1.0/1 | all |
-| Derrick White | BOS | 35.8/33 | 17.0/12 | 3.0/4 | 6.0/6 | 1.0/1 | 1.0/0 | all |
-| LaMelo Ball | MIN | 29.1/23 | 15.5/12 | 4.0/5 | 5.0/5 | 1.0/2 | 0.0/0 | all |
-| Immanuel Quickley | TOR | 23.2/29 | 11.0/12 | 2.0/1 | 5.0/6 | 0.0/0 | 0.0/0 | all |
-| Isaiah Joe | DET | 11.3/18 | 2.0/12 | 0.0/3 | 0.0/1 | 0.0/0 | 0.0/0 | all |
-| Myles Turner | MIL | 26.2/30 | 12.0/12 | 6.0/3 | 2.0/1 | 0.0/0 | 2.0/5 | BLK |
-| Isaac Okoro | CHI | 21.7/28 | 6.0/12 | 2.0/3 | 1.0/1 | 0.0/0 | 0.0/1 | all |
-| Derik Queen | NOP | 28.6/29 | 10.0/12 | 6.0/7 | 4.0/2 | 1.0/2 | 1.0/2 | all |
-| Jordan Poole | NOP | 0.0/19 | 0.0/12 | 0.0/2 | 0.0/2 | 0.0/3 | 0.0/1 | MIN,PTS,REB,AST,STL,BLK |
-| Keegan Murray | SAC | 24.9/26 | 7.0/12 | 3.0/2 | 1.0/1 | 0.0/1 | 1.0/0 | all |
-| Jrue Holiday | POR | 31.2/26 | 10.0/12 | 3.0/1 | 4.0/8 | 1.0/1 | 0.0/1 | all |
-| Ja Morant | POR | 26.2/27 | 13.0/12 | 2.0/3 | 4.0/7 | 1.0/1 | 0.0/0 | all |
+| Quentin Grimes | LAL | 21.4/31 | 7.0/13 | 2.0/8 | 2.0/4 | 0.0/1 | 0.0/0 | MIN,REB |
+| Matisse Thybulle | LAL | 15.5/24 | 3.0/13 | 1.0/1 | 1.0/2 | 1.0/2 | 0.0/1 | MIN |
+| Keaton Wagler | LAC | 25.3/24 | 10.0/13 | 3.0/3 | 3.0/3 | 1.0/1 | 0.0/0 | all |
+| Robert Williams III | POR | 16.9/18 | 6.0/13 | 6.0/6 | 1.0/0 | 0.0/0 | 0.0/1 | all |
+| Derrick White | BOS | 31.6/33 | 15.0/12 | 3.0/4 | 5.0/6 | 1.0/1 | 0.0/0 | all |
 | Tari Eason | HOU | 0.0/27 | 0.0/12 | 0.0/6 | 0.0/0 | 0.0/3 | 0.0/0 | MIN,PTS,REB,STL |
-| Grayson Allen | CHA | 21.6/20 | 9.0/11 | 1.0/2 | 1.0/3 | 0.0/0 | 0.0/0 | all |
+| LaMelo Ball | MIN | 25.4/23 | 14.0/12 | 3.0/5 | 4.0/5 | 1.0/2 | 0.0/0 | all |
+| Immanuel Quickley | TOR | 20.3/29 | 10.0/12 | 2.0/1 | 5.0/6 | 1.0/0 | 0.0/0 | MIN |
+| Isaiah Joe | DET | 10.7/18 | 3.0/12 | 0.0/3 | 0.0/1 | 0.0/0 | 0.0/0 | MIN |
+| Myles Turner | MIL | 23.2/30 | 12.0/12 | 6.0/3 | 1.0/1 | 0.0/0 | 1.0/5 | MIN,BLK |
+| Isaac Okoro | CHI | 19.6/28 | 6.0/12 | 1.0/3 | 1.0/1 | 0.0/0 | 0.0/1 | MIN |
+| Derik Queen | NOP | 24.7/29 | 10.0/12 | 6.0/7 | 3.0/2 | 1.0/2 | 0.0/2 | all |
+| Jordan Poole | NOP | 0.0/19 | 0.0/12 | 0.0/2 | 0.0/2 | 0.0/3 | 0.0/1 | MIN,PTS,REB,AST,STL,BLK |
+| Keegan Murray | SAC | 22.4/26 | 7.0/12 | 3.0/2 | 1.0/1 | 0.0/1 | 0.0/0 | all |
+| Jrue Holiday | POR | 26.8/26 | 10.0/12 | 3.0/1 | 4.0/8 | 1.0/1 | 0.0/1 | all |
+| Ja Morant | POR | 22.9/27 | 13.0/12 | 2.0/3 | 4.0/7 | 1.0/1 | 0.0/0 | all |
+| Grayson Allen | CHA | 19.4/20 | 8.0/11 | 1.0/2 | 1.0/3 | 0.0/0 | 0.0/0 | all |
 | Tidjane Salaün | CHA | 0.0/23 | 0.0/11 | 0.0/5 | 0.0/1 | 0.0/2 | 0.0/0 | MIN,PTS,REB,AST,STL |
-| Dyson Daniels | ATL | 26.9/23 | 8.0/11 | 5.0/9 | 4.0/4 | 1.0/7 | 0.0/1 | STL |
-| Corey Kispert | ATL | 11.4/10 | 4.0/11 | 1.0/1 | 0.0/1 | 0.0/0 | 0.0/0 | all |
-| Zaccharie Risacher | DAL | 16.0/32 | 6.0/11 | 2.0/6 | 0.0/1 | 0.0/1 | 0.0/3 | MIN,BLK |
-| Jonathan Kuminga | MIN | 25.0/27 | 11.0/11 | 4.0/8 | 1.0/5 | 1.0/1 | 0.0/0 | AST |
-| Bilal Coulibaly | WAS | 24.4/26 | 9.0/11 | 3.0/6 | 3.0/0 | 1.0/0 | 0.0/1 | all |
-| Kyshawn George | WAS | 22.2/26 | 10.0/11 | 4.0/3 | 3.0/3 | 1.0/2 | 0.0/0 | all |
-| Bobby Portis Jr. | MIA | 23.2/21 | 9.0/11 | 5.0/8 | 1.0/2 | 0.0/1 | 0.0/0 | all |
-| Ryan Rollins | MIL | 28.1/34 | 11.0/11 | 3.0/7 | 4.0/6 | 1.0/1 | 0.0/1 | all |
-| AJ Green | MIL | 27.8/17 | 8.0/11 | 2.0/1 | 2.0/0 | 0.0/0 | 0.0/0 | MIN |
-| Kel'el Ware | MIL | 22.5/15 | 9.0/11 | 9.0/4 | 0.0/0 | 0.0/0 | 1.0/0 | all |
-| Tre Jones | CHI | 21.3/24 | 8.0/11 | 2.0/3 | 4.0/8 | 1.0/2 | 0.0/0 | all |
-| Cam Spencer | MEM | 0.0/17 | 0.0/11 | 0.0/2 | 0.0/1 | 0.0/0 | 0.0/0 | MIN,PTS,REB,AST |
-| Josh Hart | NYK | 31.7/36 | 9.0/10 | 8.0/12 | 4.0/5 | 1.0/3 | 0.0/0 | all |
-| Onyeka Okongwu | ATL | 30.4/22 | 11.0/10 | 8.0/4 | 2.0/1 | 1.0/0 | 1.0/0 | MIN |
-| Isaiah Collier | UTA | 21.9/18 | 6.0/10 | 1.0/2 | 6.0/7 | 1.0/0 | 0.0/0 | all |
-| Brice Sensabaugh | UTA | 19.9/16 | 8.0/10 | 2.0/3 | 1.0/2 | 0.0/0 | 0.0/1 | all |
-| De'Anthony Melton | GSW | 22.0/20 | 8.0/10 | 3.0/1 | 2.0/0 | 1.0/1 | 0.0/1 | all |
-| Graham Ike | GSW | 0.0/12 | 0.0/10 | 0.0/2 | 0.0/1 | 0.0/1 | 0.0/0 | MIN,PTS,REB,AST,STL |
-| Devin Vassell | SAS | 34.9/36 | 10.0/10 | 2.0/4 | 3.0/2 | 1.0/3 | 0.0/0 | STL |
-| Luguentz Dort | ATL | 21.0/19 | 6.0/9 | 2.0/5 | 0.0/2 | 0.0/1 | 0.0/0 | all |
-| Aaron Nesmith | IND | 31.6/20 | 11.0/9 | 3.0/4 | 1.0/1 | 0.0/0 | 0.0/0 | MIN |
-| Ivica Zubac | IND | 27.4/24 | 12.0/9 | 11.0/11 | 1.0/2 | 0.0/0 | 1.0/1 | all |
-| Trey Lyles | MIN | 19.4/17 | 5.0/9 | 3.0/6 | 0.0/2 | 0.0/0 | 0.0/0 | all |
+| Dyson Daniels | ATL | 24.2/23 | 7.0/11 | 4.0/9 | 3.0/4 | 2.0/7 | 0.0/1 | REB,STL |
+| Corey Kispert | ATL | 11.2/10 | 4.0/11 | 1.0/1 | 0.0/1 | 0.0/0 | 0.0/0 | all |
+| Zaccharie Risacher | DAL | 15.1/32 | 6.0/11 | 2.0/6 | 0.0/1 | 1.0/1 | 0.0/3 | MIN,BLK |
+| Jonathan Kuminga | MIN | 22.0/27 | 10.0/11 | 4.0/8 | 1.0/5 | 1.0/1 | 0.0/0 | AST |
+| Bilal Coulibaly | WAS | 21.8/26 | 8.0/11 | 3.0/6 | 2.0/0 | 1.0/0 | 0.0/1 | all |
+| Kyshawn George | WAS | 20.1/26 | 9.0/11 | 3.0/3 | 2.0/3 | 1.0/2 | 0.0/0 | MIN |
+| Bobby Portis Jr. | MIA | 22.8/21 | 9.0/11 | 5.0/8 | 1.0/2 | 0.0/1 | 0.0/0 | all |
+| Ryan Rollins | MIL | 24.7/34 | 11.0/11 | 3.0/7 | 4.0/6 | 1.0/1 | 0.0/1 | MIN,REB |
+| AJ Green | MIL | 24.6/17 | 8.0/11 | 2.0/1 | 2.0/0 | 0.0/0 | 0.0/0 | MIN |
+| Kel'el Ware | MIL | 20.0/15 | 8.0/11 | 9.0/4 | 0.0/0 | 1.0/0 | 0.0/0 | all |
+| Tre Jones | CHI | 19.2/24 | 8.0/11 | 2.0/3 | 4.0/8 | 1.0/2 | 0.0/0 | all |
+| Cam Spencer | MEM | 0.0/17 | 0.0/11 | 0.0/2 | 0.0/1 | 0.0/0 | 0.0/0 | MIN,PTS,REB |
+| Josh Hart | NYK | 30.2/36 | 8.0/10 | 7.0/12 | 4.0/5 | 1.0/3 | 0.0/0 | all |
+| Devin Vassell | SAS | 31.0/36 | 9.0/10 | 2.0/4 | 2.0/2 | 1.0/3 | 0.0/0 | all |
+| Onyeka Okongwu | ATL | 26.9/22 | 11.0/10 | 7.0/4 | 2.0/1 | 1.0/0 | 0.0/0 | all |
+| Isaiah Collier | UTA | 20.5/18 | 6.0/10 | 1.0/2 | 5.0/7 | 1.0/0 | 0.0/0 | all |
+| Brice Sensabaugh | UTA | 18.6/16 | 7.0/10 | 1.0/3 | 1.0/2 | 0.0/0 | 0.0/1 | all |
+| De'Anthony Melton | GSW | 20.7/20 | 8.0/10 | 3.0/1 | 2.0/0 | 1.0/1 | 0.0/1 | all |
+| Graham Ike | GSW | 0.0/12 | 0.0/10 | 0.0/2 | 0.0/1 | 0.0/1 | 0.0/0 | MIN,PTS,AST,STL |
+| Luguentz Dort | ATL | 19.2/19 | 6.0/9 | 2.0/5 | 0.0/2 | 1.0/1 | 0.0/0 | all |
+| Aaron Nesmith | IND | 27.5/20 | 10.0/9 | 3.0/4 | 1.0/1 | 1.0/0 | 0.0/0 | MIN |
+| Ivica Zubac | IND | 24.3/24 | 12.0/9 | 10.0/11 | 1.0/2 | 0.0/0 | 0.0/1 | all |
+| Trey Lyles | MIN | 17.5/17 | 4.0/9 | 3.0/6 | 0.0/2 | 0.0/0 | 0.0/0 | all |
 | Joan Beringer | MIN | 0.0/15 | 0.0/9 | 0.0/9 | 0.0/0 | 0.0/0 | 0.0/0 | MIN,PTS,REB |
-| Anthony Davis | WAS | 33.2/32 | 18.0/9 | 11.0/9 | 2.0/0 | 1.0/1 | 1.0/2 | all |
-| Trey Murphy III | NOP | 32.9/31 | 12.0/9 | 3.0/6 | 3.0/3 | 1.0/1 | 0.0/0 | all |
-| Luka Garza | BOS | 0.0/4 | 0.0/8 | 0.0/1 | 0.0/0 | 0.0/1 | 0.0/0 | MIN,PTS,REB,STL |
+| Anthony Davis | WAS | 28.9/32 | 17.0/9 | 10.0/9 | 1.0/0 | 1.0/1 | 1.0/2 | all |
+| Trey Murphy III | NOP | 27.8/31 | 12.0/9 | 2.0/6 | 3.0/3 | 1.0/1 | 0.0/0 | all |
+| Luka Garza | BOS | 0.0/4 | 0.0/8 | 0.0/1 | 0.0/0 | 0.0/1 | 0.0/0 | MIN,PTS,STL |
 | Landry Shamet | NYK | 21.1/21 | 6.0/8 | 1.0/2 | 1.0/0 | 0.0/0 | 0.0/0 | all |
-| Jock Landale | ATL | 19.6/18 | 7.0/8 | 5.0/6 | 1.0/4 | 0.0/1 | 0.0/1 | all |
+| Keldon Johnson | SAS | 16.6/19 | 7.0/8 | 3.0/6 | 1.0/1 | 0.0/1 | 0.0/0 | all |
+| Jock Landale | ATL | 18.1/18 | 6.5/8 | 4.0/6 | 1.0/4 | 0.0/1 | 0.0/1 | all |
 | Quenton Jackson | IND | 0.0/17 | 0.0/8 | 0.0/1 | 0.0/3 | 0.0/1 | 0.0/0 | MIN,PTS,REB,AST,STL |
 | Morez Johnson Jr. | DAL | 0.0/17 | 0.0/8 | 0.0/6 | 0.0/0 | 0.0/0 | 0.0/0 | MIN,PTS,REB |
-| Justin Champagnie | WAS | 22.5/23 | 7.0/8 | 5.0/6 | 1.0/0 | 1.0/1 | 0.0/2 | all |
-| Collin Murray-Boyles | TOR | 24.4/18 | 8.0/8 | 5.0/3 | 2.0/0 | 1.0/3 | 1.0/0 | all |
-| Andrew Wiggins | MIA | 29.6/26 | 12.0/8 | 3.0/8 | 2.0/2 | 1.0/1 | 1.0/0 | REB |
-| Tim Hardaway Jr. | MIA | 18.7/21 | 6.0/8 | 1.0/4 | 1.0/1 | 0.0/0 | 0.0/0 | REB |
+| Justin Champagnie | WAS | 20.3/23 | 7.0/8 | 5.0/6 | 1.0/0 | 1.0/1 | 0.0/2 | BLK |
+| Collin Murray-Boyles | TOR | 21.2/18 | 8.0/8 | 5.0/3 | 2.0/0 | 1.0/3 | 0.0/0 | all |
+| Andrew Wiggins | MIA | 28.5/26 | 11.0/8 | 3.0/8 | 2.0/2 | 1.0/1 | 0.0/0 | REB |
+| Tim Hardaway Jr. | MIA | 18.8/21 | 6.0/8 | 1.0/4 | 0.0/1 | 0.0/0 | 0.0/0 | REB |
 | Ronald Holland II | DET | 0.0/22 | 0.0/8 | 0.0/5 | 0.0/4 | 0.0/1 | 0.0/0 | MIN,PTS,REB,AST,STL |
-| Zach Edey | MEM | 23.8/22 | 11.0/8 | 13.0/10 | 1.0/3 | 0.0/1 | 2.0/2 | all |
-| Scotty Pippen Jr. | MEM | 21.1/17 | 9.0/8 | 2.0/6 | 4.0/3 | 1.0/0 | 0.0/1 | MIN,REB |
-| Donovan Clingan | POR | 21.4/21 | 8.0/8 | 9.0/11 | 2.0/3 | 0.0/0 | 1.0/3 | all |
-| Keldon Johnson | SAS | 17.1/19 | 7.0/8 | 3.0/6 | 1.0/1 | 0.0/1 | 0.0/0 | all |
-| Colin Castleton | ORL | 0.0/4 | 0.0/7 | 0.0/2 | 0.0/1 | 0.0/0 | 0.0/0 | MIN,PTS,REB,AST |
+| Zach Edey | MEM | 21.3/22 | 10.0/8 | 11.0/10 | 1.0/3 | 0.0/1 | 1.0/2 | AST |
+| Scotty Pippen Jr. | MEM | 19.0/17 | 9.0/8 | 2.0/6 | 4.0/3 | 1.0/0 | 0.0/1 | REB |
+| Donovan Clingan | POR | 19.2/21 | 8.0/8 | 9.0/11 | 2.0/3 | 0.0/0 | 1.0/3 | BLK |
+| Luke Kornet | SAS | 0.0/16 | 0.0/7 | 0.0/3 | 0.0/0 | 0.0/0 | 0.0/1 | MIN,PTS,REB,BLK |
+| Jabari Smith Jr. | HOU | 34.4/34 | 12.0/7 | 6.0/5 | 1.0/1 | 0.0/2 | 0.0/2 | all |
+| Colin Castleton | ORL | 0.0/4 | 0.0/7 | 0.0/2 | 0.0/1 | 0.0/0 | 0.0/0 | MIN,PTS,AST |
 | Alex Sarr | WAS | 0.0/25 | 0.0/7 | 0.0/4 | 0.0/5 | 0.0/2 | 0.0/0 | MIN,PTS,REB,AST,STL |
-| Ja'Kobe Walter | TOR | 30.5/24 | 8.0/7 | 2.0/4 | 2.0/2 | 1.0/2 | 0.0/1 | all |
-| Pelle Larsson | MIA | 24.7/29 | 7.0/7 | 2.0/2 | 3.0/1 | 0.0/1 | 0.0/0 | all |
+| Ja'Kobe Walter | TOR | 26.0/24 | 8.0/7 | 2.0/4 | 2.0/2 | 1.0/2 | 0.0/1 | all |
+| Pelle Larsson | MIA | 24.1/29 | 7.0/7 | 1.0/2 | 2.0/1 | 1.0/1 | 0.0/0 | all |
 | Kasparas Jakučionis | MIL | 0.0/23 | 0.0/7 | 0.0/2 | 0.0/5 | 0.0/2 | 0.0/0 | MIN,PTS,REB,AST,STL |
-| Matas Buzelis | CHI | 25.9/17 | 10.0/7 | 4.0/5 | 1.0/3 | 0.0/0 | 1.0/1 | MIN |
-| Jeremiah Fears | NOP | 31.9/24 | 12.0/7 | 3.0/0 | 3.0/1 | 1.0/1 | 0.0/0 | all |
+| Matas Buzelis | CHI | 22.8/17 | 10.0/7 | 4.0/5 | 1.0/3 | 0.0/0 | 0.0/1 | all |
+| Jeremiah Fears | NOP | 27.2/24 | 11.0/7 | 2.0/0 | 3.0/1 | 1.0/1 | 0.0/0 | all |
 | Karlo Matković | NOP | 0.0/9 | 0.0/7 | 0.0/4 | 0.0/1 | 0.0/2 | 0.0/0 | MIN,PTS,REB,AST,STL |
 | Gary Payton II | GSW | 0.0/11 | 0.0/7 | 0.0/2 | 0.0/0 | 0.0/0 | 0.0/0 | MIN,PTS,REB |
-| Sandro Mamukelashvili | LAL | 15.0/24 | 6.0/7 | 3.0/5 | 1.0/2 | 0.0/0 | 0.0/0 | MIN |
-| Kris Dunn | LAC | 26.7/34 | 6.0/7 | 3.0/4 | 4.0/5 | 1.0/2 | 0.0/0 | MIN |
-| Luke Kornet | SAS | 0.0/16 | 0.0/7 | 0.0/3 | 0.0/0 | 0.0/0 | 0.0/1 | MIN,PTS,REB,BLK |
-| Jabari Smith Jr. | HOU | 38.9/34 | 13.0/7 | 7.0/5 | 2.0/1 | 0.0/2 | 1.0/2 | MIN |
-| Sam Hauser | BOS | 21.0/23 | 6.0/6 | 2.0/2 | 1.0/2 | 0.0/0 | 0.0/0 | all |
-| Brandon Miller | CHA | 32.2/23 | 18.0/6 | 4.0/2 | 3.0/0 | 1.0/2 | 0.0/1 | MIN,AST |
-| Royce O'Neale | CHA | 19.6/17 | 5.0/6 | 3.0/2 | 1.0/0 | 0.0/1 | 0.0/0 | all |
-| Ryan Kalkbrenner | CHA | 15.8/19 | 6.0/6 | 5.0/7 | 1.0/1 | 0.0/0 | 1.0/2 | all |
+| Sandro Mamukelashvili | LAL | 15.1/24 | 6.0/7 | 3.0/5 | 1.0/2 | 0.0/0 | 0.0/0 | MIN |
+| Kris Dunn | LAC | 24.1/34 | 6.0/7 | 3.0/4 | 4.0/5 | 2.0/2 | 0.0/0 | MIN |
+| Sam Hauser | BOS | 19.5/23 | 6.0/6 | 2.0/2 | 1.0/2 | 0.0/0 | 0.0/0 | all |
+| Julian Champagnie | SAS | 27.2/25 | 8.0/6 | 3.0/0 | 1.0/0 | 1.0/3 | 0.0/0 | REB,STL |
+| Brandon Miller | CHA | 28.3/23 | 16.0/6 | 4.0/2 | 3.0/0 | 1.0/2 | 0.0/1 | MIN |
+| Royce O'Neale | CHA | 17.7/17 | 5.0/6 | 2.0/2 | 1.0/0 | 0.0/1 | 0.0/0 | all |
+| Ryan Kalkbrenner | CHA | 15.0/19 | 6.0/6 | 4.0/7 | 1.0/1 | 0.0/0 | 0.0/2 | all |
 | Hannes Steinbach | CHA | 0.0/12 | 0.0/6 | 0.0/5 | 0.0/0 | 0.0/0 | 0.0/0 | MIN,PTS,REB |
-| Marcus Sasser | DAL | 17.5/27 | 5.0/6 | 0.0/2 | 1.0/3 | 0.0/0 | 0.0/1 | MIN,BLK |
+| Marcus Sasser | DAL | 16.1/27 | 5.0/6 | 0.0/2 | 1.0/3 | 0.0/0 | 0.0/1 | MIN |
 | Jase Richardson | ORL | 0.0/14 | 0.0/6 | 0.0/1 | 0.0/3 | 0.0/0 | 0.0/0 | MIN,PTS,REB,AST |
 | Khris Middleton | WAS | 0.0/16 | 0.0/6 | 0.0/2 | 0.0/0 | 0.0/2 | 0.0/0 | MIN,PTS,REB,STL |
-| Jakob Poeltl | TOR | 21.3/27 | 10.0/6 | 9.0/9 | 2.0/2 | 1.0/1 | 1.0/1 | MIN |
-| Klay Thompson | MIA | 16.0/24 | 8.0/6 | 1.0/2 | 1.0/2 | 0.0/0 | 0.0/0 | MIN |
-| Josh Giddey | CHI | 27.5/25 | 11.0/6 | 7.0/4 | 7.0/9 | 1.0/0 | 0.0/0 | all |
-| Ace Bailey | UTA | 27.6/22 | 8.0/6 | 2.0/7 | 2.0/2 | 0.0/0 | 0.0/0 | MIN,REB |
-| Yves Missi | NOP | 28.0/9 | 7.0/6 | 7.0/1 | 2.0/0 | 0.0/0 | 1.0/1 | MIN |
-| Jerami Grant | MEM | 21.8/26 | 9.0/6 | 1.0/0 | 1.0/3 | 0.0/2 | 0.0/1 | all |
+| Jakob Poeltl | TOR | 18.8/27 | 10.0/6 | 8.0/9 | 2.0/2 | 1.0/1 | 0.0/1 | MIN |
+| Klay Thompson | MIA | 16.4/24 | 8.0/6 | 1.0/2 | 1.0/2 | 0.0/0 | 0.0/0 | MIN |
+| Josh Giddey | CHI | 24.2/25 | 11.0/6 | 7.0/4 | 6.0/9 | 1.0/0 | 0.0/0 | all |
+| Ace Bailey | UTA | 25.4/22 | 8.0/6 | 2.0/7 | 2.0/2 | 0.0/0 | 0.0/0 | REB |
+| Yves Missi | NOP | 24.2/9 | 7.0/6 | 6.5/1 | 2.0/0 | 0.0/0 | 1.0/1 | MIN |
+| Jerami Grant | MEM | 19.5/26 | 9.0/6 | 1.0/0 | 1.0/3 | 0.0/2 | 0.0/1 | MIN |
 | Gradey Dick | LAC | 0.0/12 | 0.0/6 | 0.0/4 | 0.0/0 | 0.0/1 | 0.0/0 | MIN,PTS,REB,STL |
 | Isaiah Jackson | LAC | 0.0/28 | 0.0/6 | 0.0/6 | 0.0/3 | 0.0/3 | 0.0/1 | MIN,PTS,REB,AST,STL,BLK |
-| Julian Champagnie | SAS | 30.2/25 | 8.0/6 | 4.0/0 | 1.0/0 | 1.0/3 | 0.0/0 | MIN,REB,STL |
-| Jordan Walsh | BOS | 12.3/20 | 2.5/5 | 3.0/3 | 0.0/0 | 0.0/0 | 0.0/0 | MIN |
-| Moussa Diabaté | CHA | 27.8/21 | 8.0/5 | 8.0/8 | 2.0/1 | 1.0/1 | 0.0/1 | all |
-| Kingston Flemings | ATL | 14.2/25 | 0.0/5 | 1.0/6 | 1.0/8 | 0.0/1 | 0.0/0 | MIN,PTS,REB,AST,STL |
-| Desmond Bane | ORL | 34.9/27 | 15.0/5 | 3.0/2 | 4.0/0 | 1.0/1 | 0.0/0 | MIN,AST |
-| Tristan da Silva | ORL | 18.9/29 | 6.0/5 | 2.0/3 | 1.0/1 | 0.0/1 | 0.0/0 | MIN |
-| Jamal Shead | TOR | 26.1/24 | 6.0/5 | 1.0/2 | 6.0/5 | 1.0/0 | 0.0/0 | all |
-| Jamison Battle | TOR | 20.8/12 | 6.0/5 | 3.0/0 | 1.0/0 | 0.0/1 | 0.0/0 | MIN |
-| Nikola Jović | MIA | 20.9/13 | 7.0/5 | 3.0/4 | 3.0/1 | 0.0/1 | 0.0/1 | all |
-| Kevin Huerter | DET | 8.7/20 | 0.0/5 | 0.0/6 | 0.0/2 | 0.0/1 | 0.0/1 | MIN,REB |
-| Javonte Green | DET | 8.5/13 | 0.0/5 | 0.0/3 | 0.0/0 | 0.0/0 | 0.0/1 | all |
-| Draymond Green | GSW | 27.0/31 | 8.0/5 | 7.0/5 | 6.0/6 | 1.0/0 | 1.0/1 | all |
-| Gui Santos | GSW | 26.3/20 | 8.0/5 | 5.0/4 | 2.0/2 | 1.0/1 | 0.0/1 | all |
-| Collin Sexton | LAL | 28.6/16 | 15.0/5 | 2.0/1 | 3.0/2 | 1.0/3 | 0.0/0 | MIN,STL |
+| Jordan Walsh | BOS | 12.5/20 | 2.0/5 | 3.0/3 | 0.0/0 | 0.0/0 | 0.0/0 | MIN |
+| Marcus Smart | HOU | 27.8/21 | 9.0/5 | 1.0/3 | 2.0/1 | 1.0/1 | 0.0/0 | MIN |
+| Moussa Diabaté | CHA | 24.7/21 | 7.0/5 | 7.0/8 | 2.0/1 | 1.0/1 | 0.0/1 | all |
+| Kingston Flemings | ATL | 13.6/25 | 0.0/5 | 1.0/6 | 1.0/8 | 0.0/1 | 0.0/0 | MIN,PTS,REB,AST |
+| Desmond Bane | ORL | 31.3/27 | 14.0/5 | 3.0/2 | 3.0/0 | 1.0/1 | 0.0/0 | MIN,AST |
+| Tristan da Silva | ORL | 18.0/29 | 6.0/5 | 2.0/3 | 1.0/1 | 0.0/1 | 0.0/0 | MIN |
+| Jamal Shead | TOR | 22.6/24 | 6.0/5 | 1.0/2 | 6.0/5 | 1.0/0 | 0.0/0 | all |
+| Jamison Battle | TOR | 18.5/12 | 6.0/5 | 3.0/0 | 1.0/0 | 0.0/1 | 0.0/0 | MIN |
+| Nikola Jović | MIA | 20.9/13 | 7.0/5 | 3.0/4 | 2.0/1 | 0.0/1 | 0.0/1 | MIN |
+| Kevin Huerter | DET | 8.8/20 | 2.0/5 | 1.0/6 | 0.0/2 | 0.0/1 | 0.0/1 | MIN,REB |
+| Javonte Green | DET | 8.6/13 | 2.0/5 | 1.0/3 | 0.0/0 | 0.0/0 | 0.0/1 | all |
+| Draymond Green | GSW | 24.9/31 | 7.0/5 | 6.0/5 | 6.0/6 | 1.0/0 | 0.0/1 | all |
+| Gui Santos | GSW | 24.5/20 | 7.0/5 | 4.0/4 | 2.0/2 | 1.0/1 | 0.0/1 | all |
+| Collin Sexton | LAL | 27.4/16 | 14.0/5 | 1.0/1 | 3.0/2 | 1.0/3 | 0.0/0 | MIN,STL |
 | Kobe Sanders | LAC | 0.0/19 | 0.0/5 | 0.0/3 | 0.0/5 | 0.0/1 | 0.0/0 | MIN,PTS,REB,AST,STL |
 | Emanuel Sharp | SAC | 0.0/14 | 0.0/5 | 0.0/0 | 0.0/1 | 0.0/0 | 0.0/0 | MIN,PTS,AST |
-| Marcus Smart | HOU | 30.6/21 | 10.0/5 | 1.0/3 | 2.0/1 | 1.0/1 | 0.0/0 | MIN |
-| Payton Pritchard | BOS | 31.4/30 | 12.0/4 | 2.0/1 | 4.0/4 | 0.0/0 | 0.0/0 | all |
-| Mitchell Robinson | BOS | 15.1/22 | 4.0/4 | 6.0/4 | 0.0/2 | 0.0/0 | 0.0/1 | MIN,AST |
-| Dennis Schröder | CHA | 20.9/20 | 8.0/4 | 1.0/4 | 3.0/3 | 0.0/0 | 0.0/1 | all |
+| Payton Pritchard | BOS | 28.1/30 | 11.0/4 | 2.0/1 | 3.0/4 | 0.0/0 | 0.0/0 | all |
+| Mitchell Robinson | BOS | 14.6/22 | 4.0/4 | 6.0/4 | 0.0/2 | 1.0/0 | 0.0/1 | MIN,AST |
+| Steven Adams | HOU | 0.0/9 | 0.0/4 | 0.0/2 | 0.0/1 | 0.0/0 | 0.0/0 | MIN,PTS,AST |
+| Dennis Schröder | CHA | 18.9/20 | 7.0/4 | 1.0/4 | 2.0/3 | 0.0/0 | 0.0/1 | REB |
 | Liam McNeeley | CHA | 0.0/12 | 0.0/4 | 0.0/4 | 0.0/0 | 0.0/0 | 0.0/0 | MIN,PTS,REB |
-| Jalen Slawson | IND | 24.2/16 | 6.0/4 | 3.0/5 | 2.0/2 | 1.0/2 | 1.0/2 | MIN |
-| Daniel Gafford | DAL | 20.9/15 | 8.0/4 | 5.0/3 | 1.0/5 | 0.0/0 | 1.0/2 | AST |
-| Goga Bitadze | ORL | 12.3/12 | 4.0/4 | 5.0/3 | 1.0/0 | 0.0/0 | 1.0/1 | all |
+| Jalen Slawson | IND | 21.7/16 | 6.0/4 | 3.0/5 | 1.0/2 | 1.0/2 | 0.0/2 | all |
+| Daniel Gafford | DAL | 19.2/15 | 8.0/4 | 5.0/3 | 1.0/5 | 0.0/0 | 0.0/2 | AST |
+| Goga Bitadze | ORL | 12.4/12 | 4.0/4 | 5.0/3 | 1.0/0 | 0.0/0 | 0.0/1 | all |
 | Deandre Ayton | WAS | 0.0/14 | 0.0/4 | 0.0/6 | 0.0/1 | 0.0/0 | 0.0/0 | MIN,PTS,REB,AST |
-| Bam Adebayo | MIA | 26.8/23 | 13.0/4 | 8.0/6 | 4.0/3 | 1.0/2 | 0.0/0 | all |
-| Ausar Thompson | DET | 29.7/19 | 10.0/4 | 6.0/3 | 3.0/5 | 2.0/1 | 1.0/1 | MIN |
-| Jalen Duren | DET | 26.9/10 | 14.0/4 | 11.0/6 | 2.0/3 | 0.0/1 | 1.0/1 | MIN |
-| Noa Essengue | CHI | 0.0/17 | 0.0/4 | 0.0/1 | 0.0/1 | 0.0/3 | 0.0/1 | MIN,PTS,REB,AST,STL,BLK |
-| Bennedict Mathurin | NOP | 21.3/15 | 9.0/4 | 2.0/2 | 1.0/0 | 0.0/0 | 0.0/0 | all |
-| Brandon Williams | GSW | 20.7/9 | 9.0/4 | 2.0/2 | 2.0/1 | 0.0/1 | 0.0/0 | all |
+| Bam Adebayo | MIA | 26.2/23 | 13.0/4 | 7.0/6 | 3.0/3 | 1.0/2 | 0.0/0 | all |
+| Ausar Thompson | DET | 26.3/19 | 9.0/4 | 5.0/3 | 3.0/5 | 2.0/1 | 0.0/1 | MIN |
+| Jalen Duren | DET | 24.1/10 | 13.0/4 | 10.0/6 | 2.0/3 | 0.0/1 | 0.0/1 | MIN |
+| Noa Essengue | CHI | 0.0/17 | 0.0/4 | 0.0/1 | 0.0/1 | 0.0/3 | 0.0/1 | MIN,PTS,AST,STL,BLK |
+| Bennedict Mathurin | NOP | 18.9/15 | 9.0/4 | 2.0/2 | 1.0/0 | 0.0/0 | 0.0/0 | all |
+| Brandon Williams | GSW | 19.4/9 | 8.0/4 | 1.0/2 | 2.0/1 | 1.0/1 | 0.0/0 | all |
 | Georges Niang | GSW | 0.0/13 | 0.0/4 | 0.0/3 | 0.0/0 | 0.0/1 | 0.0/0 | MIN,PTS,REB,STL |
 | Isaiah Stewart | MEM | 0.0/16 | 0.0/4 | 0.0/2 | 0.0/0 | 0.0/1 | 0.0/0 | MIN,PTS,REB,STL |
 | De'Andre Hunter | SAC | 0.0/25 | 0.0/4 | 0.0/7 | 0.0/1 | 0.0/0 | 0.0/0 | MIN,PTS,REB,AST |
-| Scoot Henderson | POR | 22.7/21 | 9.0/4 | 1.0/1 | 3.0/2 | 0.0/0 | 0.0/0 | all |
-| Steven Adams | HOU | 0.0/9 | 0.0/4 | 0.0/2 | 0.0/1 | 0.0/0 | 0.0/0 | MIN,PTS,REB,AST |
-| Sion James | CHA | 20.6/24 | 5.0/3 | 3.0/2 | 2.0/5 | 0.0/0 | 0.0/0 | all |
-| Asa Newell | ATL | 0.0/8 | 0.0/3 | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | MIN,PTS,REB |
+| Scoot Henderson | POR | 20.3/21 | 9.0/4 | 1.0/1 | 3.0/2 | 1.0/0 | 0.0/0 | all |
+| Bogdan Bogdanović | HOU | 0.0/9 | 0.0/3 | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | MIN,PTS,REB |
+| Sion James | CHA | 18.9/24 | 4.0/3 | 2.0/2 | 2.0/5 | 0.0/0 | 0.0/0 | MIN |
+| Asa Newell | ATL | 0.0/8 | 0.0/3 | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | MIN,PTS |
 | Dorian Finney-Smith | ATL | 0.0/8 | 0.0/3 | 0.0/2 | 0.0/1 | 0.0/0 | 0.0/0 | MIN,PTS,REB,AST |
 | Zuby Ejiofor | ATL | 0.0/8 | 0.0/3 | 0.0/2 | 0.0/0 | 0.0/0 | 0.0/0 | MIN,PTS,REB |
-| Kelly Oubre Jr. | IND | 29.2/20 | 10.0/3 | 4.0/2 | 1.0/2 | 1.0/1 | 0.0/0 | MIN |
+| Kelly Oubre Jr. | IND | 25.9/20 | 10.0/3 | 3.0/2 | 1.0/2 | 1.0/1 | 0.0/0 | all |
 | Bones Hyland | MIN | 0.0/8 | 0.0/3 | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | MIN,PTS,REB |
-| Bub Carrington | WAS | 26.6/11 | 9.0/3 | 2.0/1 | 5.0/0 | 0.0/0 | 0.0/0 | MIN,AST |
-| Nick Richards | MIA | 10.2/3 | 4.0/3 | 3.0/0 | 0.0/1 | 0.0/0 | 0.0/0 | all |
-| Dru Smith | MIA | 0.0/6 | 0.0/3 | 0.0/0 | 0.0/1 | 0.0/0 | 0.0/0 | MIN,PTS,AST |
-| Ousmane Dieng | MIL | 29.6/16 | 8.0/3 | 4.0/1 | 3.0/1 | 0.0/0 | 0.0/0 | MIN |
-| Brayden Burries | MIL | 0.0/8 | 0.0/3 | 0.0/1 | 0.0/3 | 0.0/1 | 0.0/0 | MIN,PTS,REB,AST,STL |
-| Svi Mykhailiuk | UTA | 17.7/21 | 5.0/3 | 1.0/4 | 1.0/1 | 0.0/1 | 0.0/0 | REB |
-| Herbert Jones | NOP | 20.9/18 | 6.0/3 | 1.0/1 | 2.0/0 | 1.0/0 | 0.0/0 | all |
+| Bub Carrington | WAS | 23.6/11 | 8.0/3 | 2.0/1 | 4.0/0 | 0.0/0 | 0.0/0 | MIN,AST |
+| Nick Richards | MIA | 10.8/3 | 4.0/3 | 4.0/0 | 0.0/1 | 0.0/0 | 0.0/0 | all |
+| Dru Smith | MIA | 0.0/6 | 0.0/3 | 0.0/0 | 0.0/1 | 0.0/0 | 0.0/0 | MIN,PTS |
+| Ousmane Dieng | MIL | 26.0/16 | 8.0/3 | 3.0/1 | 2.0/1 | 1.0/0 | 0.0/0 | MIN |
+| Brayden Burries | MIL | 0.0/8 | 0.0/3 | 0.0/1 | 0.0/3 | 0.0/1 | 0.0/0 | MIN,PTS,AST,STL |
+| Svi Mykhailiuk | UTA | 16.8/21 | 5.0/3 | 1.0/4 | 1.0/1 | 0.0/1 | 0.0/0 | REB |
+| Herbert Jones | NOP | 18.7/18 | 6.0/3 | 1.0/1 | 2.0/0 | 1.0/0 | 0.0/0 | all |
 | Al Horford | GSW | 0.0/19 | 0.0/3 | 0.0/5 | 0.0/0 | 0.0/0 | 0.0/2 | MIN,PTS,REB,BLK |
-| Daeqwon Plowden | SAC | 22.3/20 | 7.0/3 | 2.0/0 | 1.0/0 | 0.0/0 | 0.0/1 | all |
-| Bogdan Bogdanović | HOU | 0.0/9 | 0.0/3 | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | MIN,PTS,REB |
-| Baylor Scheierman | BOS | 17.1/11 | 5.0/2 | 2.0/0 | 1.0/0 | 0.0/0 | 0.0/0 | all |
-| Andre Drummond | NYK | 11.1/7 | 2.0/2 | 4.0/2 | 0.0/0 | 0.0/0 | 0.0/0 | all |
-| Jose Alvarado | NYK | 13.4/11 | 5.0/2 | 1.0/2 | 2.0/2 | 1.0/1 | 0.0/0 | all |
+| Daeqwon Plowden | SAC | 20.5/20 | 8.0/3 | 1.0/0 | 1.0/0 | 0.0/0 | 0.0/1 | all |
+| Baylor Scheierman | BOS | 16.4/11 | 4.0/2 | 2.0/0 | 1.0/0 | 0.0/0 | 0.0/0 | all |
+| Andre Drummond | NYK | 11.8/7 | 3.0/2 | 5.0/2 | 0.0/0 | 0.0/0 | 0.0/0 | all |
+| Jose Alvarado | NYK | 14.0/11 | 5.0/2 | 1.0/2 | 2.0/2 | 1.0/1 | 0.0/0 | all |
 | Christian Anderson | CHA | 0.0/16 | 0.0/2 | 0.0/0 | 0.0/2 | 0.0/0 | 0.0/1 | MIN,PTS,AST,BLK |
-| Jarace Walker | IND | 22.8/17 | 7.0/2 | 3.0/1 | 2.0/1 | 0.0/0 | 0.0/0 | all |
-| Allen Graves | TOR | 0.0/6 | 0.0/2 | 0.0/2 | 0.0/0 | 0.0/0 | 0.0/1 | MIN,PTS,REB,BLK |
-| Ryan Conwell | MIA | 0.0/3 | 0.0/2 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | MIN,PTS |
-| GG Jackson | MEM | 20.9/15 | 9.0/2 | 3.0/4 | 1.0/1 | 0.0/0 | 0.0/0 | all |
-| Quinten Post | MEM | 0.0/20 | 0.0/2 | 0.0/1 | 0.0/1 | 0.0/0 | 0.0/2 | MIN,PTS,REB,AST,BLK |
+| Jarace Walker | IND | 20.3/17 | 7.0/2 | 3.0/1 | 2.0/1 | 1.0/0 | 0.0/0 | all |
+| Allen Graves | TOR | 0.0/6 | 0.0/2 | 0.0/2 | 0.0/0 | 0.0/0 | 0.0/1 | MIN,PTS,BLK |
+| Ryan Conwell | MIA | 0.0/3 | 0.0/2 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | PTS |
+| GG Jackson | MEM | 19.0/15 | 9.0/2 | 3.0/4 | 1.0/1 | 0.0/0 | 0.0/0 | all |
+| Quinten Post | MEM | 0.0/20 | 0.0/2 | 0.0/1 | 0.0/1 | 0.0/0 | 0.0/2 | MIN,PTS,AST,BLK |
 | Hugo González | BOS | 0.0/4 | 0.0/0 | 0.0/0 | 0.0/1 | 0.0/0 | 0.0/0 | MIN,AST |
-| Mikal Bridges | NYK | 33.1/22 | 10.0/0 | 2.0/1 | 3.0/4 | 1.0/1 | 0.0/0 | MIN,PTS |
-| James Wiseman | NYK | 13.6/2 | 4.0/0 | 3.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | all |
-| Jordan Clarkson | NYK | 7.0/3 | 2.0/0 | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | all |
-| PJ Hall | CHA | 14.0/10 | 6.0/0 | 5.0/1 | 0.0/3 | 0.0/0 | 0.0/1 | AST |
-| Kobe Brown | IND | 28.5/1 | 6.0/0 | 3.0/0 | 1.0/0 | 0.0/0 | 0.0/0 | MIN |
-| Jay Huff | IND | 22.5/5 | 8.0/0 | 2.0/2 | 1.0/0 | 0.0/0 | 1.0/0 | all |
-| Larry Nance Jr. | IND | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | MIN |
-| Jamal Cain | ORL | 21.0/11 | 8.0/0 | 3.0/1 | 1.0/0 | 0.0/0 | 0.0/0 | MIN |
-| Nikola Vučević | ORL | 9.7/4 | 2.0/0 | 2.0/2 | 0.0/0 | 0.0/0 | 0.0/0 | all |
-| Alex Morales | ORL | 0.0/4 | 0.0/0 | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | MIN,REB |
+| Mikal Bridges | NYK | 31.6/22 | 9.0/0 | 2.0/1 | 3.0/4 | 1.0/1 | 0.0/0 | MIN,PTS |
+| James Wiseman | NYK | 14.0/2 | 4.0/0 | 3.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | MIN |
+| Jordan Clarkson | NYK | 8.1/3 | 3.0/0 | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | all |
+| Harrison Barnes | SAS | 19.6/5 | 8.0/0 | 2.0/0 | 1.0/0 | 0.0/0 | 0.0/0 | MIN |
+| Carter Bryant | SAS | 0.0/4 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | MIN |
+| PJ Hall | CHA | 13.3/10 | 6.0/0 | 5.0/1 | 0.0/3 | 0.0/0 | 0.0/1 | AST |
+| Kobe Brown | IND | 25.1/1 | 6.0/0 | 3.0/0 | 1.0/0 | 0.0/0 | 0.0/0 | MIN |
+| Jay Huff | IND | 20.2/5 | 8.0/0 | 2.0/2 | 1.0/0 | 0.0/0 | 0.0/0 | all |
+| Larry Nance Jr. | IND | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | all |
+| Jamal Cain | ORL | 19.8/11 | 7.0/0 | 3.0/1 | 1.0/0 | 0.0/0 | 0.0/0 | MIN |
+| Nikola Vučević | ORL | 9.8/4 | 4.0/0 | 3.0/2 | 0.0/0 | 0.0/0 | 0.0/0 | all |
+| Alex Morales | ORL | 0.0/4 | 0.0/0 | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | MIN |
 | Jevon Carter | ORL | 0.0/13 | 0.0/0 | 0.0/1 | 0.0/1 | 0.0/2 | 0.0/0 | MIN,REB,AST,STL |
-| Cody Williams | MIN | 22.8/3 | 4.0/0 | 1.0/0 | 1.0/0 | 0.0/0 | 0.0/0 | all |
-| Isaiah Evans | MIN | 0.0/2 | 0.0/0 | 0.0/0 | 0.0/1 | 0.0/0 | 0.0/0 | MIN,AST |
+| Cody Williams | MIN | 20.2/3 | 4.0/0 | 1.0/0 | 1.0/0 | 0.0/0 | 0.0/0 | MIN |
+| Isaiah Evans | MIN | 0.0/2 | 0.0/0 | 0.0/0 | 0.0/1 | 0.0/0 | 0.0/0 | AST |
 | Jaylen Clark | MIN | 0.0/3 | 0.0/0 | 0.0/2 | 0.0/1 | 0.0/0 | 0.0/0 | MIN,REB,AST |
-| Myron Gardner | MIA | 0.0/3 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/1 | MIN,BLK |
-| Simone Fontecchio | MIA | 0.0/3 | 0.0/0 | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | MIN,REB |
-| Tolu Smith | DET | 0.0/2 | 0.0/0 | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | MIN,REB |
-| Kyle Filipowski | UTA | 20.9/8 | 7.0/0 | 5.0/1 | 2.0/0 | 0.0/1 | 0.0/0 | MIN |
+| Myron Gardner | MIA | 0.0/3 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/1 | BLK |
+| Simone Fontecchio | MIA | 0.0/3 | 0.0/0 | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | all |
+| Tolu Smith | DET | 0.0/2 | 0.0/0 | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | all |
+| Kyle Filipowski | UTA | 19.6/8 | 7.0/0 | 5.0/1 | 2.0/0 | 1.0/1 | 0.0/0 | MIN |
 | Will Richard | GSW | 0.0/3 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/1 | 0.0/0 | MIN,STL |
 | Kris Murray | MEM | 0.0/13 | 0.0/0 | 0.0/3 | 0.0/1 | 0.0/0 | 0.0/1 | MIN,REB,AST,BLK |
-| Kevon Looney | LAL | 16.6/5 | 2.0/0 | 5.0/1 | 1.0/0 | 0.0/0 | 0.0/0 | all |
-| Nique Clifford | SAC | 28.9/2 | 7.0/0 | 2.0/0 | 2.0/0 | 1.0/0 | 0.0/0 | MIN |
+| Kevon Looney | LAL | 16.7/5 | 2.0/0 | 5.0/1 | 1.0/0 | 0.0/0 | 0.0/0 | all |
+| Nique Clifford | SAC | 25.9/2 | 7.0/0 | 2.0/0 | 2.0/0 | 1.0/0 | 0.0/0 | MIN |
 | Malik Monk | SAC | 0.0/12 | 0.0/0 | 0.0/1 | 0.0/2 | 0.0/0 | 0.0/0 | MIN,REB,AST |
 | Vít Krejčí | POR | 0.0/3 | 0.0/0 | 0.0/2 | 0.0/0 | 0.0/0 | 0.0/0 | MIN,REB |
-| Harrison Barnes | SAS | 20.9/5 | 8.0/0 | 2.0/0 | 1.0/0 | 0.0/0 | 0.0/0 | MIN |
-| Carter Bryant | SAS | 0.0/4 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | MIN |

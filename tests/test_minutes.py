@@ -174,6 +174,7 @@ def test_projected_team_minutes_near_240():
 
 
 def test_sim_minute_draws_sum_near_240():
+    """Every regulation sim must sum to exactly team_minutes_target (240)."""
     settings = load_settings()
     game = next(
         row for row in read_rows(settings, "schedule", "2024-25") if row["game_id"] == "0022400102"
@@ -184,14 +185,9 @@ def test_sim_minute_draws_sum_near_240():
         game_id=game["game_id"],
         as_of=game["game_date"],
     )
-    # With gap_close=0, draws preserve projected means (not hard-forced to 240).
-    # Force hard normalize to verify the 240 path still works.
-    cfg = dict(settings.config)
-    minutes_cfg = dict(cfg["minutes"])
-    minutes_cfg["normalize_gap_close"] = 1.0
-    cfg["minutes"] = minutes_cfg
-    result = simulate_game(projection, runs=150, seed=3, config=cfg)
-    target = float(minutes_cfg["team_minutes_target"])
+    # Default config (gap_close=0) still hard-normalizes draws in the engine.
+    result = simulate_game(projection, runs=150, seed=3, config=settings.config)
+    target = float(settings.config["minutes"]["team_minutes_target"])
     for side in ("H", "A"):
         idx = [i for i, ha in enumerate(result.home_away) if ha == side]
         # Regulation-like totals: OT runs can exceed 240.

@@ -110,35 +110,22 @@ def simulate_game(
     minutes_cfg = cfg.get("minutes", {})
     team_target = float(minutes_cfg.get("team_minutes_target", 240.0))
     min_minutes = float(minutes_cfg.get("min_minutes", 0.0))
-    # Config gap_close > 0 is an explicit override (tests / tuning).
-    # Otherwise use the projection's early-season-aware value (0 mid-season).
-    gap_close = float(minutes_cfg.get("normalize_gap_close", 0.0))
-    if gap_close <= 0:
-        gap_close = float(getattr(projection, "minutes_gap_close", 0.0))
+    # Always enforce exactly team_target per team in regulation. Soft/gap_close
+    # paths let early-season naive means drift to ~259 and mid-season to ~225;
+    # OT (+25/period) is applied later via add_overtime_minutes.
     out_mask = np.array([p.minutes.out for p in players], dtype=bool)
     caps = np.array(
         [0.0 if p.minutes.out else float(p.minutes.max_minutes) for p in players],
         dtype=float,
     )
     for pool in (home_idx, away_idx):
-        if gap_close >= 1.0:
-            minutes[pool] = normalize_team_minute_draws(
-                minutes[pool],
-                out_mask=out_mask[pool],
-                caps=caps[pool],
-                target=team_target,
-                min_minutes=min_minutes,
-            )
-        else:
-            # gap_close=0: clip only, preserve projected means (Step 2 MAE).
-            # Mild soft close when configured between 0 and 1.
-            minutes[pool] = _soft_normalize_minute_draws(
-                minutes[pool],
-                out_mask=out_mask[pool],
-                caps=caps[pool],
-                target=team_target,
-                gap_close=gap_close,
-            )
+        minutes[pool] = normalize_team_minute_draws(
+            minutes[pool],
+            out_mask=out_mask[pool],
+            caps=caps[pool],
+            target=team_target,
+            min_minutes=min_minutes,
+        )
 
     packed = _pack_rates(players)
     packed["assist_matrix"] = _assist_matrix(
@@ -1050,7 +1037,12 @@ def _vector_possession(
     blk_prob = np.clip(blk_w.sum(axis=1) * blk_scale, 0.0, 0.085)
     is_blk = remaining & (rng.random(n_runs) < blk_prob)
     if np.any(is_blk):
-        pick = _weighted_choice(rng, blk_w[is_blk])
+        # Soften who-gets-block: blend rates with on-court mean so starter BLK
+        # share stays near actual (±3%) while team BLK totals stay put.
+        raw_w = np.maximum(blk_w[is_blk], 1e-8)
+        mean_w = raw_w.mean(axis=1, keepdims=True)
+        credit_w = 0.35 * raw_w + 0.65 * mean_w
+        pick = _weighted_choice(rng, credit_w)
         runners = np.flatnonzero(is_blk)
         players = def_lineups[is_blk, pick]
         np.add.at(blk, (players, runners), 1)

@@ -226,12 +226,19 @@ def naive_last10_minutes(
     as_of: date,
     window: int = 10,
     recent_decay: float = 0.45,
+    current_season: str | None = None,
+    early_season_games: int = 10,
 ) -> tuple[float, float, int]:
     """Weighted mean of the last ``window`` games the player actually played.
 
     Only appearances with minutes > 0 count (DNPs / inactive nights omitted).
     No team alignment, depth priors, or cross-team discounts.
+    ``current_season`` / ``early_season_games`` are accepted for call-site
+    compatibility; starter-share concentration is handled by hard 240 normalize
+    + play_prob-aware allocate (filtering playoffs out of the window flattened
+    early-season starter shares).
     """
+    del current_season, early_season_games  # API compat; see docstring.
     paired: list[tuple[date, float]] = []
     for bundle in bundles:
         for row in bundle.logs_by_player.get(player_id, []):
@@ -522,6 +529,58 @@ def allocate_team_minutes(
                 keep_threshold=keep_threshold,
                 min_rotation=min_rotation,
             )
+
+    # Means are conditional-on-playing. The sim draws sit/play via play_prob then
+    # hard-normalizes each run to ``target``. If sum(conditional)≈target but
+    # E[sum]=sum(mean*play_prob)<target, normalize systematically dumps the
+    # shortfall onto high-play_prob players (starters) → starter MIN share drift.
+    # Scale conditionals so expected pre-normalize sum equals target.
+    expected = 0.0
+    for i, prev in enumerate(projections):
+        if out[i] or means[i] <= 0:
+            continue
+        expected += float(means[i]) * float(prev.play_prob)
+    if expected > 1e-9:
+        factor = target / expected
+        for i in np.where(~out)[0]:
+            if means[i] <= 0 or caps[i] <= 0:
+                continue
+            means[i] = min(float(means[i]) * factor, float(caps[i]))
+
+    # Role-share shaping after play_prob-aware scale:
+    # - Mid-season (gap_close=0): mild pull toward equal (starters were +3–4%).
+    # - Early season (gap_close>0): power-concentrate on top minutes (naive
+    #   last-10 is thin / flat and under-concentrates starters).
+    playing = [
+        i
+        for i in np.where(~out)[0]
+        if means[i] > play_threshold and caps[i] > 0
+    ]
+    if len(playing) >= 7:
+        if gap_close <= 0:
+            shrink = float(minutes_cfg.get("starter_share_shrink", 0.08))
+            if shrink > 0:
+                equal = target / float(len(playing))
+                for i in playing:
+                    means[i] = (1.0 - shrink) * float(means[i]) + shrink * equal
+                    means[i] = min(means[i], float(caps[i]))
+        else:
+            power = float(minutes_cfg.get("early_starter_power", 1.15))
+            if power != 1.0:
+                for i in playing:
+                    means[i] = float(means[i]) ** power
+                    means[i] = min(means[i], float(caps[i]))
+        expected = sum(
+            float(means[i]) * float(projections[i].play_prob)
+            for i in np.where(~out)[0]
+            if means[i] > 0
+        )
+        if expected > 1e-9:
+            factor = target / expected
+            for i in np.where(~out)[0]:
+                if means[i] <= 0 or caps[i] <= 0:
+                    continue
+                means[i] = min(float(means[i]) * factor, float(caps[i]))
 
     out_proj: list[MinutesProjection] = []
     for i, prev in enumerate(projections):

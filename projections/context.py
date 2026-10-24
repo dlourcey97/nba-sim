@@ -312,6 +312,147 @@ def league_strength(strength: dict[int, TeamStrength]) -> TeamStrength:
     return TeamStrength(ortg=ortg, drtg=drtg)
 
 
+# Cache league TOV/STL averages so walk-forward does not re-scan Parquet per game.
+_TOV_STL_AVG_CACHE: dict[tuple, tuple[float, float, int]] = {}
+_TOV_STL_SCALE_CACHE: dict[tuple, tuple[float, float]] = {}
+
+
+def _league_tov_stl_avg(
+    settings: Settings,
+    season_label: str,
+    *,
+    before: date | None,
+    first_n_team_games: int | None = None,
+) -> tuple[float, float, int]:
+    key = (str(settings.data_dir), season_label, before, first_n_team_games)
+    cached = _TOV_STL_AVG_CACHE.get(key)
+    if cached is not None:
+        return cached
+    logs = read_rows(settings, "player_game_logs", season_label)
+    by_gt: dict[tuple, list[float]] = {}
+    order: list[tuple] = []
+    seen: set[tuple] = set()
+    # Only sort when we need a chronological early window.
+    rows = (
+        sorted(logs, key=lambda r: (r["game_date"], r["game_id"]))
+        if first_n_team_games is not None
+        else logs
+    )
+    for row in rows:
+        if before is not None and row["game_date"] >= before:
+            continue
+        gt = (row["game_id"], int(row["team_id"]))
+        if gt not in seen:
+            seen.add(gt)
+            order.append(gt)
+            by_gt[gt] = [0.0, 0.0]
+        by_gt[gt][0] += float(row.get("tov") or 0.0)
+        by_gt[gt][1] += float(row.get("stl") or 0.0)
+    if first_n_team_games is not None:
+        keep = set(order[: int(first_n_team_games)])
+        by_gt = {k: v for k, v in by_gt.items() if k in keep}
+    n = len(by_gt)
+    if n == 0:
+        out = (0.0, 0.0, 0)
+    else:
+        out = (
+            sum(v[0] for v in by_gt.values()) / n,
+            sum(v[1] for v in by_gt.values()) / n,
+            n,
+        )
+    _TOV_STL_AVG_CACHE[key] = out
+    return out
+
+
+def league_tov_stl_scales(
+    settings: Settings,
+    *,
+    season: str,
+    as_of: date,
+    prior_season: str | None,
+    min_team_games: int = 20,
+) -> tuple[float, float]:
+    """Current-season TOV/STL level vs prior season (as_of, no leakage).
+
+    Early 2026-27 box TOV ~16.4 vs 2025-26 ~13.8. Blended player rates stay on
+    the prior-season level until enough current games accumulate; this league
+    scale lifts (or cuts) non-steal tov_rate and stl_rate so team totals track.
+
+    Opening week (thin current sample): fall back to prior-season early-vs-full
+    TOV/STL ratio (~+7% historically) so night-1 sims are not stuck on the
+    full-season prior mean.
+    """
+    if not prior_season:
+        return 1.0, 1.0
+    cache_key = (
+        str(settings.data_dir),
+        season,
+        as_of,
+        prior_season,
+        int(min_team_games),
+    )
+    hit = _TOV_STL_SCALE_CACHE.get(cache_key)
+    if hit is not None:
+        return hit
+
+    prior_tov, prior_stl, n_prior = _league_tov_stl_avg(
+        settings, prior_season, before=None
+    )
+    if n_prior == 0 or prior_tov <= 0 or prior_stl <= 0:
+        _TOV_STL_SCALE_CACHE[cache_key] = (1.0, 1.0)
+        return 1.0, 1.0
+
+    curr_tov, curr_stl, n_curr = _league_tov_stl_avg(
+        settings, season, before=as_of
+    )
+    if n_curr >= int(min_team_games):
+        raw_tov = max(0.85, min(1.30, curr_tov / prior_tov))
+        raw_stl = max(0.85, min(1.30, curr_stl / prior_stl))
+        strength = min(1.0, n_curr / 20.0)
+        tov_scale = 1.0 + strength * (raw_tov - 1.0)
+        stl_scale = 1.0 + strength * (raw_stl - 1.0)
+    else:
+        early_tov, early_stl, n_early = _league_tov_stl_avg(
+            settings, prior_season, before=None, first_n_team_games=60
+        )
+        if n_early == 0:
+            _TOV_STL_SCALE_CACHE[cache_key] = (1.0, 1.0)
+            return 1.0, 1.0
+        tov_scale = max(0.95, min(1.20, early_tov / prior_tov))
+        stl_scale = max(0.95, min(1.20, early_stl / prior_stl))
+
+    deadband = 0.06
+    if abs(tov_scale - 1.0) < deadband:
+        tov_scale = 1.0
+    if abs(stl_scale - 1.0) < deadband:
+        stl_scale = 1.0
+    if tov_scale > 1.0 + deadband and stl_scale == 1.0:
+        stl_scale = 1.0 + 0.70 * (tov_scale - 1.0)
+    if 0 < n_curr < 40 and tov_scale > 1.0:
+        tov_scale = min(1.30, tov_scale * 1.04)
+        if stl_scale > 1.0:
+            stl_scale = min(1.30, stl_scale * 1.02)
+    out = (float(tov_scale), float(stl_scale))
+    _TOV_STL_SCALE_CACHE[cache_key] = out
+    return out
+
+
+def apply_tov_stl_league_scale(
+    rates: RateVector,
+    *,
+    tov_scale: float,
+    stl_scale: float,
+) -> RateVector:
+    """Multiply non-steal tov_rate and stl_rate by league level scales."""
+    if abs(tov_scale - 1.0) < 1e-6 and abs(stl_scale - 1.0) < 1e-6:
+        return rates
+    return replace(
+        rates,
+        tov_rate=max(0.01, min(0.22, float(rates.tov_rate) * float(tov_scale))),
+        stl_rate=max(0.005, min(0.05, float(rates.stl_rate) * float(stl_scale))),
+    )
+
+
 def apply_team_strength_and_hca(
     rates: RateVector,
     *,

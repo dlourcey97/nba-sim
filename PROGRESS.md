@@ -1,9 +1,10 @@
 # Progress
 
-Last updated 2026-10-24 post-game grade through 2026-10-23.
+Last updated 2026-10-24 — reconcile guardrail + minutes/TOV fix; slates 10-20…10-23 resimmed.
 
 | Phase | Status | Notes |
 | --- | --- | --- |
+| Reconcile fix (guardrail/MIN/TOV) | done | Any ±3% flag blocks slate; sim MIN=240; early TOV −2.9%; mid guardrail PASS. |
 | Stabilize Step 1 | done | League totals + starter shares FAIL (>3%); team REB +13.6%; starter REB share +19%; bigs sim/36 ~18–20 vs prior ~12–14. |
 | Stabilize Step 2 | done | naive_last10 wins MAE; all variants fail reconcile (REB +10–14%). Do not revert to v1.0. |
 | Stabilize Step 3 | done | Team-reb leak, TOV scale, play_prob=appear, Gumbel lineups, STL/BLK/AST scales. Guardrail PASS. |
@@ -13,6 +14,42 @@ Last updated 2026-10-24 post-game grade through 2026-10-23.
 | Follow-up 2: coverage ~0.80 | done | shoot/usage/pace SDs tightened (caps bite below shoot_sd 0.40); PTS 10–90 **0.803**. |
 | Early-season blend fix | done | `season_reliability_games: 20` — 1-game season no longer takes full 0.40 weight. |
 | Post-game through 10-23 | done | +14 finals; 28 games graded; picks 61.7% hit vs 59.5% claimed. |
+
+## Reconcile fix — guardrail, 240 minutes, TOV (2026-10-24)
+
+10-23 walk-forward had flagged MIN +7.8%, TOV −13.4%, AST/STL, and starter shares −5–8%, but the mid-season guardrail still shipped (MIN was informational; only a subset of flags failed the run). Fixed one cluster:
+
+1. **Guardrail:** any team or role flag over ±3% (including MIN / starter MIN) → `passed=False` and `daily.py` refuses the slate.
+2. **Minutes:** every regulation sim hard-normalizes to 240/team (+25/OT). Play_prob-aware allocate so `sum(mean×play_prob)=240` (stops sit-redistribution from inflating starters). Mid-season `starter_share_shrink: 0.08` toward equal share.
+3. **Starter shares:** after hard 240, early role MIN within 3% (−0.4%). Mid role shares all within 3%.
+4. **TOV:** 2026-27 actual ~16.4 vs prior ~13.8. `league_tov_stl_scales` lifts rates from current-season level (or prior early-vs-full opening week). Non-steal scale 0.37→0.39. Early TOV −2.9%.
+
+**Mid-season guardrail (80g×80r, skip 400): PASS** — team/role all ≤3%.
+
+### Before vs after — season scorecard (28 games, 10-20…10-23 resim 5k)
+
+| Metric | Before | After |
+| --- | ---: | ---: |
+| Winner accuracy | 64.3% | 57.1% |
+| Spread MAE | 13.57 | 14.16 |
+| Total MAE | 16.07 | **15.68** |
+| MIN MAE | 8.23 | **7.44** |
+| PTS MAE | 6.02 | **5.27** |
+| 10–90 coverage | 71.1% | **78.0%** |
+| Top picks hit / claimed | 61.7% / 59.5% (29/47) | **64.5%** / 59.4% (40/62) |
+
+### Early 2026-27 reconcile (25g walk-forward)
+
+| | Before (10-23 flag) | After |
+| --- | ---: | ---: |
+| Team MIN | +7.8% | **+0.1%** |
+| Team TOV | −13.4% | **−2.9%** |
+| Team STL | −3.5% | −0.8% |
+| Starter MIN share | −5.5%…−8.3% | **−0.4%** |
+| Starter PTS/AST share | under | −3.9% / −4.0% (still slight) |
+| Team AST | +3.9% | +5.1% (still flag on early window) |
+
+Player MAE and coverage improved; winner accuracy dipped on the resim (opening-night margins tightened). Early AST still a bit high — leave for a later one-knob pass.
 | 1. Project setup and storage | done | Config, schema, ignore files, cap, and storage report. |
 | 2. Ingestion and backfill | done | nba_api, PlayByPlayV3 possessions, live-feed fallback, backfill.py. Preseason supported. |
 | 3. Injury report and overrides | done | Official PDF parse via pypdf, overrides.yaml precedence. |
