@@ -178,6 +178,15 @@ def collect_storage_report(settings: Settings) -> StorageReport:
             if not child.is_dir():
                 continue
             seen.add(child.name)
+            if child.name == "external":
+                # List each external parquet (nbarapm, etc.) instead of one blob.
+                for path in sorted(child.glob("*.parquet")):
+                    rows.append(
+                        SeasonSize("external", path.name, path.stat().st_size)
+                    )
+                if not any(child.glob("*.parquet")):
+                    rows.append(SeasonSize("external", "-", directory_size(child)))
+                continue
             season_rows = _season_sizes(child)
             if season_rows:
                 rows.extend(season_rows)

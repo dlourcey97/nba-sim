@@ -189,6 +189,12 @@ def evaluate_seasons(
 
     probs = np.asarray(home_probs, dtype=float)
     outcomes = np.asarray(home_wins, dtype=float)
+    if probs.size:
+        # Prefer home when P(home)>=0.5; ties (exactly 0.5) count as home picks.
+        picks = (probs >= 0.5).astype(float)
+        winner_accuracy = float(np.mean(picks == outcomes))
+    else:
+        winner_accuracy = float("nan")
     return MetricReport(
         games=games,
         player_rows=len(act_pts),
@@ -209,6 +215,7 @@ def evaluate_seasons(
         actual_possessions=float(np.mean(act_poss)) if act_poss else float("nan"),
         mae_margin=mean_abs_error(np.asarray(pred_margin), np.asarray(act_margin)),
         mae_total=mean_abs_error(np.asarray(pred_total), np.asarray(act_total)),
+        winner_accuracy=winner_accuracy,
     )
 
 

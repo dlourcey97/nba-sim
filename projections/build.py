@@ -29,12 +29,14 @@ from projections.context import (
     apply_team_strength_and_hca,
     apply_tov_stl_league_scale,
     expected_possessions,
+    kalman_blend_weight,
     league_strength,
     league_tov_stl_scales,
     league_zone_fg_pct,
     match_injury_player_ids,
     opponent_zone_fg_pct,
     position_defense_from_bundles,
+    prior_strength_after_absences,
     redistribute_for_absences,
     rest_days_before,
     roster_team_strength,
@@ -135,6 +137,7 @@ class ProjectionCache:
     rotation: RotationModel | None = None
     game_state: GameStateModel | None = None
     rapm: RapmModel | None = None
+    rapm_season: str | None = None
     kalman_tracker: KalmanTracker | None = None
     # Shared stint rows by season (loaded once; date-filtered by consumers).
     stint_rows_by_season: dict[str, list] = field(default_factory=dict)
@@ -457,14 +460,16 @@ def _build(
             stint_cache=cache.stint_rows_by_season,
         )
     game_state = cache.game_state
-    if cache.rapm is None:
+    if cache.rapm is None or cache.rapm_season != season:
         cache.rapm = load_rapm_model(
             settings,
             bundles,
             as_of=as_of,
             config=config,
             stint_cache=cache.stint_rows_by_season,
+            season=season,
         )
+        cache.rapm_season = season
     rapm = cache.rapm
     if cache.kalman_tracker is None or cache.kalman_tracker.season != season:
         cache.kalman_tracker = make_kalman_tracker(
@@ -780,12 +785,55 @@ def _build(
             for pid in ordered_ids
             if not minutes_by_id[pid].out and minutes_by_id[pid].mean > play_threshold
         ]
-        current_str, current_games = team_strength_as_of(settings, season, team_id, as_of)
+        current_str, current_games = team_strength_as_of(
+            settings,
+            season,
+            team_id,
+            as_of,
+            opponent_strength=prior_strength,
+            league=league_str,
+            sos_weight=float(
+                config.get("context", {}).get("current_sos_weight", 1.0)
+            ),
+        )
+        prior = prior_strength.get(team_id)
+        # Season prior assumes a healthy club. Pull it down when players are OUT
+        # (RAPM gap when positive + minutes-based starter hit — ridge RAPM often
+        # rates stars near zero/negative so gap alone is not enough).
+        if team_out:
+            healthy_parts = [
+                (pid, float(minute_bases[pid][0]))
+                for pid in ordered_ids
+                if float(minute_bases[pid][0]) > play_threshold
+            ]
+            out_base = sum(
+                float(minute_bases[pid][0])
+                for pid in team_out
+                if pid in minute_bases and float(minute_bases[pid][0]) > 0
+            )
+            healthy_net = (
+                rapm.roster_net(healthy_parts) if rapm.ratings and healthy_parts else 0.0
+            )
+            available_net = (
+                rapm.roster_net(rapm_parts) if rapm.ratings and rapm_parts else 0.0
+            )
+            prior = prior_strength_after_absences(
+                prior,
+                healthy_net=healthy_net,
+                available_net=available_net,
+                weight=float(
+                    config.get("context", {}).get("absence_prior_weight", 1.0)
+                ),
+                out_base_minutes=out_base,
+                minutes_net_per_36=float(
+                    config.get("context", {}).get("absence_minutes_net_per_36", 3.5)
+                ),
+            )
         if rapm.ratings:
             team_str = rapm.team_strength(
                 rapm_parts,
                 league=league_str,
-                prior=prior_strength.get(team_id),
+                prior=prior,
                 current=current_str,
                 current_games=current_games,
                 config=config,
@@ -793,14 +841,21 @@ def _build(
         else:
             team_str = roster_team_strength(
                 roster_parts,
-                prior=prior_strength.get(team_id),
+                prior=prior,
                 current=current_str,
                 current_games=current_games,
                 league=league_str,
                 config=config,
             )
-        # Blend dynamic Kalman net rating into ORtg/DRtg.
-        kalman_w = float(config.get("context", {}).get("kalman_strength_weight", 0.45))
+        # Blend dynamic Kalman net rating into ORtg/DRtg — sample-size scaled so
+        # opening-week results cannot erase prior-season gaps.
+        kalman_w = kalman_blend_weight(
+            float(config.get("context", {}).get("kalman_strength_weight", 0.45)),
+            current_games,
+            half_life=float(
+                config.get("context", {}).get("kalman_blend_half_life", 15.0)
+            ),
+        )
         if kalman_w > 0 and team_id in kalman.ratings:
             k_str = kalman.team_strength(team_id, league_str)
             team_str = type(team_str)(

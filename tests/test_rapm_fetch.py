@@ -133,6 +133,47 @@ def test_refresh_writes_parquet_and_fallback(tmp_path: Path):
     assert "source_updated=2026-08-21" in format_rapm_age_line(settings)
 
 
+def test_six_factor_caps_latest_year(tmp_path: Path):
+    settings = _settings(tmp_path)
+    from ingest.rapm_fetch import load_six_factor_ratings, dataset_paths
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    rows = [
+        {"player_id": 1, "latest_year": 2025, "year_interval": "3Y", "rapm": 3.0},
+        {"player_id": 1, "latest_year": 2026, "year_interval": "3Y", "rapm": 9.0},
+        {"player_id": 1, "latest_year": 2025, "year_interval": "5Y", "rapm": 2.0},
+        {"player_id": 2, "latest_year": 2025, "year_interval": "5Y", "rapm": 1.5},
+    ]
+    current, _ = dataset_paths(settings, "nbarapm_six_factor")
+    current.parent.mkdir(parents=True, exist_ok=True)
+    pq.write_table(pa.Table.from_pylist(rows), current)
+    ratings = load_six_factor_ratings(settings, max_latest_year=2025)
+    assert ratings[1] == 3.0  # 3Y preferred over 5Y; 2026 excluded
+    assert ratings[2] == 1.5
+
+
+def test_timedecay_safe_for_season_boundary(tmp_path: Path):
+    settings = _settings(tmp_path)
+    from ingest.rapm_fetch import (
+        dataset_paths,
+        timedecay_safe_for_season,
+    )
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    current, _ = dataset_paths(settings, "nbarapm_timedecay")
+    current.parent.mkdir(parents=True, exist_ok=True)
+    pq.write_table(
+        pa.Table.from_pylist(
+            [{"player_id": 1, "rapm": 1.0, "source_updated": "2026-08-21"}]
+        ),
+        current,
+    )
+    assert timedecay_safe_for_season(settings, "2026-27") is True
+    assert timedecay_safe_for_season(settings, "2025-26") is False
+
+
 def test_skip_when_fresh(tmp_path: Path):
     settings = _settings(tmp_path)
     timedecay = [

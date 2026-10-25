@@ -180,24 +180,123 @@ def refresh_nbarapm_rapm(
 
 def load_timedecay_ratings(settings: Settings) -> dict[int, float]:
     """player_id -> net RAPM (pts/100) from the latest good timedecay parquet."""
-    current, prev = dataset_paths(settings, "nbarapm_timedecay")
-    path = current if current.is_file() else prev if prev.is_file() else None
-    if path is None:
+    table = _read_dataset_table(settings, "nbarapm_timedecay", columns=["player_id", "rapm"])
+    if table is None:
         return {}
-    try:
-        table = pq.read_table(path, columns=["player_id", "rapm"])
-    except Exception:
-        if path != prev and prev.is_file():
-            try:
-                table = pq.read_table(prev, columns=["player_id", "rapm"])
-            except Exception:
-                return {}
-        else:
-            return {}
-    out: dict[int, float] = {}
+    return _ratings_from_columns(table.column("player_id"), table.column("rapm"))
+
+
+def load_six_factor_ratings(
+    settings: Settings,
+    *,
+    max_latest_year: int,
+    intervals: tuple[str, ...] = ("3Y", "5Y"),
+) -> dict[int, float]:
+    """player_id -> net RAPM from six-factor rows with ``latest_year <= max_latest_year``.
+
+    Six-factor parquet grain is one row per (player_id, latest_year, year_interval).
+    ``latest_year`` is the end-year of the rating window (e.g. 2025 = through the
+    2024-25 season). Intervals present: ``3Y``, ``5Y``, and ``TD`` (TD only on the
+    newest vintage, currently 2026 — same snapshot as timedecay).
+
+    Preference order among ``intervals``: first match wins (default 3Y then 5Y).
+    Never use a vintage whose ``latest_year`` exceeds ``max_latest_year`` (leakage).
+    """
+    table = _read_dataset_table(
+        settings,
+        "nbarapm_six_factor",
+        columns=["player_id", "latest_year", "year_interval", "rapm"],
+    )
+    if table is None:
+        return {}
+    # Prefer earlier intervals in the tuple; within an interval take max year <= cap.
+    best: dict[int, tuple[int, int, float]] = {}
+    # rank: lower interval index is better; higher latest_year is better
+    interval_rank = {name: i for i, name in enumerate(intervals)}
     pids = table.column("player_id").to_pylist()
+    years = table.column("latest_year").to_pylist()
+    ivals = table.column("year_interval").to_pylist()
     rapms = table.column("rapm").to_pylist()
-    for pid, rapm in zip(pids, rapms):
+    for pid, year, interval, rapm in zip(pids, years, ivals, rapms):
+        if pid is None or year is None or rapm is None:
+            continue
+        try:
+            player_id = int(pid)
+            latest_year = int(year)
+            value = float(rapm)
+        except (TypeError, ValueError):
+            continue
+        if latest_year > int(max_latest_year):
+            continue
+        iv = str(interval or "")
+        if iv not in interval_rank:
+            continue
+        key = (interval_rank[iv], -latest_year)
+        prev = best.get(player_id)
+        if prev is None or key < (prev[0], prev[1]):
+            best[player_id] = (interval_rank[iv], -latest_year, value)
+    return {pid: trip[2] for pid, trip in best.items()}
+
+
+def timedecay_safe_for_season(settings: Settings, season: str) -> bool:
+    """True when the timedecay snapshot cannot include games from ``season``.
+
+    Approx season start = Oct 1 of the label's first year (e.g. 2025-26 → 2025-10-01).
+    Safe iff that date is strictly after the snapshot ``as_of_date`` (offseason cut).
+    """
+    updated = load_timedecay_source_updated(settings)
+    if updated is None:
+        return False
+    try:
+        start_year = int(str(season).split("-", 1)[0])
+    except ValueError:
+        return False
+    season_start = date(start_year, 10, 1)
+    return season_start > updated
+
+
+def prior_season_end_year(season: str) -> int:
+    """Calendar end-year of the season before ``season`` (2025-26 → 2025)."""
+    return int(str(season).split("-", 1)[0])
+
+
+def load_timedecay_source_updated(settings: Settings) -> date | None:
+    """Site ``as_of_date`` recorded on the timedecay parquet, if present."""
+    table = _read_dataset_table(
+        settings, "nbarapm_timedecay", columns=["source_updated"]
+    )
+    if table is None:
+        return None
+    values = [v for v in table.column("source_updated").to_pylist() if v]
+    if not values:
+        return None
+    raw = str(values[0])[:10]
+    try:
+        return date.fromisoformat(raw)
+    except ValueError:
+        return None
+
+
+def _read_dataset_table(
+    settings: Settings,
+    stem: str,
+    *,
+    columns: list[str] | None = None,
+) -> Any | None:
+    current, prev = dataset_paths(settings, stem)
+    for path in (current, prev):
+        if not path.is_file():
+            continue
+        try:
+            return pq.read_table(path, columns=columns)
+        except Exception:
+            continue
+    return None
+
+
+def _ratings_from_columns(pid_col: Any, rapm_col: Any) -> dict[int, float]:
+    out: dict[int, float] = {}
+    for pid, rapm in zip(pid_col.to_pylist(), rapm_col.to_pylist()):
         if pid is None or rapm is None:
             continue
         try:
@@ -205,27 +304,6 @@ def load_timedecay_ratings(settings: Settings) -> dict[int, float]:
         except (TypeError, ValueError):
             continue
     return out
-
-
-def load_timedecay_source_updated(settings: Settings) -> date | None:
-    """Site ``as_of_date`` recorded on the timedecay parquet, if present."""
-    current, prev = dataset_paths(settings, "nbarapm_timedecay")
-    for path in (current, prev):
-        if not path.is_file():
-            continue
-        try:
-            table = pq.read_table(path, columns=["source_updated"])
-        except Exception:
-            continue
-        values = [v for v in table.column("source_updated").to_pylist() if v]
-        if not values:
-            continue
-        raw = str(values[0])[:10]
-        try:
-            return date.fromisoformat(raw)
-        except ValueError:
-            continue
-    return None
 
 
 def format_rapm_age_line(settings: Settings, *, now: datetime | None = None) -> str:

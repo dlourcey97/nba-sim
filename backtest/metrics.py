@@ -28,6 +28,7 @@ class MetricReport:
     actual_possessions: float = float("nan")
     mae_margin: float = float("nan")
     mae_total: float = float("nan")
+    winner_accuracy: float = float("nan")
 
     def as_dict(self) -> dict:
         return {
@@ -35,6 +36,7 @@ class MetricReport:
             "player_rows": self.player_rows,
             "brier_win": _json_float(self.brier_win),
             "log_loss_win": _json_float(self.log_loss_win),
+            "winner_accuracy": _json_float(self.winner_accuracy),
             "mae_pts": _json_float(self.mae_pts),
             "mae_reb": _json_float(self.mae_reb),
             "mae_ast": _json_float(self.mae_ast),

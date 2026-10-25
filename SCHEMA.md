@@ -535,6 +535,9 @@ Files (latest overwrite + `.prev.parquet` fallback):
 - `nbarapm_six_factor.parquet` — six-factor splits (`Year_Interval` in TD/3Y/5Y)
 - `nbarapm_meta.parquet` — last fetch / site `as_of` stamps
 
+**Leakage rules:** Time-decay (`as_of_date` on the file) may only be used when the projected season's Oct 1 start is strictly after that date (live post-snapshot seasons). Walk-forward / earlier seasons load six-factor rows with `latest_year <= season_start_year` (prior completed season), preferring `3Y` then `5Y`. Do not use six-factor `TD` / timedecay for 2025-26 backtests — those vintages include 2025-26.
+
+**Six-factor grain:** one row per `(player_id, latest_year, year_interval)`. `latest_year` is the end-year of the window (2025 ≈ through 2024-25). Intervals: rolling `3Y` and `5Y` for years ~1999–2026; `TD` only on the newest vintage (currently 2026, same family as timedecay).
 ### nbarapm_timedecay columns
 
 | column | type | null | description |

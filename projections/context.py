@@ -167,6 +167,54 @@ class TeamStrength:
     drtg: float
 
 
+def kalman_blend_weight(
+    base_weight: float,
+    current_games: int,
+    *,
+    half_life: float,
+) -> float:
+    """Scale Kalman blend by sample size so 1–5 finals cannot dominate prior+RAPM.
+
+    ``effective = base * games / (games + half_life)``. With half_life=15 and
+    2 games, a 0.45 base weight becomes ~0.05.
+    """
+    if half_life <= 0:
+        return float(base_weight)
+    games = max(0, int(current_games))
+    return float(base_weight) * (games / (games + float(half_life)))
+
+
+def prior_strength_after_absences(
+    prior: TeamStrength | None,
+    *,
+    healthy_net: float,
+    available_net: float,
+    weight: float = 1.0,
+    out_base_minutes: float = 0.0,
+    minutes_net_per_36: float = 0.0,
+) -> TeamStrength | None:
+    """Worsen season prior when rotation players are out.
+
+    Two layers:
+    - RAPM gap ``healthy_net - available_net`` when positive (never credit a team
+      for sitting negative-RAPM stars — ridge RAPM often undersells them).
+    - Minutes-based net hit: ``(out_base_minutes / 36) * minutes_net_per_36``,
+      so sidelined starters move the line even when RAPM is flat/noisy.
+    """
+    if prior is None:
+        return prior
+    gap = float(healthy_net) - float(available_net)
+    # Only apply RAPM gap when outs remove positive value.
+    rapm_delta = 0.5 * float(weight) * gap if gap > 0 and weight else 0.0
+    min_delta = 0.0
+    if minutes_net_per_36 > 0 and out_base_minutes > 0:
+        min_delta = 0.5 * (float(out_base_minutes) / 36.0) * float(minutes_net_per_36)
+    delta = rapm_delta + min_delta
+    if abs(delta) < 1e-9:
+        return prior
+    return TeamStrength(ortg=float(prior.ortg) - delta, drtg=float(prior.drtg) + delta)
+
+
 _THREE_ZONES = frozenset({"left_corner_3", "right_corner_3", "above_break_3"})
 
 
@@ -187,38 +235,105 @@ def team_strength_map(settings: Settings, season: str) -> dict[int, TeamStrength
     return out
 
 
+def sos_adjust_game_ratings(
+    raw_ortg: float,
+    raw_drtg: float,
+    *,
+    opponent: TeamStrength,
+    league: TeamStrength,
+    weight: float = 1.0,
+) -> tuple[float, float]:
+    """Credit/debit one game's ORtg/DRtg for opponent quality.
+
+    Scoring 110 against an elite defense (low opp DRtg) is better than 110
+    against a sieve; allowing 110 to an elite offense is less damning than
+    allowing 110 to a weak one.
+    """
+    w = float(weight)
+    adj_o = float(raw_ortg) + w * (float(league.drtg) - float(opponent.drtg))
+    adj_d = float(raw_drtg) + w * (float(league.ortg) - float(opponent.ortg))
+    return adj_o, adj_d
+
+
 def team_strength_as_of(
     settings: Settings,
     season: str,
     team_id: int,
     as_of: date,
+    *,
+    opponent_strength: dict[int, TeamStrength] | None = None,
+    league: TeamStrength | None = None,
+    sos_weight: float = 1.0,
 ) -> tuple[TeamStrength | None, int]:
-    """Current-season ORtg/DRtg from team games strictly before ``as_of``."""
+    """Current-season ORtg/DRtg from team games strictly before ``as_of``.
+
+    When ``opponent_strength`` (usually prior-season nets) and ``league`` are
+    provided, each game is strength-of-schedule adjusted so a 0–2 against elite
+    clubs is not treated like 0–2 against cupcakes, and a 2–0 vs weak teams is
+    not treated like beating contenders.
+    """
     pts_for = 0.0
     pts_against = 0.0
     poss_for = 0.0
     poss_against = 0.0
+    adj_ortg_sum = 0.0
+    adj_drtg_sum = 0.0
     games = 0
+    use_sos = (
+        opponent_strength is not None
+        and league is not None
+        and float(sos_weight) != 0.0
+    )
     for row in read_rows(settings, "team_game_results", season):
         if int(row["team_id"]) != team_id:
             continue
         if row["game_date"] >= as_of:
             continue
         games += 1
-        pts_for += float(row.get("pts") or 0.0)
-        pts_against += float(row.get("opp_pts") or 0.0)
+        pts = float(row.get("pts") or 0.0)
+        opp_pts = float(row.get("opp_pts") or 0.0)
+        pts_for += pts
+        pts_against += opp_pts
         pace = row.get("pace")
         if pace is not None and float(pace) > 0:
-            poss_for += float(pace)
-            # Opponent pace row is not joined here; use this team's pace as proxy
-            # for possessions on both ends (same game pace).
-            poss_against += float(pace)
+            poss = float(pace)
+        else:
+            poss = 100.0
+        poss_for += poss
+        # Opponent pace row is not joined here; use this team's pace as proxy
+        # for possessions on both ends (same game pace).
+        poss_against += poss
+        if use_sos:
+            raw_o = 100.0 * pts / poss
+            raw_d = 100.0 * opp_pts / poss
+            opp = opponent_strength.get(int(row["opponent_team_id"]))
+            if opp is None:
+                adj_ortg_sum += raw_o
+                adj_drtg_sum += raw_d
+            else:
+                ao, ad = sos_adjust_game_ratings(
+                    raw_o,
+                    raw_d,
+                    opponent=opp,
+                    league=league,
+                    weight=float(sos_weight),
+                )
+                adj_ortg_sum += ao
+                adj_drtg_sum += ad
     if games <= 0:
         return None, 0
     if poss_for <= 0:
         # Pace missing: fall back to points-per-game scaled to league ~100 poss.
         poss_for = float(games) * 100.0
         poss_against = float(games) * 100.0
+    if use_sos:
+        return (
+            TeamStrength(
+                ortg=adj_ortg_sum / float(games),
+                drtg=adj_drtg_sum / float(games),
+            ),
+            games,
+        )
     return (
         TeamStrength(
             ortg=100.0 * pts_for / poss_for,

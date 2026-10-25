@@ -94,31 +94,30 @@ def load_rapm_model(
     as_of: date,
     config: dict[str, Any],
     stint_cache: dict[str, list] | None = None,
+    season: str | None = None,
 ) -> RapmModel:
     """Load RAPM ratings for roster strength.
 
-    Prefer published nbarapm.com time-decay RAPM when enabled and present under
-    ``DATA_DIR/external/`` (see ``ingest/rapm_fetch.py``). Otherwise fit ridge
-    RAPM from stints, then box-score plus-minus shrinkage.
+    External nbarapm.com ratings (see ``ingest/rapm_fetch.py``), leakage-safe:
+
+    - **Time-decay snapshot** only when the snapshot ``as_of_date`` is strictly
+      before the projected season's Oct 1 start (live 2026-27 with an Aug 2026
+      snapshot). Never use it for 2025-26 walk-forward — it already contains
+      that season.
+    - **Six-factor** rows are per (player, latest_year, interval) with intervals
+      ``3Y`` / ``5Y`` / ``TD``. For historical seasons use ``latest_year`` at most
+      the season's start year (prior completed season), preferring ``3Y`` then
+      ``5Y``. ``TD`` exists only on the newest vintage and is treated like
+      timedecay for leakage purposes.
+
+    Otherwise fit ridge RAPM from stints, then box-score plus-minus shrinkage.
     """
     ctx = config.get("context") or {}
+    target_season = season or settings.current_season
     if bool(ctx.get("nbarapm_prefer_external", True)):
-        try:
-            from ingest.rapm_fetch import load_timedecay_ratings, load_timedecay_source_updated
-
-            ratings = load_timedecay_ratings(settings)
-        except Exception:
-            ratings = {}
-        if len(ratings) >= 50:
-            updated = None
-            try:
-                updated = load_timedecay_source_updated(settings)
-            except Exception:
-                updated = None
-            src = "nbarapm.com/timedecay"
-            if updated is not None:
-                src = f"{src}:{updated.isoformat()}"
-            return RapmModel(ratings=ratings, lambda_=0.0, source=src, oos_mse=0.0)
+        external = _load_nbarapm_external(settings, season=target_season)
+        if external is not None:
+            return external
 
     rows: list[dict] = []
     seasons: list[str] = []
@@ -148,6 +147,47 @@ def load_rapm_model(
         return model
 
     return _fit_box_rapm(bundles, as_of=as_of, config=config)
+
+
+def _load_nbarapm_external(settings: Settings, *, season: str) -> RapmModel | None:
+    """Leakage-safe nbarapm ratings for ``season``, or None to fall back."""
+    try:
+        from ingest.rapm_fetch import (
+            load_six_factor_ratings,
+            load_timedecay_ratings,
+            load_timedecay_source_updated,
+            prior_season_end_year,
+            timedecay_safe_for_season,
+        )
+    except Exception:
+        return None
+
+    if timedecay_safe_for_season(settings, season):
+        ratings = load_timedecay_ratings(settings)
+        if len(ratings) >= 50:
+            updated = load_timedecay_source_updated(settings)
+            src = "nbarapm.com/timedecay"
+            if updated is not None:
+                src = f"{src}:{updated.isoformat()}"
+            return RapmModel(ratings=ratings, lambda_=0.0, source=src, oos_mse=0.0)
+
+    try:
+        max_year = prior_season_end_year(season)
+    except (TypeError, ValueError):
+        return None
+    ratings = load_six_factor_ratings(
+        settings,
+        max_latest_year=max_year,
+        intervals=("3Y", "5Y"),
+    )
+    if len(ratings) < 50:
+        return None
+    return RapmModel(
+        ratings=ratings,
+        lambda_=0.0,
+        source=f"nbarapm.com/six_factor:latest_year<={max_year}",
+        oos_mse=0.0,
+    )
 
 
 def _fit_stint_rapm(rows: list[dict], *, config: dict[str, Any]) -> RapmModel:

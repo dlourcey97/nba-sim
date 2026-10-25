@@ -1,10 +1,10 @@
 # Progress
 
-Last updated 2026-10-24 — nbarapm.com external RAPM fetch (weekly) wired into daily + roster strength.
+Last updated 2026-10-25 — leakage-safe nbarapm RAPM kept after full 2025-26 walk-forward on vs off.
 
 | Phase | Status | Notes |
 | --- | --- | --- |
-| External RAPM (nbarapm.com) | done | Weekly `/load/timedecay` + six-factor JSON → `DATA_DIR/external/`; prefer over stint RAPM. Credit nbarapm.com. |
+| External RAPM (nbarapm.com) | done | Weekly fetch + leakage-safe load; full 2025-26 WF kept (Brier/winner ↑). Credit nbarapm.com. |
 | Reconcile fix (guardrail/MIN/TOV) | done | Any ±3% flag blocks slate; sim MIN=240; early TOV −2.9%; mid guardrail PASS. |
 | Stabilize Step 1 | done | League totals + starter shares FAIL (>3%); team REB +13.6%; starter REB share +19%; bigs sim/36 ~18–20 vs prior ~12–14. |
 | Stabilize Step 2 | done | naive_last10 wins MAE; all variants fail reconcile (REB +10–14%). Do not revert to v1.0. |
@@ -637,14 +637,30 @@ Small move vs U2; PPG slightly higher from late haste / foul FTs. Artifacts: `re
 
 Chosen λ often high (~5000) → strong shrink toward 0; win metrics flat vs U3. Artifacts: `results/backtest/upgrade4_rapm/`.
 
-## External RAPM — nbarapm.com (2026-10-24)
+## External RAPM — nbarapm.com (2026-10-24 / 25)
 
 Credit: **[nbarapm.com](https://nbarapm.com)** (time-decay + six-factor RAPM).
 
 - The timedecay / six-factor pages' "Download CSV" button builds CSV client-side from published JSON under `/load/…`. We download those data files only (no HTML scrape): `https://nbarapm.com/load/timedecay` and `https://nbarapm.com/load/SCALEDOUTPUT_SMALLER` (same body as `/load/six_factor`).
 - `ingest/rapm_fetch.py`: at most once every 7 days; clear User-Agent; timeout + one retry; no other requests to the site. Writes compact parquet under `DATA_DIR/external/` with `.prev.parquet` fallback. Fetch/format failures log a warning and keep the last good copy — never break `daily.py`.
 - Site `as_of_date` stored on rows; `daily.py` logs how old the RAPM data is.
-- `load_rapm_model` prefers external time-decay ratings when present (`context.nbarapm_prefer_external`), else stint/box RAPM.
+- **Leakage-safe load** (`projections/rapm.py`): timedecay only when snapshot `as_of` is strictly before the projected season's Oct 1 (live 2026-27). Walk-forward / earlier seasons use six-factor rows with `latest_year <= season_start_year`, preferring `3Y` then `5Y` — never timedecay / six-factor `TD` for 2025-26 backtests.
+- Storage: `nbarapm_six_factor` ~739 KiB, `nbarapm_timedecay` ~32 KiB, meta ~2.5 KiB (listed separately in the storage report). DATA_DIR total ~11.4 MiB / 2 GB.
+
+### Keep decision — full 2025-26 walk-forward (1314g × 200r, seed 1)
+
+Artifacts: `results/backtest/wf_2025_26_rapm_on/`, `results/backtest/wf_2025_26_rapm_off/`.
+
+| Metric | RAPM ON (six-factor prior) | RAPM OFF |
+| --- | ---: | ---: |
+| Brier | **0.214** | 0.215 |
+| Winner accuracy | **66.7%** | 65.4% |
+| MAE margin | **12.07** | 12.08 |
+| MAE total | 16.12 | **16.05** |
+| MAE PTS / REB / AST | ~flat | ~flat |
+| 10–90 coverage | 0.811 | 0.812 |
+
+**Kept.** Mid-season reconcile (80g×80r, skip 400) flags starter STL on both ON and OFF (pre-existing; not RAPM-specific).
 
 ## Upgrade 5 — Variance from player RE + pace (2026-10-17)
 
