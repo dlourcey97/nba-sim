@@ -70,17 +70,28 @@ context:
   home_fg_factor: 0.015
   away_fg_factor: -0.005
   # Roster-weighted ORtg/DRtg vs league, blended with current-season results.
-  team_offense_weight: 0.40
-  team_defense_weight: 0.40
+  # 1.0 ≈ linear ORtg/DRtg → FG factor so a ~13-pt prior net is not crushed to ~3 pts.
+  team_offense_weight: 1.0
+  team_defense_weight: 1.0
+
   # Games of current-season results at which roster vs results are 50/50.
   team_strength_half_life: 20.0
   # Soft pull of roster DRtg toward prior-season team DRtg (defense is noisier).
   roster_defense_prior_weight: 0.35
   # Blend RAPM-implied ORtg/DRtg with prior/roster anchors.
   rapm_strength_weight: 0.55
+  # Games at which RAPM blend reaches ~50% of rapm_strength_weight. Keeps
+  # opening-week RAPM (tiny samples / replacement lineups) from erasing priors.
+  rapm_blend_half_life: 10.0
   # Candidate ridge penalties for stint RAPM (chosen by OOS MSE).
   rapm_lambdas: [200, 500, 1000, 2000, 5000]
   rapm_box_lambda: 400
+  # External RAPM from nbarapm.com (time-decay + six-factor). Fetched at most
+  # weekly into DATA_DIR/external/; prefer over stint RAPM when a local copy exists.
+  nbarapm_enabled: true
+  nbarapm_fetch_interval_days: 7
+  nbarapm_prefer_external: true
+
   # Kalman team ratings + rest-aware HCA (points of expected margin).
   kalman_hca_points: 2.8
   kalman_process_var: 1.5
@@ -96,6 +107,19 @@ context:
     4: 1.0
   # Blend Kalman nets into team strength (alongside RAPM/roster).
   kalman_strength_weight: 0.45
+  # Games at which Kalman blend reaches ~50% of kalman_strength_weight.
+  # Keeps opening-week 0–2 starts from washing out prior-season gaps.
+  kalman_blend_half_life: 15.0
+  # When OUT players remove RAPM from the rotation, shift season prior by that
+  # healthy−available gap (only when gap > 0 — never credit removing negative RAPM).
+  absence_prior_weight: 1.0
+  # Extra net-rating hit from OUT minutes (RAPM is noisy on stars). ~3.5 pts of
+  # team net per 36 base minutes sidelined.
+  absence_minutes_net_per_36: 3.5
+  # Strength-of-schedule adjust for current-season ORtg/DRtg (prior opp ratings).
+  # 1.0 = full credit for facing tough/weak clubs; 0 = raw scoring only.
+  current_sos_weight: 1.0
+
   # Pseudo-FGA for Bayesian shrink of defender FG% allowed toward league.
   defender_regression_fga: 80.0
   # Scale of primary-defender FG% adjustment in the possession engine.

@@ -1,9 +1,10 @@
 # Progress
 
-Last updated 2026-10-24 — reconcile guardrail + minutes/TOV fix; slates 10-20…10-23 resimmed.
+Last updated 2026-10-24 — nbarapm.com external RAPM fetch (weekly) wired into daily + roster strength.
 
 | Phase | Status | Notes |
 | --- | --- | --- |
+| External RAPM (nbarapm.com) | done | Weekly `/load/timedecay` + six-factor JSON → `DATA_DIR/external/`; prefer over stint RAPM. Credit nbarapm.com. |
 | Reconcile fix (guardrail/MIN/TOV) | done | Any ±3% flag blocks slate; sim MIN=240; early TOV −2.9%; mid guardrail PASS. |
 | Stabilize Step 1 | done | League totals + starter shares FAIL (>3%); team REB +13.6%; starter REB share +19%; bigs sim/36 ~18–20 vs prior ~12–14. |
 | Stabilize Step 2 | done | naive_last10 wins MAE; all variants fail reconcile (REB +10–14%). Do not revert to v1.0. |
@@ -635,6 +636,15 @@ Small move vs U2; PPG slightly higher from late haste / foul FTs. Artifacts: `re
 | Sim / actual PPG | 118.41 / 114.29 | 117.92 / 114.29 |
 
 Chosen λ often high (~5000) → strong shrink toward 0; win metrics flat vs U3. Artifacts: `results/backtest/upgrade4_rapm/`.
+
+## External RAPM — nbarapm.com (2026-10-24)
+
+Credit: **[nbarapm.com](https://nbarapm.com)** (time-decay + six-factor RAPM).
+
+- The timedecay / six-factor pages' "Download CSV" button builds CSV client-side from published JSON under `/load/…`. We download those data files only (no HTML scrape): `https://nbarapm.com/load/timedecay` and `https://nbarapm.com/load/SCALEDOUTPUT_SMALLER` (same body as `/load/six_factor`).
+- `ingest/rapm_fetch.py`: at most once every 7 days; clear User-Agent; timeout + one retry; no other requests to the site. Writes compact parquet under `DATA_DIR/external/` with `.prev.parquet` fallback. Fetch/format failures log a warning and keep the last good copy — never break `daily.py`.
+- Site `as_of_date` stored on rows; `daily.py` logs how old the RAPM data is.
+- `load_rapm_model` prefers external time-decay ratings when present (`context.nbarapm_prefer_external`), else stint/box RAPM.
 
 ## Upgrade 5 — Variance from player RE + pace (2026-10-17)
 

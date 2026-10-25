@@ -63,6 +63,12 @@ class RapmModel:
         ctx = (config or {}).get("context", {})
         half_life = float(ctx.get("team_strength_half_life", 20.0))
         rapm_w = float(ctx.get("rapm_strength_weight", 0.55))
+        # Opening weeks: trust prior-season team strength over noisy RAPM of a
+        # 2-game rotation (and over SOS-unaware early form baked into RAPM).
+        rapm_hl = float(ctx.get("rapm_blend_half_life", 10.0))
+        if rapm_hl > 0:
+            g = max(0, int(current_games))
+            rapm_w = rapm_w * (g / (g + rapm_hl))
         net = self.roster_net(players)
         # Split net evenly between offense and defense.
         base_ortg = prior.ortg if prior is not None else league.ortg
@@ -89,7 +95,31 @@ def load_rapm_model(
     config: dict[str, Any],
     stint_cache: dict[str, list] | None = None,
 ) -> RapmModel:
-    """Fit ridge RAPM from stints; fall back to box-score plus-minus shrinkage."""
+    """Load RAPM ratings for roster strength.
+
+    Prefer published nbarapm.com time-decay RAPM when enabled and present under
+    ``DATA_DIR/external/`` (see ``ingest/rapm_fetch.py``). Otherwise fit ridge
+    RAPM from stints, then box-score plus-minus shrinkage.
+    """
+    ctx = config.get("context") or {}
+    if bool(ctx.get("nbarapm_prefer_external", True)):
+        try:
+            from ingest.rapm_fetch import load_timedecay_ratings, load_timedecay_source_updated
+
+            ratings = load_timedecay_ratings(settings)
+        except Exception:
+            ratings = {}
+        if len(ratings) >= 50:
+            updated = None
+            try:
+                updated = load_timedecay_source_updated(settings)
+            except Exception:
+                updated = None
+            src = "nbarapm.com/timedecay"
+            if updated is not None:
+                src = f"{src}:{updated.isoformat()}"
+            return RapmModel(ratings=ratings, lambda_=0.0, source=src, oos_mse=0.0)
+
     rows: list[dict] = []
     seasons: list[str] = []
     for bundle in bundles:

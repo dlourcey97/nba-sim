@@ -68,6 +68,18 @@ def main(argv: list[str] | None = None) -> int:
         log("refresh current_rosters from CommonTeamRoster")
         refresh_current_rosters(settings, source=source, season=season, log=log)
 
+        # External RAPM from nbarapm.com (at most weekly). Failures keep last copy.
+        from ingest.rapm_fetch import format_rapm_age_line, refresh_nbarapm_rapm
+
+        try:
+            log("nbarapm RAPM weekly check")
+            rapm_status = refresh_nbarapm_rapm(settings, log=log)
+            log(format_rapm_age_line(settings))
+            if rapm_status.skipped_fresh:
+                log("nbarapm RAPM fetch skipped (still within interval)")
+        except Exception as exc:  # noqa: BLE001 — never block the slate
+            log(f"WARNING: nbarapm RAPM refresh error (continuing): {exc}")
+
         injuries = injuries_for_date(
             settings,
             slate_date,

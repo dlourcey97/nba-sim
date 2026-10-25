@@ -524,3 +524,46 @@ Key: `defender_id`
 | matchup_sec | DOUBLE | no | Seconds matched up. |
 | fg_pct | DOUBLE | yes | Allowed FG% (fgm/fga). |
 | fg3_pct | DOUBLE | yes | Allowed 3P% (fg3m/fg3a). |
+
+## external/ (nbarapm.com RAPM)
+
+Not a season-partitioned table. Compact Parquet under `{DATA_DIR}/external/`, refreshed by `ingest/rapm_fetch.py` at most every 7 days from the published JSON data files the nbarapm dataset pages load (`/load/timedecay`, `/load/SCALEDOUTPUT_SMALLER`). The site's "Download CSV" button builds a CSV in-browser from those same files — we never scrape HTML. Credit: [nbarapm.com](https://nbarapm.com).
+
+Files (latest overwrite + `.prev.parquet` fallback):
+
+- `nbarapm_timedecay.parquet` — current time-decay RAPM (one row per player)
+- `nbarapm_six_factor.parquet` — six-factor splits (`Year_Interval` in TD/3Y/5Y)
+- `nbarapm_meta.parquet` — last fetch / site `as_of` stamps
+
+### nbarapm_timedecay columns
+
+| column | type | null | description |
+| --- | --- | --- | --- |
+| player_id | INTEGER | no | NBA player id (`nba_id`). |
+| player_name | VARCHAR | no | Display name. |
+| team_abbr | VARCHAR | no | Team abbreviation when provided. |
+| year | INTEGER | yes | Latest year on the rating. |
+| year_interval | VARCHAR | no | Usually `TD`. |
+| rapm | DOUBLE | no | Net RAPM (pts/100). |
+| orapm | DOUBLE | yes | Offensive RAPM. |
+| drapm | DOUBLE | yes | Defensive RAPM. |
+| off_poss | INTEGER | yes | Offensive possessions sample. |
+| minutes | DOUBLE | yes | Minutes sample (`MP2`). |
+| half_life_days | DOUBLE | yes | Time-decay half-life. |
+| source_updated | VARCHAR | yes | Site `as_of_date` (YYYY-MM-DD). |
+| fetched_at | VARCHAR | no | UTC ISO timestamp of our download. |
+| source | VARCHAR | no | URL label (`nbarapm.com/load/timedecay`). |
+
+### nbarapm_six_factor columns
+
+| column | type | null | description |
+| --- | --- | --- | --- |
+| player_id | INTEGER | no | NBA player id. |
+| player_name | VARCHAR | no | Display name. |
+| latest_year | INTEGER | no | End year of the window. |
+| year_interval | VARCHAR | no | `TD`, `3Y`, or `5Y`. |
+| rapm / orapm / drapm | DOUBLE | mixed | Overall / off / def RAPM. |
+| sc_off_ts, sc_off_tov, sc_off_reb, sc_def_ts, sc_def_tov, sc_def_reb, sc_poss | DOUBLE | yes | Six-factor components. |
+| source_updated | VARCHAR | yes | Derived from max `Latest_Year` when the file has no `as_of`. |
+| fetched_at | VARCHAR | no | UTC ISO timestamp of our download. |
+| source | VARCHAR | no | URL label. |

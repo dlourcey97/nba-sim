@@ -18,7 +18,13 @@ def test_team_strength_splits_net():
     strength = model.team_strength(
         [(1, 36.0)],
         league=league,
-        config={"context": {"rapm_strength_weight": 1.0, "team_strength_half_life": 20.0}},
+        config={
+            "context": {
+                "rapm_strength_weight": 1.0,
+                "rapm_blend_half_life": 0.0,  # disable sample-size shrink for unit test
+                "team_strength_half_life": 20.0,
+            }
+        },
     )
     # net=8 → ORtg +4, DRtg -4 when fully RAPM-weighted
     assert abs(strength.ortg - 116.0) < 1e-6
