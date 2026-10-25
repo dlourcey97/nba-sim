@@ -568,6 +568,234 @@ def apply_tov_stl_league_scale(
     )
 
 
+# Leakage-safe league pace / PPP from team_game_results (game_date < as_of).
+_LEAGUE_ENV_AVG_CACHE: dict[tuple, tuple] = {}
+_LEAGUE_ENV_SCALE_CACHE: dict[tuple, tuple[float, float]] = {}
+_TEAM_PACE_ASOF_CACHE: dict[tuple, tuple[float, int]] = {}
+
+
+def league_pace_ppp_as_of(
+    settings: Settings,
+    season_label: str,
+    *,
+    before: date | None,
+) -> tuple[float, float, int]:
+    """Mean team pace and points-per-possession before ``before`` (exclusive)."""
+    pace, _ppg, ppp, n = league_env_as_of(settings, season_label, before=before)
+    return pace, ppp, n
+
+
+def league_env_as_of(
+    settings: Settings,
+    season_label: str,
+    *,
+    before: date | None,
+) -> tuple[float, float, float, int]:
+    """Return ``(pace, ppg, ppp, n_team_games)`` before ``before`` (exclusive)."""
+    key = (str(settings.data_dir), season_label, before, "env4")
+    hit = _LEAGUE_ENV_AVG_CACHE.get(key)
+    if hit is not None:
+        return hit  # type: ignore[return-value]
+    paces: list[float] = []
+    points: list[float] = []
+    for row in read_rows(settings, "team_game_results", season_label):
+        if before is not None and row["game_date"] >= before:
+            continue
+        pts = float(row.get("pts") or 0.0)
+        points.append(pts)
+        pace = row.get("pace")
+        if pace is not None and float(pace) > 0:
+            paces.append(float(pace))
+    n = len(points)
+    if n == 0:
+        out = (0.0, 0.0, 0.0, 0)
+    else:
+        pace = sum(paces) / len(paces) if paces else 0.0
+        ppg = sum(points) / n
+        ppp = (sum(points) / sum(paces)) if paces else 0.0
+        out = (pace, ppg, ppp, n)
+    _LEAGUE_ENV_AVG_CACHE[key] = out  # type: ignore[assignment]
+    return out
+
+
+def team_pace_as_of(
+    settings: Settings,
+    season_label: str,
+    team_id: int,
+    *,
+    before: date,
+) -> tuple[float, int]:
+    """Mean pace for one team from games strictly before ``before``."""
+    key = (str(settings.data_dir), season_label, int(team_id), before)
+    hit = _TEAM_PACE_ASOF_CACHE.get(key)
+    if hit is not None:
+        return hit
+    total = 0.0
+    n = 0
+    for row in read_rows(settings, "team_game_results", season_label):
+        if int(row["team_id"]) != int(team_id):
+            continue
+        if row["game_date"] >= before:
+            continue
+        pace = row.get("pace")
+        if pace is None or float(pace) <= 0:
+            continue
+        total += float(pace)
+        n += 1
+    out = ((total / n) if n else 0.0, n)
+    _TEAM_PACE_ASOF_CACHE[key] = out
+    return out
+
+
+def league_environment_scales(
+    settings: Settings,
+    *,
+    season: str,
+    as_of: date,
+    prior_season: str | None,
+    half_life_games: float = 12.0,
+    early_season_games: float = 25.0,
+) -> tuple[float, float]:
+    """Current-season league pace/PPG vs prior, sample-size weighted.
+
+    Returns ``(pace_scale, efficiency_scale)`` near 1.0. Active only while
+    ``games_played < early_season_games``; after that, current-season rate
+    blends already carry the environment (avoids mid-season double-count).
+    Uses only games with ``game_date < as_of`` (no leakage).
+    """
+    if not prior_season:
+        return 1.0, 1.0
+    cache_key = (
+        str(settings.data_dir),
+        season,
+        as_of,
+        prior_season,
+        float(half_life_games),
+        float(early_season_games),
+    )
+    hit = _LEAGUE_ENV_SCALE_CACHE.get(cache_key)
+    if hit is not None:
+        return hit
+
+    prior_pace, prior_ppg, _prior_ppp, n_prior = league_env_as_of(
+        settings, prior_season, before=None
+    )
+    if n_prior == 0 or prior_pace <= 0 or prior_ppg <= 0:
+        _LEAGUE_ENV_SCALE_CACHE[cache_key] = (1.0, 1.0)
+        return 1.0, 1.0
+
+    curr_pace, curr_ppg, _curr_ppp, n_curr = league_env_as_of(
+        settings, season, before=as_of
+    )
+    half = max(1.0, float(half_life_games))
+    n_games = n_curr / 2.0
+    # Past the early window: identity (mid-season guardrail / rate blends own it).
+    if n_games >= float(early_season_games):
+        _LEAGUE_ENV_SCALE_CACHE[cache_key] = (1.0, 1.0)
+        return 1.0, 1.0
+
+    w = n_games / (n_games + half) if n_curr > 0 else 0.0
+
+    if n_curr == 0:
+        # Opening night: prior early window vs full (opening weeks often faster).
+        early_pace, early_ppg, n_early = _prior_early_env(
+            settings, prior_season, first_n_team_games=40
+        )
+        if n_early == 0:
+            _LEAGUE_ENV_SCALE_CACHE[cache_key] = (1.0, 1.0)
+            return 1.0, 1.0
+        pace_scale = max(0.97, min(1.05, early_pace / prior_pace))
+        # Efficiency from PPG (scoring level), not PPP — FTA/3PA mix shifts PPP.
+        eff_scale = max(0.97, min(1.05, early_ppg / prior_ppg))
+        w = 0.35
+        pace_scale = 1.0 + w * (pace_scale - 1.0)
+        eff_scale = 1.0 + w * (eff_scale - 1.0)
+    else:
+        raw_pace = max(0.94, min(1.06, curr_pace / prior_pace))
+        raw_eff = max(0.94, min(1.06, curr_ppg / prior_ppg))
+        pace_scale = 1.0 + w * (raw_pace - 1.0)
+        eff_scale = 1.0 + w * (raw_eff - 1.0)
+
+    # Deadband: ignore tiny drifts.
+    if abs(pace_scale - 1.0) < 0.005:
+        pace_scale = 1.0
+    if abs(eff_scale - 1.0) < 0.005:
+        eff_scale = 1.0
+    out = (float(pace_scale), float(eff_scale))
+    _LEAGUE_ENV_SCALE_CACHE[cache_key] = out
+    return out
+
+
+def _prior_early_env(
+    settings: Settings,
+    season_label: str,
+    *,
+    first_n_team_games: int,
+) -> tuple[float, float, int]:
+    rows = sorted(
+        read_rows(settings, "team_game_results", season_label),
+        key=lambda r: (r["game_date"], r["game_id"]),
+    )[: int(first_n_team_games)]
+    paces: list[float] = []
+    points: list[float] = []
+    for row in rows:
+        points.append(float(row.get("pts") or 0.0))
+        pace = row.get("pace")
+        if pace is not None and float(pace) > 0:
+            paces.append(float(pace))
+    n = len(points)
+    if n == 0:
+        return 0.0, 0.0, 0
+    pace = sum(paces) / len(paces) if paces else 0.0
+    ppg = sum(points) / n
+    return pace, ppg, n
+
+
+def blended_team_pace_map(
+    settings: Settings,
+    *,
+    season: str,
+    as_of: date,
+    prior_season: str | None,
+    prior_pace: dict[int, float],
+    half_life_games: float = 10.0,
+    team_ids: Sequence[int] | None = None,
+) -> dict[int, float]:
+    """Per-team pace: blend as-of current with prior, regressed by games played."""
+    ids = list(team_ids) if team_ids is not None else list(prior_pace.keys())
+    if not ids and prior_season:
+        ids = list(team_pace_map(settings, prior_season).keys())
+    half = max(1.0, float(half_life_games))
+    out: dict[int, float] = {}
+    for tid in ids:
+        prior = float(prior_pace.get(tid) or 100.0)
+        curr, n = team_pace_as_of(settings, season, tid, before=as_of)
+        if n <= 0 or curr <= 0:
+            out[tid] = prior
+            continue
+        w = float(n) / (float(n) + half)
+        out[tid] = w * curr + (1.0 - w) * prior
+    return out
+
+
+def apply_league_efficiency_scale(
+    rates: RateVector,
+    *,
+    efficiency_scale: float,
+) -> RateVector:
+    """Scale zone FG% and softly FT rate by league efficiency environment."""
+    if abs(efficiency_scale - 1.0) < 1e-6:
+        return rates
+    scale = float(efficiency_scale)
+    updates: dict[str, float] = {
+        "ft_rate": min(0.45, max(0.02, float(rates.ft_rate) * (1.0 + 0.5 * (scale - 1.0)))),
+    }
+    for zone in ZONES:
+        key = f"{zone}_fg_pct"
+        updates[key] = min(0.85, max(0.15, float(getattr(rates, key)) * scale))
+    return replace(rates, **updates)
+
+
 def apply_team_strength_and_hca(
     rates: RateVector,
     *,

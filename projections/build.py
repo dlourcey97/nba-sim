@@ -24,12 +24,16 @@ from projections.blend import (
     player_baseline_and_form,
 )
 from projections.context import (
+    apply_league_efficiency_scale,
     apply_opponent_defense,
     apply_opponent_position_defense,
     apply_team_strength_and_hca,
     apply_tov_stl_league_scale,
+    blended_team_pace_map,
     expected_possessions,
     kalman_blend_weight,
+    league_env_as_of,
+    league_environment_scales,
     league_strength,
     league_tov_stl_scales,
     league_zone_fg_pct,
@@ -386,11 +390,55 @@ def _build(
         if entry.player_id is not None and entry.game_date == game_date
     }
 
-    pace = team_pace_map(settings, season)
-    # Fall back across window if current season aggregates are thin.
-    if len(pace) < 2:
+    prior_label_for_pace = prior_season_label(season)
+    prior_pace = team_pace_map(settings, prior_label_for_pace) if prior_label_for_pace else {}
+    if not prior_pace:
         for bundle in bundles:
-            pace.update(team_pace_map(settings, bundle.season))
+            prior_pace.update(team_pace_map(settings, bundle.season))
+    ctx_cfg = config.get("context") or {}
+    early_games = float(ctx_cfg.get("league_env_early_season_games", 25.0))
+    n_curr_finals = 0.0
+    if bool(ctx_cfg.get("league_env_enabled", True)):
+        _cp, _cg, _cpp, n_tg = league_env_as_of(settings, season, before=as_of)
+        n_curr_finals = n_tg / 2.0
+
+    if bool(ctx_cfg.get("league_env_enabled", True)) and n_curr_finals < early_games:
+        # Early season only: blend as-of team pace with an anchor.
+        # Live current season: anchor = season-to-date aggregates (already current).
+        # Walk-forward: anchor = previous season (no leakage of same-season future).
+        if season == settings.current_season:
+            anchor_pace = team_pace_map(settings, season) or prior_pace
+        else:
+            anchor_pace = prior_pace
+        pace = blended_team_pace_map(
+            settings,
+            season=season,
+            as_of=as_of,
+            prior_season=prior_label_for_pace,
+            prior_pace=anchor_pace,
+            half_life_games=float(ctx_cfg.get("team_pace_half_life_games", 8.0)),
+        )
+        if len(pace) < 2:
+            pace = dict(anchor_pace or prior_pace)
+        pace_scale, _ = league_environment_scales(
+            settings,
+            season=season,
+            as_of=as_of,
+            prior_season=prior_label_for_pace,
+            half_life_games=float(ctx_cfg.get("league_env_half_life_games", 12.0)),
+            early_season_games=early_games,
+        )
+        pace_scale = max(0.985, min(1.015, float(pace_scale)))
+        if abs(pace_scale - 1.0) > 1e-6:
+            pace = {tid: float(p) * pace_scale for tid, p in pace.items()}
+    else:
+        pace = team_pace_map(settings, season)
+        # Fall back across window if current season aggregates are thin.
+        if len(pace) < 2:
+            for bundle in bundles:
+                pace.update(team_pace_map(settings, bundle.season))
+            if prior_pace and len(pace) < 2:
+                pace = dict(prior_pace)
     # Zone + position defense from game logs before as_of (no future leakage).
     if cache.league_zones is None:
         cache.league_zones = zone_defense_from_bundles(bundles, as_of=as_of)
@@ -977,6 +1025,26 @@ def _build(
                         player.rates, tov_scale=tov_scale, stl_scale=stl_scale
                     ),
                 )
+    # Early-season league efficiency (PPP) vs prior — leakage-safe as_of.
+    ctx_late = config.get("context") or {}
+    if bool(ctx_late.get("league_env_enabled", True)):
+        _pace_s, eff_scale = league_environment_scales(
+            settings,
+            season=season,
+            as_of=as_of,
+            prior_season=prior_label,
+            half_life_games=float(ctx_late.get("league_env_half_life_games", 12.0)),
+            early_season_games=float(ctx_late.get("league_env_early_season_games", 25.0)),
+        )
+        if abs(eff_scale - 1.0) > 1e-6:
+            for side in (home_players, away_players):
+                for pid, player in list(side.items()):
+                    side[pid] = replace(
+                        player,
+                        rates=apply_league_efficiency_scale(
+                            player.rates, efficiency_scale=eff_scale
+                        ),
+                    )
     # Expected closeness uses Kalman nets + rest HCA when available.
     if home_team_id in kalman.ratings and away_team_id in kalman.ratings:
         expected_abs_margin = abs(

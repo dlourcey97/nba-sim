@@ -1,9 +1,10 @@
 # Progress
 
-Last updated 2026-10-25 — Synergy play-types ingested; sim use REVERTED after WF fail.
+Last updated 2026-10-25 — Early-season league-env pace/PPG blend KEPT after totals diagnosis.
 
 | Phase | Status | Notes |
 | --- | --- | --- |
+| Early-season league env | done | Pace+PPG blend (early window only); 400g WF improves total MAE; 2026-27 bias holds. |
 | Synergy play-types | reverted | Ingest+schema kept; `play_types_enabled: false` — full 2025-26 WF hurt Brier/winner/spread. |
 | External RAPM (nbarapm.com) | done | Weekly fetch + leakage-safe load; full 2025-26 WF kept (Brier/winner ↑). Credit nbarapm.com. |
 | Starter STL share fix | done | `stl_credit_raw_weight: 0.30` who-gets-steal blend; mid reconcile PASS (−2.7%); WF held. |
@@ -699,6 +700,60 @@ Hold-check 250g × 200r seed 1 (`results/backtest/stl_credit_{before,after}/`):
 | Player MIN / PTS MAE | 7.31 / 5.39 |
 | 10–90 coverage | 78.9% |
 | Top picks hit / claimed | **60.9%** / 55.2% (56/92) |
+
+## Early-season league environment (2026-10-25) — KEPT
+
+Totals are the weakest graded metric (season total MAE **17.60**). Diagnosis + one change.
+
+### 1. Graded 2026-27 (36 games) — pred vs actual
+
+| | Pred | Actual | Bias |
+| --- | ---: | ---: | ---: |
+| Game total | 226.96 | 230.17 | **−3.21** |
+| Team pace (poss) | ~102.1 (proj OFF) | 101.58 | slight over |
+| Team PPP | ~1.111 (implied) | 1.133 | under |
+
+Under-prediction is mostly **efficiency**, not pace. Hist total MAE 17.60.
+
+### 2. League environment YoY
+
+| | 2025-26 full | 2026-27 so far (36g) |
+| --- | ---: | ---: |
+| Pace | 99.78 | **101.58** |
+| PPP | 1.154 | 1.133 |
+| PPG | 115.09 | 115.08 |
+| 3PA/FGA | 0.415 | 0.419 |
+| FTA/FGA | 0.265 | **0.302** |
+
+Faster, more FTA, lower PPP, same PPG — environment shifted.
+
+### 3. Change
+
+`league_env_enabled` (config): while `games_played < league_env_early_season_games` (40):
+
+- League pace + PPG scales vs prior season, sample-size weighted (`league_env_half_life_games: 12`), leakage-safe (`game_date < as_of`).
+- Per-team pace blend of as-of current with an anchor (`team_pace_half_life_games: 8`).
+- **Live** current season anchors to season-to-date aggregates (already current); **walk-forward** anchors to previous season (no same-season leakage).
+- Efficiency via zone FG% + soft FT rate (`apply_league_efficiency_scale`); PPG not PPP (FTA mix). Soft pace cap ±1.5%. Mid-season identity so YoY does not double-count rate blends.
+
+Tests: `tests/test_league_env.py`. Mid reconcile **PASS**.
+
+### 4. Keep decision
+
+**Leakage-free 2025-26 walk-forward** (400g × default runs, seed 1): artifacts `results/backtest/wf_2025_26_league_env_{off,on}/`.
+
+| Metric | OFF | ON |
+| --- | ---: | ---: |
+| Total MAE | 16.122 | **15.936** |
+| Spread MAE | 11.189 | **11.166** |
+| Brier | 0.2118 | **0.2115** |
+| Winner | 64.0% | 64.0% |
+
+**Early 80 games** (100 runs): total bias **−12.18 → −9.33**; total MAE 19.00 → 17.81; Brier 0.227 → 0.224.
+
+**2026-27 resim** (36g, live-anchor fix): OFF bias −2.63 / MAE 17.06; ON bias **−2.62** / MAE 17.35 (bias holds; MAE ≈noise). Hist graded bias −3.21 unchanged (history not rewritten).
+
+**Kept.** `league_env_enabled: true`.
 
 ## Synergy play-types (2026-10-25) — REVERTED from sim
 

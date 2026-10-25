@@ -19,6 +19,7 @@ Graded from `prediction_history` after finals. No sportsbook lines or odds.
 ## Notes
 
 - 2026-10-20: no Top confident picks were produced that night (feature landed with the 2026-10-21 slate).
+- 2026-10-25 totals diagnosis (36 graded): pred total 227.0 vs act 230.2 (**bias −3.21**); act pace 101.6 / PPP 1.133. vs 2025-26: pace 99.8→101.6, PPP 1.154→1.133, 3PA/FGA 0.415→0.419, FTA/FGA 0.265→0.302 (PPG flat ~115.1). Early-season league-env blend **kept** (see PROGRESS); graded history unchanged (live-anchor makes ON≈OFF on these 36).
 
 ## 2026-10-20
 

@@ -155,6 +155,13 @@ context:
   # have been played before as_of (fixes early 2026-27 TOV ~16.4 vs prior ~13.8).
   # 6 team-games ≈ 3 finals so the scale engages after opening night.
   tov_stl_scale_min_team_games: 6
+  # Early-season league environment: blend as-of pace/PPG toward prior season
+  # (leakage-safe). Active only while games_played < early_season_games so
+  # mid-season YoY scales do not double-count current-season rate blends.
+  league_env_enabled: true
+  league_env_half_life_games: 12
+  team_pace_half_life_games: 8
+  league_env_early_season_games: 40
 
 minutes:
   blowout_margin_threshold: 15.0
