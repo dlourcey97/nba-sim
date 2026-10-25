@@ -1,10 +1,12 @@
 # Progress
 
-Last updated 2026-10-25 — leakage-safe nbarapm RAPM kept after full 2025-26 walk-forward on vs off.
+Last updated 2026-10-25 — starter STL credit blend; post-game through 10-24 graded.
 
 | Phase | Status | Notes |
 | --- | --- | --- |
 | External RAPM (nbarapm.com) | done | Weekly fetch + leakage-safe load; full 2025-26 WF kept (Brier/winner ↑). Credit nbarapm.com. |
+| Starter STL share fix | done | `stl_credit_raw_weight: 0.30` who-gets-steal blend; mid reconcile PASS (−2.7%); WF held. |
+| Post-game through 10-24 | done | +8 finals; 36 games graded; picks 60.9% hit vs 55.2% claimed. |
 | Reconcile fix (guardrail/MIN/TOV) | done | Any ±3% flag blocks slate; sim MIN=240; early TOV −2.9%; mid guardrail PASS. |
 | Stabilize Step 1 | done | League totals + starter shares FAIL (>3%); team REB +13.6%; starter REB share +19%; bigs sim/36 ~18–20 vs prior ~12–14. |
 | Stabilize Step 2 | done | naive_last10 wins MAE; all variants fail reconcile (REB +10–14%). Do not revert to v1.0. |
@@ -14,7 +16,7 @@ Last updated 2026-10-25 — leakage-safe nbarapm RAPM kept after full 2025-26 wa
 | Follow-up 1: elite REB share | done | `reb_share_power: 1.55` on who-gets-it; team totals unchanged; Jokic 9.1→12.8 REB. |
 | Follow-up 2: coverage ~0.80 | done | shoot/usage/pace SDs tightened (caps bite below shoot_sd 0.40); PTS 10–90 **0.803**. |
 | Early-season blend fix | done | `season_reliability_games: 20` — 1-game season no longer takes full 0.40 weight. |
-| Post-game through 10-23 | done | +14 finals; 28 games graded; picks 61.7% hit vs 59.5% claimed. |
+| Post-game through 10-24 | done | +8 finals (36g); picks 60.9% / 55.2% claimed. |
 
 ## Reconcile fix — guardrail, 240 minutes, TOV (2026-10-24)
 
@@ -87,7 +89,7 @@ Player MAE and coverage improved; winner accuracy dipped on the resim (opening-n
 | Minutes bakeoff 2025-26 | done | Pure `naive_last10` wins MIN/PTS/REB/AST vs v1.0 / Step F off/on. Default minutes_model set; coverage ~0.80 via shoot/usage. |
 | Post-game grade 10-20/21 | done | Ingested 11 finals; filled actuals; `results/season_scorecard.md`; daily.py refreshes scorecard. |
 | 2026-10-22 slate | done | P(plays) Bernoulli; scaled top-8 picks logged to history; roster corruption guard. |
-| Post-game through 10-23 | done | See section below. |
+| Post-game through 10-24 | done | See section below. |
 
 ## Post-game update through 2026-10-23 (2026-10-24)
 
@@ -655,12 +657,47 @@ Artifacts: `results/backtest/wf_2025_26_rapm_on/`, `results/backtest/wf_2025_26_
 | --- | ---: | ---: |
 | Brier | **0.214** | 0.215 |
 | Winner accuracy | **66.7%** | 65.4% |
-| MAE margin | **12.07** | 12.08 |
-| MAE total | 16.12 | **16.05** |
-| MAE PTS / REB / AST | ~flat | ~flat |
-| 10–90 coverage | 0.811 | 0.812 |
+| Spread MAE (margin) | **12.07** | 12.08 |
+| Total MAE | 16.12 | **16.05** |
+| Player PTS MAE | **5.245** | 5.245 |
+| Player REB MAE | 2.098 | **2.098** |
+| Player AST MAE | 1.408 | **1.408** |
+| Player STL MAE | n/a (not in that harness) | n/a |
+| 10–90 coverage | 0.811 | **0.812** |
 
-**Kept.** Mid-season reconcile (80g×80r, skip 400) flags starter STL on both ON and OFF (pre-existing; not RAPM-specific).
+**Kept.** Mid-season reconcile then flagged starter STL on both ON and OFF (pre-existing; fixed below).
+
+## Starter STL share — who-gets-steal blend (2026-10-25)
+
+**Cause:** raw on-court `stl_rate` over-credits high-rate bench specialists. Team STL was fine (−0.8%); starter STL share −3.3% (FAIL). Minutes were not the driver (starter MIN share +1.8%). Guardrail already blocks the slate on any >3% team/role flag (`daily.py` + `reconcile.passed`); this STL flag would have refused projections.
+
+**One change:** `simulation.stl_credit_raw_weight: 0.30` — P(steal) still from raw rate sum; who-gets-it = `0.30·raw + 0.70·on-court mean` (same pattern as BLK credit). Mid-season guardrail (80g×80r, skip 400): **PASS**, starter STL −2.7%.
+
+Hold-check 250g × 200r seed 1 (`results/backtest/stl_credit_{before,after}/`):
+
+| Metric | before (1.0) | after (0.30) |
+| --- | ---: | ---: |
+| Brier | 0.202 | 0.202 |
+| Winner | 66.4% | 66.4% |
+| Spread / total MAE | 11.11 / 16.26 | same |
+| PTS / REB / AST MAE | flat | flat |
+| STL MAE | 0.714 | **0.712** |
+| 10–90 coverage | 0.833 | 0.833 |
+
+## Post-game through 2026-10-24
+
+- Ingested **8** new finals (10-24); roster refresh **+0/−0**. Fixed `fill_actuals` UnboundLocalError on DNP picks.
+- Graded 36 games → `results/season_scorecard.md`.
+
+| Metric | Season to date |
+| --- | ---: |
+| Games graded | 36 |
+| Winner accuracy | 61.1% |
+| Spread MAE | 12.51 |
+| Total MAE | 17.60 |
+| Player MIN / PTS MAE | 7.31 / 5.39 |
+| 10–90 coverage | 78.9% |
+| Top picks hit / claimed | **60.9%** / 55.2% (56/92) |
 
 ## Upgrade 5 — Variance from player RE + pace (2026-10-17)
 

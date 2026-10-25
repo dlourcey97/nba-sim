@@ -177,6 +177,10 @@ def simulate_game(
     # Live misses with no player credit (team rebound). Keeps possession flip.
     packed["team_reb_rate"] = float(np.clip(sim_cfg.get("team_reb_rate", 0.073), 0.0, 0.20))
     packed["reb_share_power"] = float(np.clip(sim_cfg.get("reb_share_power", 1.0), 0.5, 3.0))
+    # Fraction of who-gets-steal weight from raw stl_rate (rest = on-court mean).
+    packed["stl_credit_raw_weight"] = float(
+        np.clip(sim_cfg.get("stl_credit_raw_weight", 1.0), 0.0, 1.0)
+    )
     pace_sd = float(sim_cfg.get("pace_sd", 5.5))
     team_hot_sd = float(sim_cfg.get("team_hot_sd", 0.05))
     player_shoot_sd = float(sim_cfg.get("player_shoot_sd", 0.12))
@@ -928,11 +932,17 @@ def _vector_possession(
 
     # Steal. Per-player rates are stl/def_poss; summing five on-court rates
     # Scale on-court steal-rate sum toward league ~8.4 STL / 100 possessions.
+    # P(steal) from raw rates; who-gets-it blends raw with on-court mean so
+    # high-rate bench specialists do not soak starter STL share (team STL fixed).
     stl_w = packed["stl_rate"][def_lineups]
     stl_prob = np.clip(stl_w.sum(axis=1) * 0.88, 0.0, 0.100)
     is_stl = remaining_after_foul & (rng.random(n_runs) < stl_prob)
     if np.any(is_stl):
-        pick = _weighted_choice(rng, stl_w[is_stl])
+        raw_w = np.maximum(stl_w[is_stl], 1e-8)
+        mean_w = raw_w.mean(axis=1, keepdims=True)
+        raw_frac = float(packed.get("stl_credit_raw_weight", 1.0))
+        credit_w = raw_frac * raw_w + (1.0 - raw_frac) * mean_w
+        pick = _weighted_choice(rng, credit_w)
         runners = np.flatnonzero(is_stl)
         players = def_lineups[is_stl, pick]
         np.add.at(stl, (players, runners), 1)

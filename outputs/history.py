@@ -227,11 +227,11 @@ def fill_actuals_for_season(
             continue
         log = log_by_key.get((game_id, int(player_id)))
         if row["row_kind"] == "pick":
+            stat = str(row.get("pick_stat") or "").lower()
             if log is None:
                 # DNP / inactive → miss unless range includes 0 and we treat as 0.
                 actual = 0.0
             else:
-                stat = str(row.get("pick_stat") or "").lower()
                 col = "minutes" if stat == "min" else stat
                 actual = float(log.get(col) or 0.0)
             lo = row.get("pick_lo")

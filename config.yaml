@@ -45,6 +45,11 @@ simulation:
   # >1 concentrates boards on elite rebounders (fixes post-stabilize REB/36
   # under-projection for Jokic-class players) without changing team totals.
   reb_share_power: 1.55
+  # Who-gets-steal credit blend: raw stl_rate vs on-court mean.
+  # 1.0 = raw rates only; lower pulls toward equal on-court credit.
+  # Raw rates over-credit high-rate bench specialists (~−3.3% starter STL
+  # share). Blend keeps P(steal) on the raw sum so team STL stays put.
+  stl_credit_raw_weight: 0.30
 
 blending:
   season_weights:
