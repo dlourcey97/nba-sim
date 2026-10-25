@@ -1,9 +1,10 @@
 # Progress
 
-Last updated 2026-10-25 — starter STL credit blend; post-game through 10-24 graded.
+Last updated 2026-10-25 — Synergy play-types ingested; sim use REVERTED after WF fail.
 
 | Phase | Status | Notes |
 | --- | --- | --- |
+| Synergy play-types | reverted | Ingest+schema kept; `play_types_enabled: false` — full 2025-26 WF hurt Brier/winner/spread. |
 | External RAPM (nbarapm.com) | done | Weekly fetch + leakage-safe load; full 2025-26 WF kept (Brier/winner ↑). Credit nbarapm.com. |
 | Starter STL share fix | done | `stl_credit_raw_weight: 0.30` who-gets-steal blend; mid reconcile PASS (−2.7%); WF held. |
 | Post-game through 10-24 | done | +8 finals; 36 games graded; picks 60.9% hit vs 55.2% claimed. |
@@ -698,6 +699,33 @@ Hold-check 250g × 200r seed 1 (`results/backtest/stl_credit_{before,after}/`):
 | Player MIN / PTS MAE | 7.31 / 5.39 |
 | 10–90 coverage | 78.9% |
 | Top picks hit / claimed | **60.9%** / 55.2% (56/92) |
+
+## Synergy play-types (2026-10-25) — REVERTED from sim
+
+Credit: stats.nba.com Synergy via `nba_api` `SynergyPlayTypes`.
+
+**Ingest (kept):** `play_types` parquet for 2023-24…current — player+team, offense+defense, all 11 play types. Columns: possessions, frequency, PPP, tov%/ft%/score%. Current season refresh ≤1/day (`daily.py`). ~110 KiB/season. Small-sample regression to league by possessions; live blends current with prior.
+
+**Leakage:** walk-forward uses **previous season only**; live may blend current.
+
+**Sim wiring (disabled):** player offense mix × opponent team defense → soft FG/TOV/FT factors (`play_type_defense_weight: 0.35`). Mid-season reconcile **PASS**. Star sanity check (2024-25 data for 2025-26): SGA base PPP 1.10 → ~1.05 vs OKC / ~1.13 vs NOP (realistic, not extreme). See `results/backtest/play_types_star_report.txt`.
+
+### Keep decision — full 2025-26 walk-forward (1314g × 200r, seed 1)
+
+Artifacts: `results/backtest/wf_2025_26_playtypes_{off,on}/`.
+
+| Metric | OFF | ON | |
+| --- | ---: | ---: | --- |
+| Brier | **0.214** | 0.215 | worse |
+| Winner accuracy | **66.7%** | 66.4% | worse |
+| Spread MAE | **12.07** | 12.19 | worse |
+| Total MAE | 16.12 | **16.00** | better |
+| PTS MAE | **5.245** | 5.245 | flat |
+| AST MAE | 1.408 | **1.407** | ~flat |
+| TOV MAE | 0.913 | **0.912** | ~flat |
+| 10–90 coverage | 0.811 | **0.811** | ~flat |
+
+**Reverted.** `play_types_enabled: false`. Ingest/schema/tests retained for a later retune (different weight / interaction with RAPM).
 
 ## Upgrade 5 — Variance from player RE + pace (2026-10-17)
 

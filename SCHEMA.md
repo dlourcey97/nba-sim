@@ -525,6 +525,38 @@ Key: `defender_id`
 | fg_pct | DOUBLE | yes | Allowed FG% (fgm/fga). |
 | fg3_pct | DOUBLE | yes | Allowed 3P% (fg3m/fg3a). |
 
+## play_types
+
+Compact Synergy play-type rates from nba_api SynergyPlayTypes (possessions, frequency, PPP, TOV%/FT%/score%). Never stores raw API payloads. Walk-forward uses only the PREVIOUS season; live projections may blend current with prior (regressed to league).
+
+Policy: `replace`
+
+Grain: one row per player-or-team × play type × offense/defense per season
+
+Key: `entity_kind`, `entity_id`, `play_type`, `side`
+
+| column | type | null | description |
+| --- | --- | --- | --- |
+| season | VARCHAR | no | NBA season label, such as 2025-26. Partition key. |
+| entity_kind | VARCHAR | no | player or team. |
+| entity_id | INTEGER | no | player_id or team_id. |
+| entity_name | VARCHAR | no | Display name / team abbreviation. |
+| team_id | INTEGER | yes | Team id (players: primary team; teams: same as entity_id). |
+| play_type | VARCHAR | no | Canonical play type label (Isolation, Spot Up, …). |
+| side | VARCHAR | no | offense or defense. |
+| possessions | DOUBLE | no | Synergy possessions sample. |
+| frequency | DOUBLE | no | Share of entity possessions of this type (0–1). |
+| ppp | DOUBLE | no | Points per possession. |
+| tov_pct | DOUBLE | no | Turnover rate on these possessions (0–1). |
+| ft_pct | DOUBLE | no | Free-throw / foul rate on these possessions (0–1). |
+| score_pct | DOUBLE | no | Score rate on these possessions (0–1). |
+| gp | DOUBLE | no | Games played in the Synergy sample. |
+| fetched_at | VARCHAR | no | UTC ISO timestamp of the fetch that wrote this partition. |
+
+**Leakage:** For walk-forward season S, load only season S−1. For live `current_season`, blend current with prior (possession half-life). Rates are regressed to league averages by play type using possessions.
+
+**Play types stored:** Isolation, P&R Ball Handler, P&R Roll Man, Post Up, Spot Up, Handoff, Cut, Off Screen, Transition, Putbacks, Misc.
+
 ## external/ (nbarapm.com RAPM)
 
 Not a season-partitioned table. Compact Parquet under `{DATA_DIR}/external/`, refreshed by `ingest/rapm_fetch.py` at most every 7 days from the published JSON data files the nbarapm dataset pages load (`/load/timedecay`, `/load/SCALEDOUTPUT_SMALLER`). The site's "Download CSV" button builds a CSV in-browser from those same files — we never scrape HTML. Credit: [nbarapm.com](https://nbarapm.com).

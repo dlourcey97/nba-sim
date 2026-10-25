@@ -143,6 +143,9 @@ class ProjectionCache:
     stint_rows_by_season: dict[str, list] = field(default_factory=dict)
     assist_edge_rows_by_season: dict[str, list] = field(default_factory=dict)
     defender_impact_by_season: dict[str, list] = field(default_factory=dict)
+    play_type_rows_by_season: dict[str, list] = field(default_factory=dict)
+    play_type_context: object | None = None
+    play_type_context_season: str | None = None
 
     def reset_if_needed(self, as_of: date) -> None:
         if self.as_of != as_of:
@@ -181,6 +184,16 @@ class ProjectionCache:
                 settings, "defender_impact", season
             )
         return self.defender_impact_by_season[season]
+
+    def play_types(self, settings: Settings, season: str) -> list:
+        if season not in self.play_type_rows_by_season:
+            try:
+                self.play_type_rows_by_season[season] = read_rows(
+                    settings, "play_types", season
+                )
+            except Exception:
+                self.play_type_rows_by_season[season] = []
+        return self.play_type_rows_by_season[season]
 
     def ensure_roster_indexes(self, bundles: list, as_of: date) -> None:
         if self.appearances_by_team is not None and self.last_team_by_player is not None:
@@ -933,6 +946,17 @@ def _build(
 
     _apply_strength(home_players, home_str, away_str, "H")
     _apply_strength(away_players, away_str, home_str, "A")
+    # Play-type offense mix × opponent play-type defense (leakage-safe season).
+    _apply_play_type_matchups(
+        settings,
+        season=season,
+        home_players=home_players,
+        away_players=away_players,
+        home_team_id=home_team_id,
+        away_team_id=away_team_id,
+        cache=cache,
+        config=config,
+    )
     # Early-season TOV/STL: lift rates toward current-season league level when
     # enough finals exist (2026-27 opened ~19% above 2025-26 TOV).
     tov_scale, stl_scale = league_tov_stl_scales(
@@ -1007,6 +1031,154 @@ def _build(
         defender_fg_factor=def_fg,
         defender_fg3_factor=def_fg3,
     )
+
+
+def _apply_play_type_matchups(
+    settings: Settings,
+    *,
+    season: str,
+    home_players: dict[int, PlayerProjection],
+    away_players: dict[int, PlayerProjection],
+    home_team_id: int,
+    away_team_id: int,
+    cache: ProjectionCache | None,
+    config: dict,
+) -> None:
+    """Adjust FG%/TOV/FT rates from player play-type mix vs opponent defense."""
+    ctx = config.get("context") or {}
+    if not bool(ctx.get("play_types_enabled", True)):
+        return
+    weight = float(ctx.get("play_type_defense_weight", 0.35))
+    if weight <= 0:
+        return
+    from ingest.play_types import (
+        DEFAULT_REGRESSION_POSS,
+        DEFAULT_SEASON_HALF_LIFE_POSS,
+        apply_play_type_factors,
+        blend_rates,
+        league_baselines,
+        load_entity_rates,
+        matchup_factors,
+        play_type_season_for_projection,
+    )
+
+    primary, prior, blend_current = play_type_season_for_projection(
+        settings, season=season
+    )
+    if primary is None:
+        return
+    local_cache = cache or ProjectionCache()
+    if (
+        local_cache.play_type_context is not None
+        and local_cache.play_type_context_season == season
+    ):
+        pt_ctx = local_cache.play_type_context
+    else:
+        primary_rows = local_cache.play_types(settings, primary)
+        prior_rows = (
+            local_cache.play_types(settings, prior) if prior and blend_current else []
+        )
+        if not primary_rows and not prior_rows:
+            return
+        reg = float(ctx.get("play_types_regression_possessions", DEFAULT_REGRESSION_POSS))
+        half = float(
+            ctx.get("play_types_season_half_life_possessions", DEFAULT_SEASON_HALF_LIFE_POSS)
+        )
+        lg_def_primary = league_baselines(primary_rows, entity_kind="team", side="defense")
+        lg_off_primary = league_baselines(primary_rows, entity_kind="player", side="offense")
+        lg_def_prior = (
+            league_baselines(prior_rows, entity_kind="team", side="defense")
+            if prior_rows
+            else {}
+        )
+        lg_off_prior = (
+            league_baselines(prior_rows, entity_kind="player", side="offense")
+            if prior_rows
+            else {}
+        )
+        # Prefer prior league baselines when blending early current season.
+        lg_def = lg_def_prior or lg_def_primary
+        lg_off = lg_off_prior or lg_off_primary
+        pt_ctx = {
+            "primary_rows": primary_rows,
+            "prior_rows": prior_rows,
+            "blend_current": blend_current,
+            "reg": reg,
+            "half": half,
+            "lg_def": lg_def,
+            "lg_off": lg_off,
+        }
+        local_cache.play_type_context = pt_ctx
+        local_cache.play_type_context_season = season
+
+    def _player_off(pid: int):
+        cur = load_entity_rates(
+            pt_ctx["primary_rows"],
+            entity_kind="player",
+            entity_id=pid,
+            side="offense",
+            league=pt_ctx["lg_off"],
+            regression_possessions=pt_ctx["reg"],
+        )
+        if not pt_ctx["blend_current"]:
+            return cur
+        pri = load_entity_rates(
+            pt_ctx["prior_rows"],
+            entity_kind="player",
+            entity_id=pid,
+            side="offense",
+            league=pt_ctx["lg_off"],
+            regression_possessions=pt_ctx["reg"],
+        )
+        cur_poss = sum((cur.possessions if cur else {}).values())
+        return blend_rates(
+            cur, pri, current_poss_total=cur_poss, half_life_possessions=pt_ctx["half"]
+        )
+
+    def _team_def(tid: int):
+        cur = load_entity_rates(
+            pt_ctx["primary_rows"],
+            entity_kind="team",
+            entity_id=tid,
+            side="defense",
+            league=pt_ctx["lg_def"],
+            regression_possessions=pt_ctx["reg"],
+        )
+        if not pt_ctx["blend_current"]:
+            return cur
+        pri = load_entity_rates(
+            pt_ctx["prior_rows"],
+            entity_kind="team",
+            entity_id=tid,
+            side="defense",
+            league=pt_ctx["lg_def"],
+            regression_possessions=pt_ctx["reg"],
+        )
+        cur_poss = sum((cur.possessions if cur else {}).values())
+        return blend_rates(
+            cur, pri, current_poss_total=cur_poss, half_life_possessions=pt_ctx["half"]
+        )
+
+    def _apply_side(players: dict[int, PlayerProjection], opp_team_id: int) -> None:
+        team_def = _team_def(opp_team_id)
+        if team_def is None:
+            return
+        for pid, player in list(players.items()):
+            off = _player_off(pid)
+            if off is None:
+                continue
+            fg_f, tov_f, ft_f = matchup_factors(
+                off, team_def, pt_ctx["lg_def"], weight=weight
+            )
+            players[pid] = replace(
+                player,
+                rates=apply_play_type_factors(
+                    player.rates, fg_factor=fg_f, tov_factor=tov_f, ft_factor=ft_f
+                ),
+            )
+
+    _apply_side(home_players, away_team_id)
+    _apply_side(away_players, home_team_id)
 
 
 def _assist_network_as_of(

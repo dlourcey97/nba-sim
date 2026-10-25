@@ -583,6 +583,35 @@ def _tables() -> dict[str, Table]:
             _col("fg3_pct", "DOUBLE", True, "Allowed 3P% (fg3m/fg3a)."),
         ),
     )
+    play_types = Table(
+        name="play_types",
+        policy="replace",
+        key=("entity_kind", "entity_id", "play_type", "side"),
+        grain="one row per player-or-team × play type × offense/defense per season",
+        description=(
+            "Compact Synergy play-type rates from nba_api SynergyPlayTypes "
+            "(possessions, frequency, PPP, TOV%/FT%/score%). Never stores raw "
+            "API payloads. Walk-forward uses only the PREVIOUS season; live "
+            "projections may blend current with prior (regressed to league)."
+        ),
+        columns=_season_cols()
+        + (
+            _col("entity_kind", "VARCHAR", False, "player or team."),
+            _col("entity_id", "INTEGER", False, "player_id or team_id."),
+            _col("entity_name", "VARCHAR", False, "Display name / team abbreviation."),
+            _col("team_id", "INTEGER", True, "Team id (players: primary team; teams: same as entity_id)."),
+            _col("play_type", "VARCHAR", False, "Canonical play type label (Isolation, Spot Up, …)."),
+            _col("side", "VARCHAR", False, "offense or defense."),
+            _col("possessions", "DOUBLE", False, "Synergy possessions sample."),
+            _col("frequency", "DOUBLE", False, "Share of entity possessions of this type (0–1)."),
+            _col("ppp", "DOUBLE", False, "Points per possession."),
+            _col("tov_pct", "DOUBLE", False, "Turnover rate on these possessions (0–1)."),
+            _col("ft_pct", "DOUBLE", False, "Free-throw / foul rate on these possessions (0–1)."),
+            _col("score_pct", "DOUBLE", False, "Score rate on these possessions (0–1)."),
+            _col("gp", "DOUBLE", False, "Games played in the Synergy sample."),
+            _col("fetched_at", "VARCHAR", False, "UTC ISO timestamp of the fetch that wrote this partition."),
+        ),
+    )
     tables = (
         player_game_logs,
         team_game_results,
@@ -598,6 +627,7 @@ def _tables() -> dict[str, Table]:
         lineup_stints,
         assist_edges,
         defender_impact,
+        play_types,
     )
     return {table.name: table for table in tables}
 

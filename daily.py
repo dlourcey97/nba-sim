@@ -80,6 +80,21 @@ def main(argv: list[str] | None = None) -> int:
         except Exception as exc:  # noqa: BLE001 — never block the slate
             log(f"WARNING: nbarapm RAPM refresh error (continuing): {exc}")
 
+        # Synergy play-types: current season at most once/day; failures keep last copy.
+        try:
+            from ingest.play_types import refresh_play_types
+
+            log("play_types daily check")
+            pt_status = refresh_play_types(
+                settings, seasons=[season], log=log, force=False
+            )
+            if pt_status.skipped_fresh:
+                log("play_types fetch skipped (still within interval)")
+            elif pt_status.seasons_written:
+                log(f"play_types wrote seasons={list(pt_status.seasons_written)}")
+        except Exception as exc:  # noqa: BLE001 — never block the slate
+            log(f"WARNING: play_types refresh error (continuing): {exc}")
+
         injuries = injuries_for_date(
             settings,
             slate_date,
