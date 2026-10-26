@@ -1,9 +1,10 @@
 # Progress
 
-Last updated 2026-10-25 — Early-season league-env pace/PPG blend KEPT after totals diagnosis.
+Last updated 2026-10-25 — Typical-game replay viewer. Selection uses margin, total, quarter scores, and rotation PTS/REB/AST/MIN (minutes-weighted, spread-normalized). One possession log is kept; `results/typical/*-typical.html` is the broadcast replay. Sim outcomes and the reconcile guardrail are unchanged.
 
 | Phase | Status | Notes |
 | --- | --- | --- |
+| Typical-game replay | done | Distance picker, possession fields (zone, FT, rebound, steal, clock, WP), self-contained viewer after every `daily.py` game. |
 | Early-season league env | done | Pace+PPG blend (early window only); 400g WF improves total MAE; 2026-27 bias holds. |
 | Synergy play-types | reverted | Ingest+schema kept; `play_types_enabled: false` — full 2025-26 WF hurt Brier/winner/spread. |
 | External RAPM (nbarapm.com) | done | Weekly fetch + leakage-safe load; full 2025-26 WF kept (Brier/winner ↑). Credit nbarapm.com. |

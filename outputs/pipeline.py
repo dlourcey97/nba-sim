@@ -143,6 +143,7 @@ def run_slate(
         try:
             from outputs.typical_game import (
                 build_typical_game,
+                format_typical_fit,
                 write_typical_game_artifacts,
             )
 
@@ -156,6 +157,9 @@ def run_slate(
                 log=typical_log,
                 out_dir=chart_dir,
             )
+            print(f"typical-game log {paths['log']}")
+            print(f"typical-game viewer {paths['html']}")
+            print(format_typical_fit(typical_log))
             result.json_paths.append(paths["html"])
         except Exception as exc:
             print(f"typical-game skipped for {projection.game_id}: {exc}")

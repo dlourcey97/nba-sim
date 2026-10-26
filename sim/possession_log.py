@@ -50,6 +50,25 @@ class PossessionEvent:
     home_pts: int
     away_pts: int
     home_win_prob: float | None = None
+    game_clock: str = ""
+    shooter_name: str | None = None
+    passer_name: str | None = None
+    offense_abbr: str | None = None
+    shot_zone: str | None = None
+    shot_value: int | None = None
+    shot_made: bool | None = None
+    fta: int = 0
+    ftm: int = 0
+    rebounder_id: int | None = None
+    rebounder_name: str | None = None
+    rebound: str | None = None
+    stealer_id: int | None = None
+    stealer_name: str | None = None
+    turnover_id: int | None = None
+    turnover_name: str | None = None
+    home_lineup: list[int] = field(default_factory=list)
+    away_lineup: list[int] = field(default_factory=list)
+    caption: str = ""
 
     def as_dict(self) -> dict:
         return asdict(self)
@@ -68,6 +87,9 @@ class PossessionLog:
     away_period_pts: list[int] = field(default_factory=list)
     final_home_pts: int = 0
     final_away_pts: int = 0
+    simulated_runs: int = 0
+    players: list[dict] = field(default_factory=list)
+    fit: dict | None = None
 
     def as_dict(self) -> dict:
         return {
@@ -79,6 +101,9 @@ class PossessionLog:
             "final_away_pts": self.final_away_pts,
             "home_period_pts": list(self.home_period_pts),
             "away_period_pts": list(self.away_period_pts),
+            "simulated_runs": int(self.simulated_runs),
+            "players": list(self.players),
+            "fit": self.fit,
             "events": [event.as_dict() for event in self.events],
         }
 

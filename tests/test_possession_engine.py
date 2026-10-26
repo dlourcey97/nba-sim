@@ -116,3 +116,27 @@ def test_trace_reproducible_with_same_seed():
     assert len(a.possession_log.events) == len(b.possession_log.events)
     assert a.possession_log.final_home_pts == b.possession_log.final_home_pts
     assert np.array_equal(a.home_pts, b.home_pts)
+
+
+def test_trace_fields_do_not_change_the_sim():
+    settings, projection = _sample_projection()
+    plain = simulate_game(projection, runs=20, seed=7, config=settings.config)
+    traced = simulate_game(
+        projection, runs=20, seed=7, config=settings.config, trace_run=0
+    )
+    assert np.array_equal(plain.home_pts, traced.home_pts)
+    assert np.array_equal(plain.away_pts, traced.away_pts)
+    assert np.array_equal(plain.pts, traced.pts)
+    log = traced.possession_log
+    assert log is not None
+    makes = [e for e in log.events if e.outcome in {"make_2", "make_3"}]
+    assert makes
+    assert all(
+        e.shot_zone and e.shot_made and e.shot_value in {2, 3} and e.game_clock and e.offense_abbr
+        for e in makes
+    )
+    boards = [e for e in log.events if e.rebound in {"off", "def"}]
+    assert boards
+    assert all(e.shot_made is False and e.shot_zone for e in boards)
+    assert sum(e.points for e in log.events) == log.final_home_pts + log.final_away_pts
+    assert all(e.period >= 1 and e.home_pts >= 0 and e.away_pts >= 0 for e in log.events)

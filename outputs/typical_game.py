@@ -1,7 +1,7 @@
-"""Pick the most typical sim run and build a win-probability narrative chart.
+"""Pick the most typical sim run and write its replay.
 
-The win-probability grid is computed from the full Monte Carlo cloud in memory
-only. Persist just the single typical-game possession log and the chart.
+The Monte Carlo cloud is scored in memory. Persist one possession log and one
+self-contained replay page.
 """
 
 from __future__ import annotations
@@ -16,17 +16,114 @@ from sim.engine import GameSimResult, simulate_game
 from sim.possession_log import PERIOD_SECONDS, REGULATION_SECONDS, PossessionLog
 
 
-def pick_typical_run(result: GameSimResult) -> int:
-    """Run index closest to median margin and median total."""
+# Rotation players are those whose median minutes clear a real-role floor.
+_ROTATION_MINUTES = 8.0
+
+
+def _spread(values: np.ndarray) -> np.ndarray | float:
+    """Std across runs. A flat stat uses 1 so a zero gap stays zero."""
+    scale = np.std(values, axis=0) if values.ndim > 1 else np.std(values)
+    return np.maximum(scale, 1.0)
+
+
+def _sq(values: np.ndarray, center: np.ndarray | float, scale: np.ndarray | float) -> np.ndarray:
+    return ((values - center) / scale) ** 2
+
+
+def typical_distance(result: GameSimResult) -> np.ndarray:
+    """Distance of every run from the median game.
+
+    Game terms: final margin, total, and each team's quarter scores.
+    Player terms: PTS, REB, AST, MIN for rotation players, each divided by
+    that stat's spread and weighted by the player's median minutes.
+    """
     margin = result.home_pts - result.away_pts
     total = result.home_pts + result.away_pts
-    med_m = float(np.median(margin))
-    med_t = float(np.median(total))
-    # Normalize distances by MAD-like scales so margin and total share weight.
-    scale_m = float(np.std(margin)) or 1.0
-    scale_t = float(np.std(total)) or 1.0
-    dist = ((margin - med_m) / scale_m) ** 2 + ((total - med_t) / scale_t) ** 2
-    return int(np.argmin(dist))
+    dist = _sq(margin, float(np.median(margin)), _spread(margin))
+    dist = dist + _sq(total, float(np.median(total)), _spread(total))
+    if result.home_period_pts is not None and result.away_period_pts is not None:
+        periods = min(4, int(result.home_period_pts.shape[1]))
+        for period in range(periods):
+            home_q = result.home_period_pts[:, period]
+            away_q = result.away_period_pts[:, period]
+            dist = dist + _sq(home_q, float(np.median(home_q)), _spread(home_q))
+            dist = dist + _sq(away_q, float(np.median(away_q)), _spread(away_q))
+    med_min = np.median(result.minutes, axis=1)
+    for index in np.flatnonzero(med_min >= _ROTATION_MINUTES):
+        weight = float(med_min[index]) / 36.0
+        for values in (
+            result.pts[index],
+            result.reb[index],
+            result.ast[index],
+            result.minutes[index],
+        ):
+            dist = dist + weight * _sq(values, float(np.median(values)), _spread(values))
+    return dist
+
+
+def pick_typical_run(result: GameSimResult) -> int:
+    """Run index closest to the median margin, total, quarters, and box lines."""
+    return int(np.argmin(typical_distance(result)))
+
+
+def typical_fit(result: GameSimResult, index: int) -> dict:
+    """How the chosen run sits against the medians. In-memory only."""
+    margin = result.home_pts - result.away_pts
+    total = result.home_pts + result.away_pts
+    med_min = np.median(result.minutes, axis=1)
+    order = [
+        int(i)
+        for i in np.argsort(-med_min)
+        if float(med_min[i]) >= _ROTATION_MINUTES
+    ][:8]
+    players = []
+    for i in order:
+        players.append(
+            {
+                "name": result.player_names[i],
+                "team": result.team_abbrs[i],
+                "min": round(float(result.minutes[i, index]), 1),
+                "min_median": round(float(med_min[i]), 1),
+                "pts": int(round(float(result.pts[i, index]))),
+                "pts_median": int(round(float(np.median(result.pts[i])))),
+                "reb": int(round(float(result.reb[i, index]))),
+                "reb_median": int(round(float(np.median(result.reb[i])))),
+                "ast": int(round(float(result.ast[i, index]))),
+                "ast_median": int(round(float(np.median(result.ast[i])))),
+            }
+        )
+    return {
+        "runs": int(result.runs),
+        "distance": round(float(typical_distance(result)[index]), 3),
+        "margin": round(float(margin[index]), 1),
+        "median_margin": round(float(np.median(margin)), 1),
+        "total": round(float(total[index]), 1),
+        "median_total": round(float(np.median(total)), 1),
+        "players": players,
+    }
+
+
+def format_typical_fit(log: PossessionLog) -> str:
+    """One block of text for the daily log."""
+    fit = log.fit or {}
+    lines = [
+        (
+            f"typical fit {log.away_abbr}@{log.home_abbr} "
+            f"margin {float(fit.get('margin', 0)):+.0f} "
+            f"(median {float(fit.get('median_margin', 0)):+.0f}), "
+            f"total {float(fit.get('total', 0)):.0f} "
+            f"(median {float(fit.get('median_total', 0)):.0f}), "
+            f"distance {float(fit.get('distance', 0)):.2f}"
+        )
+    ]
+    for player in fit.get("players") or []:
+        lines.append(
+            f"  {player['name']} MIN {player['min']:.1f} vs {player['min_median']:.1f}, "
+            f"PTS {player['pts']} vs {player['pts_median']}, "
+            f"REB {player['reb']} vs {player['reb_median']}, "
+            f"AST {player['ast']} vs {player['ast_median']}"
+        )
+    return "\n".join(lines)
 
 
 def win_prob_lookup(
@@ -74,13 +171,45 @@ def attach_win_probs(
     return log
 
 
+def _players_for_log(
+    projection: GameProjection,
+    traced: GameSimResult,
+    run_index: int,
+) -> list[dict]:
+    started = {p.player_id: bool(p.started) for p in projection.players}
+    rows = []
+    for index, player_id in enumerate(traced.player_ids):
+        minutes = float(traced.minutes[index, run_index])
+        if minutes < 1.0:
+            continue
+        pid = int(player_id)
+        rows.append(
+            {
+                "player_id": pid,
+                "name": traced.player_names[index],
+                "team": traced.team_abbrs[index],
+                "started": started.get(pid, False),
+                "min": round(minutes, 1),
+                "pts": int(round(float(traced.pts[index, run_index]))),
+                "reb": int(round(float(traced.reb[index, run_index]))),
+                "ast": int(round(float(traced.ast[index, run_index]))),
+            }
+        )
+    rows.sort(key=lambda row: (row["team"] != projection.away_abbr, not row["started"], -row["min"]))
+    return rows
+
+
 def build_typical_game(
     projection: GameProjection,
     result: GameSimResult,
     *,
     config: dict | None = None,
 ) -> tuple[int, PossessionLog]:
-    """Re-sim with trace_run for the typical index; attach WP from the cloud."""
+    """Re-sim with trace_run for the typical index; attach WP from the cloud.
+
+    The cloud is used only to score runs and fill win probability. The returned
+    log is the single kept game.
+    """
     typical = pick_typical_run(result)
     traced = simulate_game(
         projection,
@@ -92,6 +221,12 @@ def build_typical_game(
     log = traced.possession_log
     if log is None:
         raise RuntimeError("trace_run did not produce a possession log")
+    log.simulated_runs = int(result.runs)
+    log.players = _players_for_log(projection, traced, typical)
+    log.fit = typical_fit(result, typical)
+    from outputs.replay_viewer import annotate_captions
+
+    annotate_captions(log)
     traj_m, traj_c, traj_w = _trajectory_from_period_scores(result)
     attach_win_probs(
         log,
@@ -144,83 +279,16 @@ def write_typical_game_artifacts(
     log: PossessionLog,
     out_dir: Path,
 ) -> dict[str, Path]:
-    """Write possession log JSON + HTML win-probability chart under out_dir."""
+    """Write the one typical-game log and its replay page under out_dir."""
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
+    if log.simulated_runs <= 0:
+        log.simulated_runs = int(result.runs)
     game_tag = f"{projection.away_abbr}-{projection.home_abbr}-{projection.game_id}"
     log_path = out_dir / f"{game_tag}-typical.json"
     html_path = out_dir / f"{game_tag}-typical.html"
+    from outputs.replay_viewer import render_replay_html
+
     log_path.write_text(json.dumps(log.as_dict(), indent=2) + "\n", encoding="utf-8")
-    html_path.write_text(
-        _render_html(projection, result, log),
-        encoding="utf-8",
-    )
+    html_path.write_text(render_replay_html(log), encoding="utf-8")
     return {"log": log_path, "html": html_path}
-
-
-def _render_html(
-    projection: GameProjection,
-    result: GameSimResult,
-    log: PossessionLog,
-) -> str:
-    home = projection.home_abbr
-    away = projection.away_abbr
-    events = log.events
-    xs = [REGULATION_SECONDS - float(e.clock_remaining) for e in events]
-    # Extend OT clocks as elapsed beyond regulation.
-    elapsed = []
-    for event in events:
-        if event.period <= 4:
-            elapsed.append(REGULATION_SECONDS - float(event.clock_remaining))
-        else:
-            ot = event.period - 4
-            elapsed.append(REGULATION_SECONDS + (ot - 1) * 300.0 + (300.0 - float(event.clock_remaining)))
-    wps = [float(e.home_win_prob if e.home_win_prob is not None else 0.5) for e in events]
-    q_home = log.home_period_pts
-    q_away = log.away_period_pts
-    # Simple SVG chart.
-    width, height = 720, 280
-    pad = 40
-    if not elapsed:
-        elapsed = [0.0]
-        wps = [0.5]
-    max_x = max(elapsed) or 1.0
-    points = []
-    for x, y in zip(elapsed, wps):
-        px = pad + (width - 2 * pad) * (x / max_x)
-        py = pad + (height - 2 * pad) * (1.0 - y)
-        points.append(f"{px:.1f},{py:.1f}")
-    poly = " ".join(points)
-    mid_y = pad + (height - 2 * pad) * 0.5
-    return f"""<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>{away} @ {home} typical game</title>
-<style>
-body {{ font-family: Georgia, serif; margin: 2rem; color: #1a1a1a; background: #f7f4ef; }}
-h1 {{ font-size: 1.6rem; margin-bottom: 0.2rem; }}
-.sub {{ color: #555; margin-bottom: 1.5rem; }}
-.score {{ font-size: 2rem; font-weight: bold; }}
-table {{ border-collapse: collapse; margin: 1rem 0 1.5rem; }}
-td, th {{ padding: 0.35rem 0.75rem; border-bottom: 1px solid #ddd; text-align: right; }}
-th:first-child, td:first-child {{ text-align: left; }}
-svg {{ background: #fff; border: 1px solid #ddd; max-width: 100%; }}
-</style></head><body>
-<h1>{away} @ {home}</h1>
-<p class="sub">Most typical sim (run {log.run_index}) · seed {result.seed} · {result.runs} runs</p>
-<p class="score">{away} {log.final_away_pts} — {home} {log.final_home_pts}</p>
-<table>
-<tr><th>Team</th><th>Q1</th><th>Q2</th><th>Q3</th><th>Q4</th><th>Final</th></tr>
-<tr><td>{away}</td>{''.join(f'<td>{int(v)}</td>' for v in q_away)}<td>{log.final_away_pts}</td></tr>
-<tr><td>{home}</td>{''.join(f'<td>{int(v)}</td>' for v in q_home)}<td>{log.final_home_pts}</td></tr>
-</table>
-<h2>Home win probability</h2>
-<svg viewBox="0 0 {width} {height}" width="{width}" height="{height}">
-  <line x1="{pad}" y1="{mid_y}" x2="{width-pad}" y2="{mid_y}" stroke="#ccc" stroke-dasharray="4 4"/>
-  <polyline fill="none" stroke="#1d4ed8" stroke-width="2.5" points="{poly}"/>
-  <text x="{pad}" y="24" font-size="12" fill="#555">P({home} win)</text>
-  <text x="{pad}" y="{height-12}" font-size="11" fill="#777">0%</text>
-  <text x="{pad}" y="{pad+8}" font-size="11" fill="#777">100%</text>
-</svg>
-<p class="sub">{len(events)} possessions logged. Win probability from the Monte Carlo cloud
-(margin × time remaining); only this typical-game log is persisted.</p>
-</body></html>
-"""

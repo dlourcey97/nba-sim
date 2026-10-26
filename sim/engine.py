@@ -340,35 +340,23 @@ def simulate_game(
             and trace_i is not None
             and offense_before is not None
         ):
-            kind = int(trace["kind"][trace_i])
-            if kind != 0:
-                shooter_local = int(trace["shooter"][trace_i])
-                passer_local = int(trace["passer"][trace_i])
-                possession_events.append(
-                    PossessionEvent(
-                        period=int(period_idx[trace_i]) + 1,
-                        clock_remaining=float(clock_remaining[trace_i]),
-                        offense_home=bool(offense_before[trace_i]),
-                        outcome=OUTCOME_NAMES.get(kind, "unknown"),
-                        shooter_id=(
-                            int(player_id_arr[shooter_local])
-                            if shooter_local >= 0
-                            else None
-                        ),
-                        passer_id=(
-                            int(player_id_arr[passer_local])
-                            if passer_local >= 0
-                            else None
-                        ),
-                        points=int(round(float(trace["points"][trace_i]))),
-                        home_pts=int(
-                            round(float(home_pts[trace_i] + home_delta[trace_i]))
-                        ),
-                        away_pts=int(
-                            round(float(away_pts[trace_i] + away_delta[trace_i]))
-                        ),
-                    )
-                )
+            event = _event_from_trace(
+                trace,
+                trace_i,
+                period=int(period_idx[trace_i]) + 1,
+                clock_remaining=float(clock_remaining[trace_i]),
+                offense_home=bool(offense_before[trace_i]),
+                home_abbr=projection.home_abbr,
+                away_abbr=projection.away_abbr,
+                player_ids=player_id_arr,
+                player_names=[p.player_name for p in players],
+                home_lineup=home_lineups[trace_i],
+                away_lineup=away_lineups[trace_i],
+                home_pts=int(round(float(home_pts[trace_i] + home_delta[trace_i]))),
+                away_pts=int(round(float(away_pts[trace_i] + away_delta[trace_i]))),
+            )
+            if event is not None:
+                possession_events.append(event)
         home_pts += home_delta
         away_pts += away_delta
         endings += ended.astype(np.int32)
@@ -427,40 +415,28 @@ def simulate_game(
                 and trace_i is not None
                 and offense_before is not None
             ):
-                kind = int(trace["kind"][trace_i])
-                if kind != 0:
-                    shooter_local = int(trace["shooter"][trace_i])
-                    passer_local = int(trace["passer"][trace_i])
-                    ot_progress = ot_endings.astype(float) / np.maximum(
-                        1.0, ot_target.astype(float)
-                    )
-                    possession_events.append(
-                        PossessionEvent(
-                            period=4 + ot_period,
-                            clock_remaining=float(
-                                300.0 * (1.0 - float(ot_progress[trace_i]))
-                            ),
-                            offense_home=bool(offense_before[trace_i]),
-                            outcome=OUTCOME_NAMES.get(kind, "unknown"),
-                            shooter_id=(
-                                int(player_id_arr[shooter_local])
-                                if shooter_local >= 0
-                                else None
-                            ),
-                            passer_id=(
-                                int(player_id_arr[passer_local])
-                                if passer_local >= 0
-                                else None
-                            ),
-                            points=int(round(float(trace["points"][trace_i]))),
-                            home_pts=int(
-                                round(float(home_pts[trace_i] + home_delta[trace_i]))
-                            ),
-                            away_pts=int(
-                                round(float(away_pts[trace_i] + away_delta[trace_i]))
-                            ),
-                        )
-                    )
+                ot_progress = ot_endings.astype(float) / np.maximum(
+                    1.0, ot_target.astype(float)
+                )
+                event = _event_from_trace(
+                    trace,
+                    trace_i,
+                    period=4 + ot_period,
+                    clock_remaining=float(
+                        300.0 * (1.0 - float(ot_progress[trace_i]))
+                    ),
+                    offense_home=bool(offense_before[trace_i]),
+                    home_abbr=projection.home_abbr,
+                    away_abbr=projection.away_abbr,
+                    player_ids=player_id_arr,
+                    player_names=[p.player_name for p in players],
+                    home_lineup=home_lineups[trace_i],
+                    away_lineup=away_lineups[trace_i],
+                    home_pts=int(round(float(home_pts[trace_i] + home_delta[trace_i]))),
+                    away_pts=int(round(float(away_pts[trace_i] + away_delta[trace_i]))),
+                )
+                if event is not None:
+                    possession_events.append(event)
             home_pts += home_delta
             away_pts += away_delta
             ot_endings += ended.astype(np.int32)
@@ -833,12 +809,115 @@ def _lineups_state_grid(
 
 
 def _empty_trace(n_runs: int) -> dict[str, np.ndarray]:
+    """Extra columns are filled only for the traced run. No RNG lives here."""
     return {
         "kind": np.zeros(n_runs, dtype=np.int8),
         "shooter": np.full(n_runs, -1, dtype=np.int32),
         "passer": np.full(n_runs, -1, dtype=np.int32),
         "points": np.zeros(n_runs, dtype=np.float32),
+        "zone": np.full(n_runs, -1, dtype=np.int8),
+        "shot_made": np.full(n_runs, -1, dtype=np.int8),
+        "fta": np.zeros(n_runs, dtype=np.int8),
+        "ftm": np.zeros(n_runs, dtype=np.int8),
+        "rebounder": np.full(n_runs, -1, dtype=np.int32),
+        "reb_side": np.zeros(n_runs, dtype=np.int8),
+        "stealer": np.full(n_runs, -1, dtype=np.int32),
+        "turnover": np.full(n_runs, -1, dtype=np.int32),
     }
+
+
+def _game_clock(period: int, clock_remaining: float) -> str:
+    """Clock left in the current period, ``M:SS``."""
+    if period <= 4:
+        remain = float(clock_remaining) - (4 - period) * PERIOD_SECONDS
+    else:
+        remain = float(clock_remaining)
+    remain = max(0, int(round(remain)))
+    return f"{remain // 60}:{remain % 60:02d}"
+
+
+def _id_name(
+    index: int,
+    player_ids: np.ndarray,
+    player_names: list[str],
+) -> tuple[int | None, str | None]:
+    if index < 0:
+        return None, None
+    return int(player_ids[index]), player_names[index]
+
+
+def _lineup_ids(slots: np.ndarray, player_ids: np.ndarray) -> list[int]:
+    return [int(player_ids[int(slot)]) for slot in slots]
+
+
+def _event_from_trace(
+    trace: dict[str, np.ndarray],
+    run_index: int,
+    *,
+    period: int,
+    clock_remaining: float,
+    offense_home: bool,
+    home_abbr: str,
+    away_abbr: str,
+    player_ids: np.ndarray,
+    player_names: list[str],
+    home_lineup: np.ndarray,
+    away_lineup: np.ndarray,
+    home_pts: int,
+    away_pts: int,
+) -> PossessionEvent | None:
+    """Build one possession record from the traced row. Does not touch RNG."""
+    kind = int(trace["kind"][run_index])
+    if kind == 0:
+        return None
+    shooter_i = int(trace["shooter"][run_index])
+    passer_i = int(trace["passer"][run_index])
+    rebounder_i = int(trace["rebounder"][run_index])
+    stealer_i = int(trace["stealer"][run_index])
+    turnover_i = int(trace["turnover"][run_index])
+    shooter_id, shooter_name = _id_name(shooter_i, player_ids, player_names)
+    passer_id, passer_name = _id_name(passer_i, player_ids, player_names)
+    rebounder_id, rebounder_name = _id_name(rebounder_i, player_ids, player_names)
+    stealer_id, stealer_name = _id_name(stealer_i, player_ids, player_names)
+    turnover_id, turnover_name = _id_name(turnover_i, player_ids, player_names)
+    zone_i = int(trace["zone"][run_index])
+    shot_zone = ZONES[zone_i] if 0 <= zone_i < len(ZONES) else None
+    made_code = int(trace["shot_made"][run_index])
+    shot_made = None if made_code < 0 else bool(made_code)
+    shot_value = None
+    if shot_zone is not None:
+        shot_value = 3 if float(_ZONE_POINTS[zone_i]) >= 2.5 else 2
+    reb_code = int(trace["reb_side"][run_index])
+    rebound = {1: "off", 2: "def"}.get(reb_code)
+    return PossessionEvent(
+        period=period,
+        clock_remaining=clock_remaining,
+        offense_home=offense_home,
+        outcome=OUTCOME_NAMES.get(kind, "unknown"),
+        shooter_id=shooter_id,
+        passer_id=passer_id,
+        points=int(round(float(trace["points"][run_index]))),
+        home_pts=home_pts,
+        away_pts=away_pts,
+        game_clock=_game_clock(period, clock_remaining),
+        shooter_name=shooter_name,
+        passer_name=passer_name,
+        offense_abbr=home_abbr if offense_home else away_abbr,
+        shot_zone=shot_zone,
+        shot_value=shot_value,
+        shot_made=shot_made,
+        fta=int(trace["fta"][run_index]),
+        ftm=int(trace["ftm"][run_index]),
+        rebounder_id=rebounder_id,
+        rebounder_name=rebounder_name,
+        rebound=rebound,
+        stealer_id=stealer_id,
+        stealer_name=stealer_name,
+        turnover_id=turnover_id,
+        turnover_name=turnover_name,
+        home_lineup=_lineup_ids(home_lineup, player_ids),
+        away_lineup=_lineup_ids(away_lineup, player_ids),
+    )
 
 
 def _vector_possession(
@@ -925,6 +1004,8 @@ def _vector_possession(
                 trace["kind"][is_int_foul] = OUTCOME_INT_FOUL
                 trace["shooter"][is_int_foul] = users[is_int_foul]
                 trace["points"][is_int_foul] = made[is_int_foul]
+                trace["fta"][is_int_foul] = 2
+                trace["ftm"][is_int_foul] = made[is_int_foul]
 
     remaining_after_foul = active & ~is_int_foul
     if not np.any(remaining_after_foul):
@@ -956,6 +1037,8 @@ def _vector_possession(
         if trace is not None:
             trace["kind"][is_stl] = OUTCOME_STEAL
             trace["shooter"][is_stl] = users_tmp[is_stl]
+            trace["turnover"][is_stl] = users_tmp[is_stl]
+            trace["stealer"][is_stl] = players
 
     remaining = active & ~is_stl & ~is_int_foul
     if not np.any(remaining):
@@ -976,6 +1059,7 @@ def _vector_possession(
         if trace is not None:
             trace["kind"][is_tov] = OUTCOME_TOV
             trace["shooter"][is_tov] = users[is_tov]
+            trace["turnover"][is_tov] = users[is_tov]
 
     remaining = remaining & ~is_tov
     if not np.any(remaining):
@@ -1000,6 +1084,8 @@ def _vector_possession(
             trace["kind"][is_bonus_ft] = OUTCOME_BONUS_FT
             trace["shooter"][is_bonus_ft] = users[is_bonus_ft]
             trace["points"][is_bonus_ft] = made[is_bonus_ft]
+            trace["fta"][is_bonus_ft] = fta[is_bonus_ft]
+            trace["ftm"][is_bonus_ft] = made[is_bonus_ft]
 
     remaining = remaining & ~is_bonus_ft
     if not np.any(remaining):
@@ -1099,6 +1185,11 @@ def _vector_possession(
             trace["kind"][is_make & (zone_pts >= 2.5)] = OUTCOME_MAKE_3
             trace["shooter"][is_make] = users[is_make]
             trace["points"][is_make] = points[is_make]
+            trace["zone"][is_make] = zone_i[is_make]
+            trace["shot_made"][is_make] = 1
+            if np.any(and_one):
+                trace["fta"][and_one] = 1
+                trace["ftm"][and_one] = ao_made[and_one]
             if passer_idx is not None:
                 assisted = passer_idx >= 0
                 trace["passer"][assisted] = passer_idx[assisted]
@@ -1119,6 +1210,10 @@ def _vector_possession(
             trace["kind"][foul_miss] = OUTCOME_FOUL_FT
             trace["shooter"][foul_miss] = users[foul_miss]
             trace["points"][foul_miss] = made[foul_miss]
+            trace["zone"][foul_miss] = zone_i[foul_miss]
+            trace["shot_made"][foul_miss] = 0
+            trace["fta"][foul_miss] = fta[foul_miss]
+            trace["ftm"][foul_miss] = made[foul_miss]
 
     live_miss = is_miss & ~is_foul
     if np.any(live_miss):
@@ -1136,6 +1231,11 @@ def _vector_possession(
         d_w = np.power(np.maximum(d_raw, 0.0), power)
         is_orb = live_miss & (rng.random(n_runs) < p_orb)
         is_drb = live_miss & ~is_orb
+        if trace is not None:
+            trace["zone"][live_miss] = zone_i[live_miss]
+            trace["shot_made"][live_miss] = 0
+            trace["reb_side"][is_orb] = 1
+            trace["reb_side"][is_drb] = 2
         # Team rebounds: possession flips/continues like a player board, but no
         # box-score credit. Matches ~7% of misses that never land on a player.
         team_reb_rate = float(packed.get("team_reb_rate", 0.073))
@@ -1147,6 +1247,8 @@ def _vector_possession(
             runners = np.flatnonzero(credit_orb)
             players = off_lineups[credit_orb, pick]
             np.add.at(reb, (players, runners), 1)
+            if trace is not None:
+                trace["rebounder"][credit_orb] = players
         if np.any(is_orb):
             next_offense_home[is_orb] = offense_home[is_orb]
             # OREB: possession continues — do NOT mark ended.
@@ -1158,6 +1260,8 @@ def _vector_possession(
             runners = np.flatnonzero(credit_drb)
             players = def_lineups[credit_drb, pick]
             np.add.at(reb, (players, runners), 1)
+            if trace is not None:
+                trace["rebounder"][credit_drb] = players
         if np.any(is_drb):
             next_offense_home[is_drb] = ~offense_home[is_drb]
             ended[is_drb] = True
