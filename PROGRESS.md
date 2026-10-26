@@ -1,9 +1,10 @@
 # Progress
 
-Last updated 2026-10-26 — Post-game through 2026-10-25. Ingested 7 finals; graded the 4 simulated games (40 season). Winner 65.0%. Total bias (pred − actual) **−3.55**. 10-25 night: AST/STL/BLK/TOV outside ±3%.
+Last updated 2026-10-26 — Full 2026-10-26 slate (9 games, 10,000 runs). Reconcile guardrail PASS (80g, REB +0.4%). Scorecard pending section lists the ungraded projections.
 
 | Phase | Status | Notes |
 | --- | --- | --- |
+| Slate 2026-10-26 | done | 9 games simulated. Guardrail PASS. Typical replays in `results/typical/`. Pending rows on the scorecard. |
 | Post-game through 10-25 | done | +7 finals ingested; 4 simulated games graded (ORL@NYK, TOR@MIN, LAC@OKC were not simmed). Picks 10/19 vs 42.8% claimed. Season picks 59.5% / 53.0%. |
 | Typical-game replay | done | Distance picker, possession fields (zone, FT, rebound, steal, clock, WP), self-contained viewer after every `daily.py` game. |
 | Early-season league env | done | Pace+PPG blend (early window only); 400g WF improves total MAE; 2026-27 bias holds. |

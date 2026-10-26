@@ -29,6 +29,22 @@ Graded from `prediction_history` after finals. No sportsbook lines or odds.
 | 2026-10-25 | 4 | 100.0% | 8.00 | 16.12 | -6.62 | 7.15 | 5.75 | 2.43 | 1.33 | 0.70 | 0.49 | 80.5% | 10/19 (52.6%) | 42.8% |
 | Season | 40 | 65.0% | 12.06 | 17.45 | -3.55 | 7.30 | 5.43 | 2.20 | 1.39 | 0.68 | 0.44 | 79.0% | 66/111 (59.5%) | 53.0% |
 
+## Pending predictions
+
+Simulated games with no final yet. These rows are not in the graded totals.
+
+| Date | Matchup | Winner | Win % | Median score | Spread | Total |
+| --- | --- | --- | ---: | --- | --- | ---: |
+| 2026-10-26 | WAS @ CHA | CHA | 69.6% | WAS 105–CHA 117 | CHA by 12 | 222.0 |
+| 2026-10-26 | MIN @ CLE | CLE | 57.5% | MIN 112–CLE 116 | CLE by 5 | 228.0 |
+| 2026-10-26 | CHI @ BOS | BOS | 80.8% | CHI 105–BOS 124 | BOS by 19 | 230.0 |
+| 2026-10-26 | DAL @ MIA | MIA | 66.7% | DAL 108–MIA 116 | MIA by 10 | 224.0 |
+| 2026-10-26 | IND @ MIL | MIL | 63.2% | IND 112–MIL 120 | MIL by 8 | 231.0 |
+| 2026-10-26 | PHX @ OKC | OKC | 75.8% | PHX 96–OKC 111 | OKC by 15 | 207.0 |
+| 2026-10-26 | ATL @ HOU | HOU | 76.4% | ATL 102–HOU 117 | HOU by 15 | 219.0 |
+| 2026-10-26 | MEM @ UTA | MEM | 59.3% | MEM 112–UTA 107 | MEM by 6 | 219.0 |
+| 2026-10-26 | GSW @ DEN | DEN | 54.8% | GSW 115–DEN 118 | DEN by 3 | 233.0 |
+
 ## Notes
 
 - 2026-10-20: no Top confident picks were produced that night (feature landed with the 2026-10-21 slate).

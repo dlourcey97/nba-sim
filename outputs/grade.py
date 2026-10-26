@@ -403,8 +403,49 @@ def refresh_season_scorecard(
             "(feature landed with the 2026-10-21 slate)."
         )
     return write_season_scorecard(
-        settings.repo_root, season=active, nights=nights, notes=notes
+        settings.repo_root,
+        season=active,
+        nights=nights,
+        notes=notes,
+        pending=_pending_predictions(history),
     )
+
+
+def _pending_predictions(history: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Simulated games that do not have a final score yet."""
+    rows: list[dict[str, Any]] = []
+    for row in history:
+        if row.get("row_kind") != "game" or row.get("actual_home_pts") is not None:
+            continue
+        if row.get("pred_total_p50") is None:
+            continue
+        home_wp = float(row.get("home_win_prob") or 0.5)
+        margin = float(row["pred_margin_p50"])
+        if home_wp >= 0.5:
+            winner, wp = row["home_abbr"], home_wp
+        else:
+            winner, wp = row["away_abbr"], 1.0 - home_wp
+        if margin >= 0:
+            spread = f"{row['home_abbr']} by {abs(margin):.0f}"
+        else:
+            spread = f"{row['away_abbr']} by {abs(margin):.0f}"
+        rows.append(
+            {
+                "game_date": str(row["game_date"]),
+                "game_id": str(row["game_id"]),
+                "matchup": f"{row['away_abbr']} @ {row['home_abbr']}",
+                "winner": winner,
+                "wp": wp,
+                "score": (
+                    f"{row['away_abbr']} {float(row['pred_away_pts_p50']):.0f}–"
+                    f"{row['home_abbr']} {float(row['pred_home_pts_p50']):.0f}"
+                ),
+                "spread": spread,
+                "total": float(row["pred_total_p50"]),
+            }
+        )
+    rows.sort(key=lambda item: (item["game_date"], item["game_id"]))
+    return rows
 
 
 def write_season_scorecard(
@@ -413,6 +454,7 @@ def write_season_scorecard(
     season: str,
     nights: Sequence[NightGrade],
     notes: Sequence[str] | None = None,
+    pending: Sequence[dict[str, Any]] | None = None,
 ) -> Path:
     """Write results/season_scorecard.md with per-night detail + season totals."""
     out = repo_root / "results" / "season_scorecard.md"
@@ -514,6 +556,23 @@ def write_season_scorecard(
             f"{_pct(season_tot.get('top_picks_avg_claimed_conf'))} |"
         )
     lines.append("")
+
+    if pending:
+        lines.append("## Pending predictions")
+        lines.append("")
+        lines.append(
+            "Simulated games with no final yet. These rows are not in the graded totals."
+        )
+        lines.append("")
+        lines.append("| Date | Matchup | Winner | Win % | Median score | Spread | Total |")
+        lines.append("| --- | --- | --- | ---: | --- | --- | ---: |")
+        for row in pending:
+            lines.append(
+                f"| {row['game_date']} | {row['matchup']} | {row['winner']} | "
+                f"{100.0 * row['wp']:.1f}% | {row['score']} | {row['spread']} | "
+                f"{row['total']:.1f} |"
+            )
+        lines.append("")
 
     if notes:
         lines.append("## Notes")
