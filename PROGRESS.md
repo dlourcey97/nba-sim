@@ -1,9 +1,10 @@
 # Progress
 
-Last updated 2026-10-25 — Typical-game replay viewer. Selection uses margin, total, quarter scores, and rotation PTS/REB/AST/MIN (minutes-weighted, spread-normalized). One possession log is kept; `results/typical/*-typical.html` is the broadcast replay. Sim outcomes and the reconcile guardrail are unchanged.
+Last updated 2026-10-26 — Post-game through 2026-10-25. Ingested 7 finals; graded the 4 simulated games (40 season). Winner 65.0%. Total bias (pred − actual) **−3.55**. 10-25 night: AST/STL/BLK/TOV outside ±3%.
 
 | Phase | Status | Notes |
 | --- | --- | --- |
+| Post-game through 10-25 | done | +7 finals ingested; 4 simulated games graded (ORL@NYK, TOR@MIN, LAC@OKC were not simmed). Picks 10/19 vs 42.8% claimed. Season picks 59.5% / 53.0%. |
 | Typical-game replay | done | Distance picker, possession fields (zone, FT, rebound, steal, clock, WP), self-contained viewer after every `daily.py` game. |
 | Early-season league env | done | Pace+PPG blend (early window only); 400g WF improves total MAE; 2026-27 bias holds. |
 | Synergy play-types | reverted | Ingest+schema kept; `play_types_enabled: false` — full 2025-26 WF hurt Brier/winner/spread. |
@@ -686,6 +687,14 @@ Hold-check 250g × 200r seed 1 (`results/backtest/stl_credit_{before,after}/`):
 | PTS / REB / AST MAE | flat | flat |
 | STL MAE | 0.714 | **0.712** |
 | 10–90 coverage | 0.833 | 0.833 |
+
+## Post-game through 2026-10-25
+
+- Ingested **7** finals (10-25). Roster refresh **+0/−0** (521 players).
+- Graded the 4 games we simulated. ORL@NYK, TOR@MIN, and LAC@OKC are final and were not simulated, so they are not in the scorecard.
+- 10-25 winners 4/4. Total bias that night **−6.62**. Season bias **−3.55** (pred median total minus actual).
+- Night reconcile vs box scores, predicted mean sum vs actual: MIN +0.1%, PTS −2.7%, REB +0.9%. Flags: AST +4.5%, STL +24.5%, BLK −18.4%, TOV +26.5%.
+- Scorecard: `results/season_scorecard.md`. Storage **11.74 MiB / 2 GB**.
 
 ## Post-game through 2026-10-24
 

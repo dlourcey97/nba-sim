@@ -198,7 +198,7 @@ def grade_night(
         if r["row_kind"] == "pick" and str(r["game_date"]) == game_date
     ]
     if hist_picks:
-        night.pick_grades = _grade_history_picks(hist_picks)
+        night.pick_grades = _grade_history_picks(hist_picks, name_by_id)
     elif picks:
         night.pick_grades = grade_confident_picks(
             settings, season, picks, game_date=game_date
@@ -206,17 +206,22 @@ def grade_night(
     return night
 
 
-def _grade_history_picks(rows: Sequence[dict[str, Any]]) -> list[ConfidentPickGrade]:
+def _grade_history_picks(
+    rows: Sequence[dict[str, Any]],
+    name_by_id: dict[int, str] | None = None,
+) -> list[ConfidentPickGrade]:
     out: list[ConfidentPickGrade] = []
+    names = name_by_id or {}
     for row in rows:
         stat = str(row.get("pick_stat") or "").lower()
         hit = row.get("actual_pick_hit")
         actual_val = row.get(f"actual_{stat}") if stat else None
         if hit is None and row.get("pick_lo") is not None and actual_val is not None:
             hit = float(row["pick_lo"]) <= float(actual_val) <= float(row["pick_hi"])
+        pid = row.get("player_id")
         out.append(
             ConfidentPickGrade(
-                player_name=f"player:{row.get('player_id')}",
+                player_name=names.get(int(pid), f"player:{pid}") if pid is not None else "player",
                 team_abbr=str(row.get("team_abbr") or ""),
                 opponent_abbr=str(row.get("opponent_abbr") or ""),
                 stat=stat.upper(),
@@ -446,6 +451,68 @@ def write_season_scorecard(
             season_tot.get("top_picks_avg_claimed_conf"),
         )
     )
+    bias_num = 0.0
+    bias_den = 0
+    for night in nights:
+        if night.games:
+            bias_num += sum(float(g["total_err"]) for g in night.games)
+            bias_den += len(night.games)
+    season_bias = bias_num / bias_den if bias_den else None
+    lines.append(_num_row("Total bias (pred − actual)", season_bias))
+    lines.append("")
+    lines.append("## Per night")
+    lines.append("")
+    lines.append(
+        "| Date | Games | Winner | Spread MAE | Total MAE | Total bias | "
+        "MIN | PTS | REB | AST | STL | BLK | 10–90 | Picks | Claimed |"
+    )
+    lines.append(
+        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | "
+        "---: | ---: | ---: | ---: | ---: |"
+    )
+    for night in nights:
+        s = night.summary()
+        if not s["games_graded"]:
+            continue
+        bias = (
+            sum(float(g["total_err"]) for g in night.games) / len(night.games)
+            if night.games
+            else None
+        )
+        if s.get("top_picks_graded"):
+            picks = (
+                f"{s['top_picks_hits']}/{s['top_picks_graded']} "
+                f"({100.0 * s['top_picks_hit_rate']:.1f}%)"
+            )
+        else:
+            picks = "n/a"
+        claimed = (
+            f"{100.0 * s['top_picks_avg_claimed_conf']:.1f}%"
+            if s.get("top_picks_avg_claimed_conf") is not None and s.get("top_picks_graded")
+            else "—"
+        )
+        lines.append(
+            f"| {night.game_date} | {s['games_graded']} | "
+            f"{_pct(s.get('winner_accuracy'))} | {_n(s.get('spread_mae'))} | "
+            f"{_n(s.get('total_mae'))} | {_n(bias)} | {_n(s.get('player_min_mae'))} | "
+            f"{_n(s.get('player_pts_mae'))} | {_n(s.get('player_reb_mae'))} | "
+            f"{_n(s.get('player_ast_mae'))} | {_n(s.get('player_stl_mae'))} | "
+            f"{_n(s.get('player_blk_mae'))} | {_pct(s.get('coverage_10_90'))} | "
+            f"{picks} | {claimed} |"
+        )
+    if season_tot.get("games_graded"):
+        lines.append(
+            f"| Season | {season_tot['games_graded']} | "
+            f"{_pct(season_tot.get('winner_accuracy'))} | {_n(season_tot.get('spread_mae'))} | "
+            f"{_n(season_tot.get('total_mae'))} | {_n(season_bias)} | "
+            f"{_n(season_tot.get('player_min_mae'))} | {_n(season_tot.get('player_pts_mae'))} | "
+            f"{_n(season_tot.get('player_reb_mae'))} | {_n(season_tot.get('player_ast_mae'))} | "
+            f"{_n(season_tot.get('player_stl_mae'))} | {_n(season_tot.get('player_blk_mae'))} | "
+            f"{_pct(season_tot.get('coverage_10_90'))} | "
+            f"{season_tot.get('top_picks_hits', 0)}/{season_tot.get('top_picks_graded', 0)} "
+            f"({_pct(season_tot.get('top_picks_hit_rate'))}) | "
+            f"{_pct(season_tot.get('top_picks_avg_claimed_conf'))} |"
+        )
     lines.append("")
 
     if notes:
@@ -578,6 +645,18 @@ def _pa(row: dict[str, Any], stat: str) -> str:
     return f"{d['pred']:.1f}/{d['actual']:.0f}"
 
 
+def _pct(value: float | None) -> str:
+    if value is None:
+        return "—"
+    return f"{100.0 * value:.1f}%"
+
+
+def _n(value: float | None) -> str:
+    if value is None:
+        return "—"
+    return f"{value:.2f}"
+
+
 def _pct_row(label: str, value: float | None, extra: str | None = None) -> str:
     if value is None:
         return f"| {label} | — |"
@@ -642,6 +721,10 @@ def _aggregate(summaries: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "total_mae": wavg("total_mae", "games_graded"),
         "player_min_mae": wavg("player_min_mae", "player_rows"),
         "player_pts_mae": wavg("player_pts_mae", "player_rows"),
+        "player_reb_mae": wavg("player_reb_mae", "player_rows"),
+        "player_ast_mae": wavg("player_ast_mae", "player_rows"),
+        "player_stl_mae": wavg("player_stl_mae", "player_rows"),
+        "player_blk_mae": wavg("player_blk_mae", "player_rows"),
         "coverage_10_90": wavg("coverage_10_90", "player_rows"),
         "top_picks_hits": pick_hits,
         "top_picks_graded": pick_graded,

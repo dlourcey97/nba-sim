@@ -6,20 +6,32 @@ Graded from `prediction_history` after finals. No sportsbook lines or odds.
 
 | Metric | Value |
 | --- | ---: |
-| Games graded | 36 |
-| Winner accuracy | 61.1% |
-| Spread MAE (margin) | 12.51 |
-| Total MAE | 17.60 |
-| Player MIN MAE | 7.31 |
-| Player PTS MAE | 5.39 |
-| 10–90 coverage (player stats) | 78.9% |
-| Top confident picks hit rate | 60.9% (56/92) |
-| Top picks avg claimed confidence | 55.2% |
+| Games graded | 40 |
+| Winner accuracy | 65.0% |
+| Spread MAE (margin) | 12.06 |
+| Total MAE | 17.45 |
+| Player MIN MAE | 7.30 |
+| Player PTS MAE | 5.43 |
+| 10–90 coverage (player stats) | 79.0% |
+| Top confident picks hit rate | 59.5% (66/111) |
+| Top picks avg claimed confidence | 53.0% |
+| Total bias (pred − actual) | -3.55 |
+
+## Per night
+
+| Date | Games | Winner | Spread MAE | Total MAE | Total bias | MIN | PTS | REB | AST | STL | BLK | 10–90 | Picks | Claimed |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 2026-10-20 | 3 | 33.3% | 10.00 | 21.67 | 10.33 | 5.30 | 5.49 | 2.21 | 1.58 | 0.53 | 0.63 | 76.0% | n/a | — |
+| 2026-10-21 | 11 | 63.6% | 18.18 | 14.55 | 4.91 | 7.96 | 5.47 | 2.05 | 1.41 | 0.76 | 0.37 | 77.5% | 5/8 (62.5%) | 61.0% |
+| 2026-10-22 | 2 | 50.0% | 9.50 | 25.50 | 25.50 | 7.40 | 4.07 | 2.56 | 1.22 | 0.80 | 0.42 | 85.6% | 14/23 (60.9%) | 61.4% |
+| 2026-10-23 | 12 | 58.3% | 12.29 | 13.58 | -4.75 | 7.50 | 5.23 | 2.19 | 1.29 | 0.65 | 0.44 | 77.8% | 21/31 (67.7%) | 57.6% |
+| 2026-10-24 | 8 | 75.0% | 6.75 | 24.31 | -24.31 | 6.82 | 5.87 | 2.23 | 1.52 | 0.61 | 0.46 | 82.2% | 16/30 (53.3%) | 46.3% |
+| 2026-10-25 | 4 | 100.0% | 8.00 | 16.12 | -6.62 | 7.15 | 5.75 | 2.43 | 1.33 | 0.70 | 0.49 | 80.5% | 10/19 (52.6%) | 42.8% |
+| Season | 40 | 65.0% | 12.06 | 17.45 | -3.55 | 7.30 | 5.43 | 2.20 | 1.39 | 0.68 | 0.44 | 79.0% | 66/111 (59.5%) | 53.0% |
 
 ## Notes
 
 - 2026-10-20: no Top confident picks were produced that night (feature landed with the 2026-10-21 slate).
-- 2026-10-25 totals diagnosis (36 graded): pred total 227.0 vs act 230.2 (**bias −3.21**); act pace 101.6 / PPP 1.133. vs 2025-26: pace 99.8→101.6, PPP 1.154→1.133, 3PA/FGA 0.415→0.419, FTA/FGA 0.265→0.302 (PPG flat ~115.1). Early-season league-env blend **kept** (see PROGRESS); graded history unchanged (live-anchor makes ON≈OFF on these 36).
 
 ## 2026-10-20
 
@@ -151,14 +163,14 @@ Graded from `prediction_history` after finals. No sportsbook lines or odds.
 
 | Player | Matchup | Stat | Range | Actual | Hit |
 | --- | --- | --- | --- | ---: | --- |
-| player:1630217 | ORL vs ATL | AST | 2-6 | 2 | Y |
-| player:1627832 | HOU vs DAL | AST | 2-6 | 11 | N |
-| player:202695 | TOR vs CHI | STL | 1-3 | 4 | N |
-| player:1641708 | HOU vs DAL | AST | 2-6 | 4 | Y |
-| player:1629628 | TOR vs CHI | AST | 2-6 | 3 | Y |
-| player:1631094 | ORL vs ATL | AST | 3-7 | 10 | N |
-| player:1630166 | POR vs PHX | AST | 2-6 | 4 | Y |
-| player:1630552 | ATL vs ORL | AST | 2-6 | 6 | Y |
+| Desmond Bane | ORL vs ATL | AST | 2-6 | 2 | Y |
+| Fred VanVleet | HOU vs DAL | AST | 2-6 | 11 | N |
+| Kawhi Leonard | TOR vs CHI | STL | 1-3 | 4 | N |
+| Amen Thompson | HOU vs DAL | AST | 2-6 | 4 | Y |
+| RJ Barrett | TOR vs CHI | AST | 2-6 | 3 | Y |
+| Paolo Banchero | ORL vs ATL | AST | 3-7 | 10 | N |
+| Deni Avdija | POR vs PHX | AST | 2-6 | 4 | Y |
+| Jalen Johnson | ATL vs ORL | AST | 2-6 | 6 | Y |
 
 ### Player grades (MIN / PTS / REB / AST / STL / BLK)
 
@@ -446,29 +458,29 @@ Graded from `prediction_history` after finals. No sportsbook lines or odds.
 
 | Player | Matchup | Stat | Range | Actual | Hit |
 | --- | --- | --- | --- | ---: | --- |
-| player:1642845 | PHI vs CLE | AST | 2-6 | 6 | Y |
-| player:1630178 | PHI vs CLE | REB | 3-7 | 3 | Y |
-| player:1642845 | PHI vs CLE | REB | 3-7 | 7 | Y |
-| player:1627936 | OKC vs DEN | STL | 1-3 | 1 | Y |
-| player:1628378 | CLE vs PHI | STL | 1-3 | 2 | Y |
-| player:1628983 | OKC vs DEN | STL | 1-3 | 0 | N |
-| player:1628983 | OKC vs DEN | REB | 3-7 | 2 | N |
-| player:1630178 | PHI vs CLE | STL | 1-3 | 2 | Y |
-| player:1627750 | DEN vs OKC | REB | 4-8 | 10 | N |
-| player:1630596 | CLE vs PHI | BLK | 1-3 | 0 | N |
-| player:1628378 | CLE vs PHI | REB | 3-7 | 10 | N |
-| player:201935 | CLE vs PHI | REB | 3-7 | 3 | Y |
-| player:1631096 | OKC vs DEN | BLK | 1-3 | 4 | N |
-| player:203954 | PHI vs CLE | AST | 2-6 | 1 | N |
-| player:203932 | DEN vs OKC | REB | 4-8 | 6 | Y |
-| player:1630596 | CLE vs PHI | AST | 2-6 | 2 | Y |
-| player:202331 | PHI vs CLE | STL | 1-3 | 0 | N |
-| player:1628378 | CLE vs PHI | AST | 3-7 | 3 | Y |
-| player:1628983 | OKC vs DEN | AST | 3-7 | 3 | Y |
-| player:1627750 | DEN vs OKC | AST | 3-7 | 3 | Y |
-| player:1630178 | PHI vs CLE | AST | 3-7 | 6 | Y |
-| player:203999 | DEN vs OKC | AST | 5-9 | 5 | Y |
-| player:1631096 | OKC vs DEN | REB | 5-9 | 17 | N |
+| VJ Edgecombe | PHI vs CLE | AST | 2-6 | 6 | Y |
+| Tyrese Maxey | PHI vs CLE | REB | 3-7 | 3 | Y |
+| VJ Edgecombe | PHI vs CLE | REB | 3-7 | 7 | Y |
+| Alex Caruso | OKC vs DEN | STL | 1-3 | 1 | Y |
+| Donovan Mitchell | CLE vs PHI | STL | 1-3 | 2 | Y |
+| Shai Gilgeous-Alexander | OKC vs DEN | STL | 1-3 | 0 | N |
+| Shai Gilgeous-Alexander | OKC vs DEN | REB | 3-7 | 2 | N |
+| Tyrese Maxey | PHI vs CLE | STL | 1-3 | 2 | Y |
+| Jamal Murray | DEN vs OKC | REB | 4-8 | 10 | N |
+| Evan Mobley | CLE vs PHI | BLK | 1-3 | 0 | N |
+| Donovan Mitchell | CLE vs PHI | REB | 3-7 | 10 | N |
+| James Harden | CLE vs PHI | REB | 3-7 | 3 | Y |
+| Chet Holmgren | OKC vs DEN | BLK | 1-3 | 4 | N |
+| Joel Embiid | PHI vs CLE | AST | 2-6 | 1 | N |
+| Aaron Gordon | DEN vs OKC | REB | 4-8 | 6 | Y |
+| Evan Mobley | CLE vs PHI | AST | 2-6 | 2 | Y |
+| Paul George | PHI vs CLE | STL | 1-3 | 0 | N |
+| Donovan Mitchell | CLE vs PHI | AST | 3-7 | 3 | Y |
+| Shai Gilgeous-Alexander | OKC vs DEN | AST | 3-7 | 3 | Y |
+| Jamal Murray | DEN vs OKC | AST | 3-7 | 3 | Y |
+| Tyrese Maxey | PHI vs CLE | AST | 3-7 | 6 | Y |
+| Nikola Jokić | DEN vs OKC | AST | 5-9 | 5 | Y |
+| Chet Holmgren | OKC vs DEN | REB | 5-9 | 17 | N |
 
 ### Player grades (MIN / PTS / REB / AST / STL / BLK)
 
@@ -557,37 +569,37 @@ Graded from `prediction_history` after finals. No sportsbook lines or odds.
 
 | Player | Matchup | Stat | Range | Actual | Hit |
 | --- | --- | --- | --- | ---: | --- |
-| player:1631157 | MIL vs CHI | AST | 2-6 | 6 | Y |
-| player:1629639 | MIL vs CHI | AST | 2-6 | 4 | Y |
-| player:1626167 | MIL vs CHI | REB | 3-7 | 3 | Y |
-| player:1631157 | MIL vs CHI | REB | 4-8 | 7 | Y |
-| player:1631159 | CHI vs MIL | REB | 5-9 | 3 | N |
-| player:1630581 | CHI vs MIL | AST | 5-9 | 9 | Y |
-| player:1630581 | CHI vs MIL | REB | 5-9 | 4 | N |
-| player:1631170 | MIL vs CHI | REB | 6-10 | 11 | N |
-| player:1628976 | ORL vs MIN | STL | 1-3 | 0 | N |
-| player:1628973 | NYK vs BOS | AST | 2-6 | 4 | Y |
-| player:1627739 | LAC vs LAL | STL | 1-3 | 2 | Y |
-| player:1630183 | MIN vs ORL | STL | 1-3 | 0 | N |
-| player:1630217 | ORL vs MIN | AST | 2-6 | 0 | N |
-| player:1642852 | NOP vs UTA | AST | 2-6 | 2 | Y |
-| player:1628389 | MIA vs DET | AST | 2-6 | 3 | Y |
-| player:203507 | MIA vs DET | AST | 2-6 | 5 | Y |
-| player:1641708 | HOU vs SAS | AST | 3-7 | 4 | Y |
-| player:1628368 | SAS vs HOU | AST | 3-7 | 9 | N |
-| player:1627832 | HOU vs SAS | AST | 3-7 | 5 | Y |
-| player:1642264 | SAS vs HOU | AST | 3-7 | 5 | Y |
-| player:202699 | SAS vs HOU | REB | 3-7 | 0 | N |
-| player:1630578 | HOU vs SAS | AST | 4-8 | 7 | Y |
-| player:1641705 | SAS vs HOU | BLK | 2-4 | 2 | Y |
-| player:201142 | HOU vs SAS | AST | 2-6 | 6 | Y |
-| player:1630591 | ORL vs MIN | STL | 1-3 | 1 | Y |
-| player:1628404 | NYK vs BOS | AST | 2-6 | 5 | Y |
-| player:1628369 | BOS vs NYK | AST | 2-6 | 7 | N |
-| player:1641709 | DET vs MIA | STL | 1-3 | 1 | Y |
-| player:1641764 | GSW vs MEM | AST | 2-6 | 3 | Y |
-| player:1630591 | ORL vs MIN | AST | 2-6 | 6 | Y |
-| player:201950 | POR vs SAC | AST | 2-6 | 8 | N |
+| Ryan Rollins | MIL vs CHI | AST | 2-6 | 6 | Y |
+| Tyler Herro | MIL vs CHI | AST | 2-6 | 4 | Y |
+| Myles Turner | MIL vs CHI | REB | 3-7 | 3 | Y |
+| Ryan Rollins | MIL vs CHI | REB | 4-8 | 7 | Y |
+| Leonard Miller | CHI vs MIL | REB | 5-9 | 3 | N |
+| Josh Giddey | CHI vs MIL | AST | 5-9 | 9 | Y |
+| Josh Giddey | CHI vs MIL | REB | 5-9 | 4 | N |
+| Jaime Jaquez Jr. | MIL vs CHI | REB | 6-10 | 11 | N |
+| Wendell Carter Jr. | ORL vs MIN | STL | 1-3 | 0 | N |
+| Jalen Brunson | NYK vs BOS | AST | 2-6 | 4 | Y |
+| Kris Dunn | LAC vs LAL | STL | 1-3 | 2 | Y |
+| Jaden McDaniels | MIN vs ORL | STL | 1-3 | 0 | N |
+| Desmond Bane | ORL vs MIN | AST | 2-6 | 0 | N |
+| Derik Queen | NOP vs UTA | AST | 2-6 | 2 | Y |
+| Bam Adebayo | MIA vs DET | AST | 2-6 | 3 | Y |
+| Giannis Antetokounmpo | MIA vs DET | AST | 2-6 | 5 | Y |
+| Amen Thompson | HOU vs SAS | AST | 3-7 | 4 | Y |
+| De'Aaron Fox | SAS vs HOU | AST | 3-7 | 9 | N |
+| Fred VanVleet | HOU vs SAS | AST | 3-7 | 5 | Y |
+| Stephon Castle | SAS vs HOU | AST | 3-7 | 5 | Y |
+| Tobias Harris | SAS vs HOU | REB | 3-7 | 0 | N |
+| Alperen Sengun | HOU vs SAS | AST | 4-8 | 7 | Y |
+| Victor Wembanyama | SAS vs HOU | BLK | 2-4 | 2 | Y |
+| Kevin Durant | HOU vs SAS | AST | 2-6 | 6 | Y |
+| Jalen Suggs | ORL vs MIN | STL | 1-3 | 1 | Y |
+| Josh Hart | NYK vs BOS | AST | 2-6 | 5 | Y |
+| Jayson Tatum | BOS vs NYK | AST | 2-6 | 7 | N |
+| Ausar Thompson | DET vs MIA | STL | 1-3 | 1 | Y |
+| Brandin Podziemski | GSW vs MEM | AST | 2-6 | 3 | Y |
+| Jalen Suggs | ORL vs MIN | AST | 2-6 | 6 | Y |
+| Jrue Holiday | POR vs SAC | AST | 2-6 | 8 | N |
 
 ### Player grades (MIN / PTS / REB / AST / STL / BLK)
 
@@ -890,36 +902,36 @@ Graded from `prediction_history` after finals. No sportsbook lines or odds.
 
 | Player | Matchup | Stat | Range | Actual | Hit |
 | --- | --- | --- | --- | ---: | --- |
-| player:202331 | PHI vs MIL | REB | 3-7 | 0 | N |
-| player:1631170 | MIL vs PHI | REB | 3-7 | 8 | N |
-| player:1630178 | PHI vs MIL | AST | 4-8 | 4 | Y |
-| player:203954 | PHI vs MIL | REB | 6-10 | 11 | N |
-| player:1642845 | PHI vs MIL | PTS | 7-13 | 17 | N |
-| player:1631157 | MIL vs PHI | PTS | 7-13 | 15 | N |
-| player:1631170 | MIL vs PHI | PTS | 8-14 | 21 | N |
-| player:1630558 | MIA vs CHA | AST | 3-7 | 10 | N |
-| player:1629675 | CHA vs MIA | REB | 4-8 | 9 | N |
-| player:1631217 | CHA vs MIA | REB | 5-9 | 5 | Y |
-| player:203507 | MIA vs CHA | REB | 6-10 | 6 | Y |
-| player:1629675 | CHA vs MIA | PTS | 9-15 | 23 | N |
-| player:1641706 | CHA vs MIA | PTS | 13-19 | 34 | N |
-| player:203507 | MIA vs CHA | PTS | 14-20 | 14 | Y |
-| player:1631095 | HOU vs ATL | REB | 4-8 | 5 | Y |
-| player:1630596 | CLE vs BKN | AST | 2-6 | 4 | Y |
-| player:201142 | HOU vs ATL | AST | 2-6 | 2 | Y |
-| player:202331 | PHI vs MIL | STL | 1-3 | 0 | N |
-| player:1630230 | DAL vs SAS | AST | 2-6 | 5 | Y |
-| player:1631157 | MIL vs PHI | AST | 2-6 | 4 | Y |
-| player:1628368 | SAS vs DAL | AST | 2-6 | 9 | N |
-| player:201935 | CLE vs BKN | REB | 3-7 | 8 | N |
-| player:1627749 | NOP vs DEN | AST | 2-6 | 6 | Y |
-| player:1641708 | HOU vs ATL | AST | 3-7 | 6 | Y |
-| player:1628970 | PHX vs GSW | REB | 4-8 | 7 | Y |
-| player:1626164 | PHX vs GSW | AST | 4-8 | 7 | Y |
-| player:1628415 | PHX vs GSW | PTS | 10-16 | 15 | Y |
-| player:1626164 | PHX vs GSW | PTS | 17-23 | 43 | N |
-| player:1628970 | PHX vs GSW | PTS | 10-16 | 16 | Y |
-| player:1630224 | PHX vs GSW | PTS | 12-18 | 12 | Y |
+| Paul George | PHI vs MIL | REB | 3-7 | 0 | N |
+| Jaime Jaquez Jr. | MIL vs PHI | REB | 3-7 | 8 | N |
+| Tyrese Maxey | PHI vs MIL | AST | 4-8 | 4 | Y |
+| Joel Embiid | PHI vs MIL | REB | 6-10 | 11 | N |
+| VJ Edgecombe | PHI vs MIL | PTS | 7-13 | 17 | N |
+| Ryan Rollins | MIL vs PHI | PTS | 7-13 | 15 | N |
+| Jaime Jaquez Jr. | MIL vs PHI | PTS | 8-14 | 21 | N |
+| Davion Mitchell | MIA vs CHA | AST | 3-7 | 10 | N |
+| Naz Reid | CHA vs MIA | REB | 4-8 | 9 | N |
+| Moussa Diabaté | CHA vs MIA | REB | 5-9 | 5 | Y |
+| Giannis Antetokounmpo | MIA vs CHA | REB | 6-10 | 6 | Y |
+| Naz Reid | CHA vs MIA | PTS | 9-15 | 23 | N |
+| Brandon Miller | CHA vs MIA | PTS | 13-19 | 34 | N |
+| Giannis Antetokounmpo | MIA vs CHA | PTS | 14-20 | 14 | Y |
+| Jabari Smith Jr. | HOU vs ATL | REB | 4-8 | 5 | Y |
+| Evan Mobley | CLE vs BKN | AST | 2-6 | 4 | Y |
+| Kevin Durant | HOU vs ATL | AST | 2-6 | 2 | Y |
+| Paul George | PHI vs MIL | STL | 1-3 | 0 | N |
+| Naji Marshall | DAL vs SAS | AST | 2-6 | 5 | Y |
+| Ryan Rollins | MIL vs PHI | AST | 2-6 | 4 | Y |
+| De'Aaron Fox | SAS vs DAL | AST | 2-6 | 9 | N |
+| James Harden | CLE vs BKN | REB | 3-7 | 8 | N |
+| Dejounte Murray | NOP vs DEN | AST | 2-6 | 6 | Y |
+| Amen Thompson | HOU vs ATL | AST | 3-7 | 6 | Y |
+| Miles Bridges | PHX vs GSW | REB | 4-8 | 7 | Y |
+| Devin Booker | PHX vs GSW | AST | 4-8 | 7 | Y |
+| Dillon Brooks | PHX vs GSW | PTS | 10-16 | 15 | Y |
+| Devin Booker | PHX vs GSW | PTS | 17-23 | 43 | N |
+| Miles Bridges | PHX vs GSW | PTS | 10-16 | 16 | Y |
+| Jalen Green | PHX vs GSW | PTS | 12-18 | 12 | Y |
 
 ### Player grades (MIN / PTS / REB / AST / STL / BLK)
 
@@ -1086,3 +1098,137 @@ Graded from `prediction_history` after finals. No sportsbook lines or odds.
 | Luke Kornet | SAS | 12.1/14 | 4.0/0 | 3.0/4 | 1.0/1 | 0.0/0 | 0.0/0 | all |
 | Jordan McLaughlin | SAS | 0.6/3 | 0.0/0 | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | all |
 | Duop Reath | PHX | 9.3/3 | 3.0/0 | 1.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | all |
+
+## 2026-10-25
+
+| Metric | Value |
+| --- | ---: |
+| Games graded | 4 |
+| Winner accuracy | 100.0% |
+| Spread MAE | 8.00 |
+| Total MAE | 16.12 |
+| MIN MAE | 7.15 |
+| PTS MAE | 5.75 |
+| REB MAE | 2.43 |
+| AST MAE | 1.33 |
+| 10–90 coverage | 80.5% |
+| Top picks hit rate | 52.6% (10/19) |
+| Top picks avg claimed confidence | 42.8% |
+
+### Games
+
+| Matchup | Pred winner | Actual | Hit | Pred score | Actual score | Pred margin | Act margin | Pred total | Act total |
+| --- | --- | --- | --- | --- | --- | ---: | ---: | ---: | ---: |
+| LAL@UTA | LAL (74%) | LAL | Y | LAL 127 – UTA 112 | LAL 132 – UTA 123 | -14.0 | -9.0 | 239.5 | 255.0 |
+| IND@BKN | IND (61%) | IND | Y | IND 115 – BKN 109 | IND 136 – BKN 109 | -7.0 | -27.0 | 224.0 | 245.0 |
+| DET@PHI | DET (62%) | DET | Y | DET 112 – PHI 105 | DET 106 – PHI 93 | -7.0 | -13.0 | 218.0 | 199.0 |
+| MEM@SAC | MEM (66%) | MEM | Y | MEM 118 – SAC 108 | MEM 123 – SAC 112 | -10.0 | -11.0 | 226.0 | 235.0 |
+
+### Top confident picks
+
+| Player | Matchup | Stat | Range | Actual | Hit |
+| --- | --- | --- | --- | ---: | --- |
+| Pascal Siakam | IND vs BKN | REB | 3-7 | 7 | Y |
+| Andrew Nembhard | IND vs BKN | AST | 3-7 | 3 | Y |
+| Julius Randle | BKN vs IND | REB | 3-7 | 7 | Y |
+| Luka Dončić | LAL vs UTA | REB | 4-8 | 8 | Y |
+| Austin Reaves | LAL vs UTA | AST | 4-8 | 4 | Y |
+| Luka Dončić | LAL vs UTA | AST | 4-8 | 10 | N |
+| Michael Porter Jr. | BKN vs IND | REB | 4-8 | 0 | N |
+| Walker Kessler | LAL vs UTA | PTS | 8-14 | 2 | N |
+| Tyrese Maxey | PHI vs DET | AST | 3-7 | 4 | Y |
+| Cade Cunningham | DET vs PHI | REB | 3-7 | 8 | N |
+| Paul George | PHI vs DET | REB | 3-7 | 0 | N |
+| Cade Cunningham | DET vs PHI | AST | 5-9 | 8 | Y |
+| Paul George | PHI vs DET | PTS | 11-17 | 0 | N |
+| Tyrese Maxey | PHI vs DET | PTS | 15-21 | 29 | N |
+| Domantas Sabonis | SAC vs MEM | PTS | 12-18 | 15 | Y |
+| Domantas Sabonis | SAC vs MEM | AST | 3-7 | 3 | Y |
+| Precious Achiuwa | SAC vs MEM | REB | 5-9 | 10 | N |
+| Domantas Sabonis | SAC vs MEM | REB | 11-17 | 15 | Y |
+| Zach LaVine | SAC vs MEM | PTS | 13-19 | 37 | N |
+
+### Player grades (MIN / PTS / REB / AST / STL / BLK)
+
+| Player | Team | MIN pred/act | PTS | REB | AST | STL | BLK | in 10–90 (any miss listed) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Luka Dončić | LAL | 31.1/38 | 21.0/52 | 6.0/8 | 6.0/10 | 1.0/2 | 0.0/0 | MIN,PTS |
+| Zach LaVine | SAC | 30.8/40 | 16.0/37 | 2.0/2 | 2.0/5 | 1.0/2 | 0.0/0 | MIN,PTS |
+| Ty Jerome | MEM | 25.1/32 | 16.0/31 | 2.0/4 | 4.0/6 | 1.0/1 | 0.0/0 | MIN |
+| Austin Reaves | LAL | 34.3/36 | 17.0/29 | 3.0/1 | 6.0/4 | 1.0/1 | 0.0/2 | BLK |
+| Tyrese Maxey | PHI | 36.0/34 | 18.0/29 | 2.0/5 | 5.0/4 | 1.0/3 | 0.0/1 | all |
+| Lauri Markkanen | UTA | 27.1/38 | 12.0/28 | 4.0/7 | 1.0/1 | 0.0/0 | 0.0/0 | MIN,PTS |
+| Cade Cunningham | DET | 33.8/33 | 19.0/26 | 5.0/8 | 7.0/8 | 1.0/2 | 0.0/2 | all |
+| Keyonte George | UTA | 24.3/33 | 11.0/24 | 1.0/9 | 4.0/10 | 0.0/1 | 0.0/0 | MIN,REB,AST |
+| Tyrese Haliburton | IND | 24.5/31 | 12.0/24 | 2.0/4 | 6.0/10 | 1.0/2 | 0.0/0 | MIN |
+| Darius Acuff Jr. | SAC | 34.8/36 | 15.0/22 | 5.0/3 | 4.0/7 | 1.0/0 | 0.0/1 | all |
+| Pascal Siakam | IND | 26.5/26 | 15.0/21 | 5.0/7 | 3.0/6 | 1.0/1 | 0.0/0 | all |
+| Duncan Robinson | DET | 25.9/32 | 10.0/21 | 2.0/3 | 2.0/3 | 1.0/0 | 0.0/0 | all |
+| Jaren Jackson Jr. | UTA | 25.0/33 | 15.0/20 | 5.0/2 | 1.0/1 | 1.0/0 | 1.0/0 | MIN |
+| Daniss Jenkins | DET | 23.9/38 | 9.0/18 | 3.0/8 | 4.0/6 | 1.0/0 | 0.0/1 | MIN,REB |
+| Ace Bailey | UTA | 22.5/29 | 7.0/17 | 2.0/12 | 1.0/4 | 0.0/0 | 0.0/1 | MIN,REB |
+| Nolan Traore | BKN | 19.1/25 | 7.0/17 | 1.0/2 | 3.0/5 | 0.0/1 | 0.0/2 | BLK |
+| Obi Toppin | IND | 20.4/20 | 10.0/16 | 4.0/6 | 2.0/2 | 0.0/0 | 0.0/0 | all |
+| John Collins | DET | 24.4/34 | 12.0/16 | 7.0/11 | 1.0/0 | 1.0/0 | 0.0/2 | MIN |
+| Cameron Boozer | MEM | 30.7/31 | 12.0/16 | 11.0/11 | 2.0/4 | 1.0/0 | 0.0/2 | BLK |
+| Jaylen Wells | MEM | 21.9/33 | 9.0/16 | 3.0/5 | 2.0/3 | 1.0/2 | 0.0/0 | MIN |
+| Josh Minott | BKN | 0.0/21 | 0.0/15 | 0.0/8 | 0.0/2 | 0.0/2 | 0.0/0 | MIN,PTS,REB,AST,STL |
+| Domantas Sabonis | SAC | 31.4/35 | 15.0/15 | 14.0/15 | 5.0/3 | 1.0/2 | 0.0/0 | all |
+| Cedric Coward | MEM | 21.7/32 | 9.0/15 | 5.0/11 | 2.0/2 | 1.0/1 | 0.0/0 | MIN,REB |
+| Andrew Nembhard | IND | 28.2/30 | 10.0/14 | 1.0/1 | 5.0/3 | 1.0/1 | 0.0/0 | all |
+| Kelly Oubre Jr. | IND | 22.9/20 | 9.0/14 | 3.0/2 | 1.0/2 | 1.0/0 | 0.0/0 | all |
+| Jay Huff | IND | 0.0/21 | 0.0/14 | 0.0/2 | 0.0/3 | 0.0/0 | 0.0/3 | MIN,PTS,AST,BLK |
+| Collin Sexton | LAL | 22.6/20 | 12.0/13 | 1.0/2 | 3.0/1 | 1.0/0 | 0.0/0 | all |
+| Moritz Wagner | BKN | 0.0/14 | 0.0/13 | 0.0/3 | 0.0/1 | 0.0/1 | 0.0/0 | MIN,PTS,REB,AST,STL |
+| Aaron Nesmith | IND | 24.0/19 | 10.0/13 | 3.0/1 | 1.0/2 | 1.0/0 | 0.0/0 | all |
+| Cam Spencer | MEM | 16.5/16 | 6.0/13 | 1.0/2 | 3.0/1 | 0.0/0 | 0.0/0 | all |
+| Isaiah Stewart | MEM | 0.0/22 | 0.0/13 | 0.0/5 | 0.0/2 | 0.0/1 | 0.0/2 | MIN,PTS,REB,AST,STL,BLK |
+| Precious Achiuwa | SAC | 28.1/39 | 9.0/12 | 7.0/10 | 1.0/0 | 1.0/2 | 0.0/3 | MIN,BLK |
+| Ziaire Williams | LAL | 24.7/30 | 10.0/11 | 3.0/2 | 1.0/1 | 1.0/1 | 0.0/0 | MIN |
+| Matisse Thybulle | LAL | 18.0/26 | 5.0/11 | 1.0/1 | 1.0/1 | 1.0/3 | 0.0/1 | MIN |
+| Day'Ron Sharpe | BKN | 19.4/16 | 8.0/11 | 7.0/4 | 2.0/1 | 0.0/0 | 0.0/0 | all |
+| Julius Randle | BKN | 29.0/24 | 15.0/10 | 5.0/7 | 2.0/7 | 1.0/1 | 0.0/0 | AST |
+| Michael Porter Jr. | BKN | 27.3/21 | 15.0/10 | 6.0/0 | 2.0/0 | 1.0/2 | 0.0/0 | REB |
+| Jaxson Hayes | UTA | 19.4/19 | 7.0/9 | 4.0/5 | 0.0/1 | 0.0/1 | 0.0/0 | all |
+| Sandro Mamukelashvili | LAL | 17.7/21 | 7.0/9 | 4.0/3 | 1.0/0 | 0.0/0 | 0.0/1 | all |
+| Noah Clowney | BKN | 19.2/20 | 7.0/9 | 3.0/5 | 1.0/1 | 0.0/0 | 0.0/0 | all |
+| Keon Ellis | BKN | 0.0/23 | 0.0/9 | 0.0/1 | 0.0/3 | 0.0/4 | 0.0/1 | MIN,PTS,REB,AST,STL,BLK |
+| Kevin Huerter | DET | 14.4/26 | 5.0/9 | 2.0/3 | 1.0/2 | 0.0/1 | 0.0/0 | MIN |
+| Darryn Peterson | UTA | 26.2/30 | 9.0/8 | 3.0/3 | 2.0/2 | 0.0/3 | 0.0/1 | MIN,STL |
+| Paul Reed | DET | 17.6/23 | 8.0/8 | 7.0/8 | 1.0/2 | 1.0/0 | 0.0/3 | BLK |
+| Brice Sensabaugh | UTA | 16.5/17 | 7.0/7 | 2.0/6 | 1.0/1 | 0.0/0 | 0.0/0 | REB |
+| De'Andre Hunter | SAC | 23.2/29 | 10.0/7 | 3.0/6 | 1.0/1 | 1.0/0 | 0.0/0 | MIN |
+| Jonathan Mogbo | SAC | 0.4/18 | 0.0/7 | 0.0/3 | 0.0/1 | 0.0/1 | 0.0/0 | MIN,PTS |
+| Quinten Post | MEM | 0.0/17 | 0.0/7 | 0.0/5 | 0.0/1 | 0.0/0 | 0.0/0 | MIN,PTS,REB,AST |
+| Isaiah Collier | UTA | 19.1/13 | 6.0/6 | 1.0/3 | 5.0/6 | 0.0/0 | 0.0/0 | all |
+| Danny Wolf | BKN | 19.3/15 | 7.0/6 | 5.0/2 | 2.0/1 | 0.0/0 | 0.0/0 | all |
+| Jarace Walker | IND | 18.4/19 | 6.0/6 | 3.0/7 | 2.0/1 | 0.0/1 | 0.0/0 | all |
+| Larry Nance Jr. | IND | 0.0/22 | 0.0/6 | 0.0/6 | 0.0/1 | 0.0/1 | 0.0/0 | MIN,PTS,REB,AST,STL |
+| Adem Bona | PHI | 21.0/25 | 6.0/6 | 5.0/13 | 0.0/1 | 1.0/1 | 1.0/3 | REB,BLK |
+| Malik Monk | SAC | 12.5/12 | 5.0/6 | 1.0/1 | 2.0/2 | 0.0/1 | 0.0/0 | all |
+| Scotty Pippen Jr. | MEM | 19.4/17 | 10.0/6 | 2.0/2 | 4.0/2 | 1.0/0 | 0.0/0 | all |
+| Quenton Jackson | IND | 18.9/18 | 8.0/5 | 2.0/1 | 2.0/2 | 1.0/1 | 0.0/1 | all |
+| Jerami Grant | MEM | 20.7/22 | 10.0/5 | 2.0/5 | 1.0/3 | 0.0/1 | 0.0/2 | REB,BLK |
+| Chaney Johnson | BKN | 17.8/21 | 6.0/4 | 4.0/5 | 1.0/0 | 0.0/0 | 0.0/0 | all |
+| Quentin Grimes | LAL | 24.5/20 | 10.0/3 | 2.0/1 | 2.0/1 | 1.0/0 | 0.0/0 | all |
+| Egor Dëmin | BKN | 23.9/19 | 9.0/3 | 2.0/0 | 3.0/1 | 1.0/2 | 0.0/0 | MIN |
+| Daeqwon Plowden | SAC | 22.3/16 | 8.0/3 | 2.0/3 | 1.0/1 | 1.0/0 | 0.0/0 | MIN |
+| Emanuel Sharp | SAC | 16.0/14 | 3.0/3 | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/1 | all |
+| Svi Mykhailiuk | UTA | 16.9/14 | 5.0/2 | 1.0/3 | 1.0/0 | 0.0/0 | 0.0/0 | all |
+| Josh Okogie | UTA | 9.7/10 | 2.0/2 | 1.0/2 | 0.0/2 | 0.0/1 | 0.0/0 | AST |
+| Walker Kessler | LAL | 29.7/28 | 11.0/2 | 10.0/7 | 2.0/0 | 1.0/0 | 1.0/1 | all |
+| Kevon Looney | LAL | 10.7/5 | 1.0/2 | 3.0/2 | 0.0/0 | 0.0/0 | 0.0/0 | all |
+| Ben Saraf | BKN | 26.0/4 | 8.0/2 | 2.0/1 | 3.0/0 | 1.0/0 | 0.0/0 | MIN |
+| Ivica Zubac | IND | 23.0/7 | 11.0/2 | 11.0/1 | 1.0/2 | 0.0/0 | 0.0/0 | MIN,REB |
+| Isaiah Joe | DET | 15.6/4 | 6.0/2 | 1.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | all |
+| Javonte Green | DET | 10.1/22 | 2.0/2 | 2.0/3 | 0.0/0 | 0.0/0 | 0.0/1 | MIN |
+| Ronald Holland II | DET | 11.1/23 | 4.0/2 | 2.0/9 | 1.0/4 | 0.0/1 | 0.0/2 | MIN,REB,AST,BLK |
+| Ebuka Okorie | DET | 0.0/2 | 0.0/2 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | PTS |
+| Jalen Slawson | IND | 19.2/8 | 5.0/1 | 3.0/2 | 1.0/0 | 1.0/0 | 0.0/0 | MIN |
+| GG Jackson | MEM | 19.3/10 | 9.0/1 | 4.0/3 | 1.0/0 | 0.0/0 | 0.0/0 | MIN |
+| Josh Green | UTA | 0.0/3 | 0.0/0 | 0.0/0 | 0.0/1 | 0.0/0 | 0.0/0 | AST |
+| Jake LaRavia | LAL | 14.0/15 | 4.0/0 | 1.0/4 | 1.0/1 | 0.0/2 | 0.0/1 | all |
+| Drake Powell | BKN | 23.6/12 | 6.0/0 | 1.0/2 | 1.0/3 | 1.0/0 | 0.0/0 | MIN |
+| Joshua Jefferson | BKN | 0.0/4 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | MIN |
+| Tolu Smith | DET | 1.9/3 | 0.0/0 | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | all |
+| Taylor Hendricks | MEM | 19.3/7 | 6.0/0 | 4.0/1 | 1.0/0 | 1.0/0 | 0.0/0 | MIN |
