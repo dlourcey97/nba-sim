@@ -307,7 +307,7 @@ Key: `team_id`, `player_id`
 
 ## prediction_history
 
-Summary of a simulation, not the raw runs. row_kind is player, game, or pick. Player rows leave the game distribution null. Game rows leave player_id and the player distributions null. Pick rows store claimed confidence ranges for tonight's top lines; actual_pick_hit is filled after the game. pick_stat is '' on player/game rows and the stat code (pts/reb/…) on pick rows. Actuals are filled by a later upsert. Only the current season is writable unless a backfill passes allow_historical. A _COMPLETE marker freezes the season.
+Summary of a simulation, not the raw runs. row_kind is player, game, or pick. Player rows leave the game distribution null. Game rows leave player_id and the player distributions null. Pick rows store claimed confidence ranges for tonight's top lines; actual_pick_hit is filled after the game. pick_stat is '' on player/game rows, a stat code (pts/reb/…) on confident-line rows, and dd_<pair> on double-double rows. Actuals are filled by a later upsert. Only the current season is writable unless a backfill passes allow_historical. A _COMPLETE marker freezes the season.
 
 Policy: `upsert_current`
 
@@ -334,7 +334,7 @@ Key: `row_kind`, `game_id`, `player_id`, `pick_stat`
 | actual_home_pts | INTEGER | yes | Actual home points. Game rows only, null before final. |
 | actual_away_pts | INTEGER | yes | Actual away points. Game rows only, null before final. |
 | actual_overtime | BOOLEAN | yes | True when the game reached overtime. |
-| pick_stat | VARCHAR | no | Empty on player/game rows; pts/reb/ast/stl/blk on pick rows (part of key). |
+| pick_stat | VARCHAR | no | Empty on player/game rows; pts/reb/ast/stl/blk or dd_<pair> on pick rows (part of key). |
 | pick_lo | DOUBLE | yes | Claimed range low on pick rows. |
 | pick_hi | DOUBLE | yes | Claimed range high on pick rows. |
 | pick_median | DOUBLE | yes | Claimed median on pick rows. |

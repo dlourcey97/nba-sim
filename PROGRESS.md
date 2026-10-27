@@ -1,9 +1,10 @@
 # Progress
 
-Last updated 2026-10-27 — Post-game through 2026-10-26. Nine finals graded. Season bias −3.94 on 49 games. Picks 6/8 vs 61.5% claimed.
+Last updated 2026-10-27 — Full 2026-10-27 slate (4 games, 10,000 runs). Reconcile guardrail PASS (80g, REB +0.4%). Double-double probabilities logged with the confident lines.
 
 | Phase | Status | Notes |
 | --- | --- | --- |
+| Slate 2026-10-27 | done | 4 games. Guardrail PASS. 8 stat lines + 8 double-doubles in `prediction_history`. Pending rows on the scorecard. |
 | Post-game through 10-26 | done | +9 finals ingested; all 9 simulated games graded. Winners 7/9. Picks 6/8 (75.0%) vs 61.5% claimed. Season 60.5% / 53.6%. |
 | Slate 2026-10-26 | done | 9 games simulated. Guardrail PASS. Typical replays in `results/typical/`. Graded in the post-game row above. |
 | Post-game through 10-25 | done | +7 finals ingested; 4 simulated games graded (ORL@NYK, TOR@MIN, LAC@OKC were not simmed). Picks 10/19 vs 42.8% claimed. Season picks 59.5% / 53.0%. |
@@ -689,6 +690,12 @@ Hold-check 250g × 200r seed 1 (`results/backtest/stl_credit_{before,after}/`):
 | PTS / REB / AST MAE | flat | flat |
 | STL MAE | 0.714 | **0.712** |
 | 10–90 coverage | 0.833 | 0.833 |
+
+## Slate 2026-10-27
+
+- Guardrail PASS (80 games, REB +0.4%, starter REB +0.2%). Rosters refreshed, 521 players. No `overrides.yaml` player rows.
+- 4 games at 10,000 runs. Typical replays in `results/typical/`. Pending rows on the scorecard.
+- Confident lines and double-doubles are both `row_kind=pick` (16 rows). A `dd_*` pick hits when two of PTS/REB/AST/STL/BLK are 10+.
 
 ## Post-game through 2026-10-26
 

@@ -30,6 +30,17 @@ Graded from `prediction_history` after finals. No sportsbook lines or odds.
 | 2026-10-26 | 9 | 77.8% | 7.89 | 13.22 | -5.67 | 6.34 | 4.70 | 2.16 | 1.21 | 0.58 | 0.48 | 85.3% | 6/8 (75.0%) | 61.5% |
 | Season | 49 | 67.3% | 11.30 | 16.67 | -3.94 | 7.11 | 5.28 | 2.19 | 1.35 | 0.66 | 0.45 | 80.2% | 72/119 (60.5%) | 53.6% |
 
+## Pending predictions
+
+Simulated games with no final yet. These rows are not in the graded totals.
+
+| Date | Matchup | Winner | Win % | Median score | Spread | Total |
+| --- | --- | --- | ---: | --- | --- | ---: |
+| 2026-10-27 | BKN @ BOS | BOS | 87.8% | BKN 98–BOS 124 | BOS by 26 | 223.0 |
+| 2026-10-27 | DET @ NYK | DET | 52.6% | DET 107–NYK 105 | DET by 2 | 212.0 |
+| 2026-10-27 | SAC @ SAS | SAS | 90.1% | SAC 99–SAS 127 | SAS by 28 | 226.0 |
+| 2026-10-27 | POR @ LAL | LAL | 60.1% | POR 112–LAL 118 | LAL by 6 | 230.0 |
+
 ## Notes
 
 - 2026-10-20: no Top confident picks were produced that night (feature landed with the 2026-10-21 slate).

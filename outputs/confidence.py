@@ -195,6 +195,80 @@ def confident_picks_for_game(
     return candidates
 
 
+_DD_STATS = ("pts", "reb", "ast", "stl", "blk")
+
+
+def double_double_from_draws(
+    draws: dict[str, np.ndarray],
+) -> tuple[float, str, float]:
+    """P(two of PTS/REB/AST/STL/BLK are 10+) and the pair with the highest joint rate.
+
+    ``draws`` values are one player's per-sim stat arrays. Nothing is stored.
+    """
+    flags = {stat: np.asarray(draws[stat], dtype=float) >= 10.0 for stat in _DD_STATS}
+    stacked = np.vstack([flags[stat] for stat in _DD_STATS])
+    p_dd = float(np.mean(stacked.sum(axis=0) >= 2))
+    best_label = ""
+    best_p = -1.0
+    for i, left in enumerate(_DD_STATS):
+        for right in _DD_STATS[i + 1 :]:
+            joint = float(np.mean(flags[left] & flags[right]))
+            if joint > best_p:
+                best_p = joint
+                best_label = f"{left.upper()}+{right.upper()}"
+    return p_dd, best_label, max(best_p, 0.0)
+
+
+def double_double_candidates(
+    projection: GameProjection,
+    result: GameSimResult,
+    *,
+    min_minutes: float = 26.0,
+) -> list[ConfidentPick]:
+    """Players with median minutes >= 26, excluding QUESTIONABLE / OUT / Doubtful.
+
+    Ranked by P(double-double). One row per player. Raw runs are not retained.
+    """
+    opp = {"H": projection.away_abbr, "A": projection.home_abbr}
+    by_id = {p.player_id: p for p in projection.players}
+    candidates: list[ConfidentPick] = []
+    for index, player_id in enumerate(result.player_ids):
+        pid = int(player_id)
+        proj = by_id.get(pid)
+        if proj is None:
+            continue
+        status = (proj.status or "available").lower()
+        if status in {"questionable", "out", "doubtful"}:
+            continue
+        med_min = float(np.median(result.minutes[index]))
+        if med_min < min_minutes:
+            continue
+        draws = {stat: getattr(result, stat)[index] for stat in _DD_STATS}
+        p_dd, pair, _joint = double_double_from_draws(draws)
+        if p_dd <= 0.0 or not pair:
+            continue
+        team = result.team_abbrs[index]
+        candidates.append(
+            ConfidentPick(
+                player_id=pid,
+                player_name=result.player_names[index],
+                team_abbr=team,
+                opponent_abbr=opp[result.home_away[index]],
+                game_id=projection.game_id,
+                stat=f"DD_{pair.replace('+', '_')}",
+                median=float(np.median(draws["pts"])),
+                lo=10.0,
+                hi=10.0,
+                confidence=p_dd,
+                range_label=pair,
+                proj_minutes=med_min,
+                play_prob=float(getattr(proj.minutes, "play_prob", 1.0) or 0.0),
+            )
+        )
+    candidates.sort(key=lambda pick: (pick.confidence, pick.proj_minutes), reverse=True)
+    return candidates
+
+
 def select_slate_picks(
     all_picks: Sequence[ConfidentPick],
     *,

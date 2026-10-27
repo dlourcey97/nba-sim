@@ -13,6 +13,7 @@ from nba_sim.storage import finish_run, read_rows
 from outputs.confidence import (
     ConfidentPick,
     confident_picks_for_game,
+    double_double_candidates,
     excluded_player_ids,
     select_slate_picks,
 )
@@ -35,6 +36,7 @@ class SlateResult:
     history_rows: int = 0
     actuals_rows: int = 0
     confident_picks: list[ConfidentPick] = field(default_factory=list)
+    double_doubles: list[ConfidentPick] = field(default_factory=list)
     report_path: Path | None = None
 
 
@@ -108,6 +110,7 @@ def run_slate(
     slate_date = game_date or selected[0]["game_date"]
     exclude_ids = excluded_player_ids(injury_rows, slate_date)
     raw_picks: list[ConfidentPick] = []
+    raw_dds: list[ConfidentPick] = []
     started_flags: dict[int, bool] = {}
 
     for row in sorted(selected, key=lambda item: item["game_id"]):
@@ -138,6 +141,7 @@ def run_slate(
                 excluded_ids=exclude_ids,
             )
         )
+        raw_dds.extend(double_double_candidates(projection, sim))
         # Typical-game narrative: persist one possession log + WP chart only.
         # WP grid is computed from the full sim cloud in memory, then discarded.
         try:
@@ -176,6 +180,16 @@ def run_slate(
             )
 
     result.confident_picks = select_slate_picks(raw_picks, n_picks=8)
+    result.double_doubles = sorted(
+        raw_dds,
+        key=lambda pick: (pick.confidence, pick.proj_minutes),
+        reverse=True,
+    )[:8]
+    for pick in result.double_doubles:
+        print(
+            f"double-double {pick.player_name} {pick.team_abbr} vs {pick.opponent_abbr} "
+            f"P={pick.confidence:.3f} pair={pick.range_label} min={pick.proj_minutes:.1f}"
+        )
     if write_report and result.summaries:
         notes = list(report_notes or [])
         assumptions = list(report_assumptions or [])
@@ -184,6 +198,7 @@ def run_slate(
             game_date=slate_date.isoformat(),
             summaries=result.summaries,
             picks=result.confident_picks,
+            double_doubles=result.double_doubles,
             injuries=injury_rows,
             notes=notes,
             assumptions=assumptions,
@@ -191,12 +206,13 @@ def run_slate(
         )
 
     if write_history:
-        if result.confident_picks and result.summaries:
+        logged_picks = list(result.confident_picks) + list(result.double_doubles)
+        if logged_picks and result.summaries:
             runs_used = int(result.summaries[0].runs)
             seed_used = result.summaries[0].seed
             result.history_rows += write_pick_history(
                 settings,
-                result.confident_picks,
+                logged_picks,
                 season=season,
                 game_date=slate_date,
                 runs=runs_used,

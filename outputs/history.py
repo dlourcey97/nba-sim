@@ -228,6 +228,18 @@ def fill_actuals_for_season(
         log = log_by_key.get((game_id, int(player_id)))
         if row["row_kind"] == "pick":
             stat = str(row.get("pick_stat") or "").lower()
+            if stat.startswith("dd"):
+                if log is None:
+                    hit = False
+                else:
+                    categories = sum(
+                        float(log.get(col) or 0.0) >= 10.0
+                        for col in ("pts", "reb", "ast", "stl", "blk")
+                    )
+                    hit = categories >= 2
+                new_row["actual_pick_hit"] = hit
+                updated.append(new_row)
+                continue
             if log is None:
                 # DNP / inactive → miss unless range includes 0 and we treat as 0.
                 actual = 0.0

@@ -490,7 +490,7 @@ def _tables() -> dict[str, Table]:
                 "pick_stat",
                 "VARCHAR",
                 False,
-                "Empty on player/game rows; pts/reb/ast/stl/blk on pick rows (part of key).",
+                "Empty on player/game rows; pts/reb/ast/stl/blk or dd_<pair> on pick rows (part of key).",
             ),
             _col("pick_lo", "DOUBLE", True, "Claimed range low on pick rows."),
             _col("pick_hi", "DOUBLE", True, "Claimed range high on pick rows."),

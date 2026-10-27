@@ -20,6 +20,7 @@ def write_slate_report(
     notes: Sequence[str],
     assumptions: Sequence[str],
     projections_started: dict[int, bool] | None = None,
+    double_doubles: Sequence[ConfidentPick] = (),
 ) -> Path:
     """Write markdown report. Returns path."""
     out_dir = repo_root / "results" / "latest"
@@ -64,6 +65,28 @@ def write_slate_report(
                 f"| {i} | {pick.player_name} | {matchup} | {pick.stat} | "
                 f"{int(pick.median)} | {pick.range_label} | "
                 f"{100.0 * pick.confidence:.1f}% | {proj_min:.1f} |"
+            )
+        lines.append("")
+
+    lines.append("## 3b. Double-double candidates")
+    lines.append("")
+    lines.append(
+        "P(two of PTS/REB/AST/STL/BLK reach 10) from the same sims. "
+        "QUESTIONABLE players and median minutes under 26 are excluded."
+    )
+    lines.append("")
+    if not double_doubles:
+        lines.append("_No eligible double-double candidates._")
+        lines.append("")
+    else:
+        lines.append("| # | Player | Matchup | P(DD) | Pair | Median MIN |")
+        lines.append("| --- | --- | --- | ---: | --- | ---: |")
+        for i, pick in enumerate(double_doubles, 1):
+            matchup = f"{pick.team_abbr} vs {pick.opponent_abbr}"
+            lines.append(
+                f"| {i} | {pick.player_name} | {matchup} | "
+                f"{100.0 * pick.confidence:.1f}% | {pick.range_label} | "
+                f"{pick.proj_minutes:.1f} |"
             )
         lines.append("")
 
