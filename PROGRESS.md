@@ -1,10 +1,11 @@
 # Progress
 
-Last updated 2026-10-26 — Full 2026-10-26 slate (9 games, 10,000 runs). Reconcile guardrail PASS (80g, REB +0.4%). Scorecard pending section lists the ungraded projections.
+Last updated 2026-10-27 — Post-game through 2026-10-26. Nine finals graded. Season bias −3.94 on 49 games. Picks 6/8 vs 61.5% claimed.
 
 | Phase | Status | Notes |
 | --- | --- | --- |
-| Slate 2026-10-26 | done | 9 games simulated. Guardrail PASS. Typical replays in `results/typical/`. Pending rows on the scorecard. |
+| Post-game through 10-26 | done | +9 finals ingested; all 9 simulated games graded. Winners 7/9. Picks 6/8 (75.0%) vs 61.5% claimed. Season 60.5% / 53.6%. |
+| Slate 2026-10-26 | done | 9 games simulated. Guardrail PASS. Typical replays in `results/typical/`. Graded in the post-game row above. |
 | Post-game through 10-25 | done | +7 finals ingested; 4 simulated games graded (ORL@NYK, TOR@MIN, LAC@OKC were not simmed). Picks 10/19 vs 42.8% claimed. Season picks 59.5% / 53.0%. |
 | Typical-game replay | done | Distance picker, possession fields (zone, FT, rebound, steal, clock, WP), self-contained viewer after every `daily.py` game. |
 | Early-season league env | done | Pace+PPG blend (early window only); 400g WF improves total MAE; 2026-27 bias holds. |
@@ -688,6 +689,13 @@ Hold-check 250g × 200r seed 1 (`results/backtest/stl_credit_{before,after}/`):
 | PTS / REB / AST MAE | flat | flat |
 | STL MAE | 0.714 | **0.712** |
 | 10–90 coverage | 0.833 | 0.833 |
+
+## Post-game through 2026-10-26
+
+- Ingested **9** finals (10-26). Roster refresh **+0/−0** (521 players).
+- Graded all 9 simulated games. Winners 7/9. Night total bias **−5.67**. Season bias **−3.94** (pred median total minus actual, 49 games).
+- Night reconcile vs box scores, predicted mean sum vs actual: MIN −1.0%, PTS −2.3%, AST −1.1%. Flags: REB −5.0%, STL +15.8%, BLK −12.0%, TOV +6.2%.
+- Picks 6/8 (75.0%) vs 61.5% claimed. Scorecard: `results/season_scorecard.md`. Storage **11.78 MiB / 2 GB**.
 
 ## Post-game through 2026-10-25
 
