@@ -1,9 +1,10 @@
 # Progress
 
-Last updated 2026-10-28 — Post-game through 2026-10-27. Four finals graded. Season bias −4.85 on 53 games. Confident picks 4/8 vs 58.5% claimed. Double-doubles 3/8 vs 41.0% claimed.
+Last updated 2026-10-28 — Full 2026-10-28 slate (12 games, 10,000 runs). Reconcile guardrail PASS (80g, REB +0.4%). OKC @ DAL: OKC 55.5%, 107–104.
 
 | Phase | Status | Notes |
 | --- | --- | --- |
+| Slate 2026-10-28 | done | 12 games. Guardrail PASS. Fixed a fallback that listed Kelly Oubre on both PHI and IND. 8 stat lines + 8 double-doubles logged. |
 | Post-game through 10-27 | done | +4 finals. Winners 2/4. Picks 4/8 vs 58.5%. Double-doubles 3/8 vs 41.0%. Roster +1 (Enrique Freeman, MIN). |
 | Slate 2026-10-27 | done | 4 games. Guardrail PASS. 8 stat lines + 8 double-doubles in `prediction_history`. Graded in the row above. |
 | Post-game through 10-26 | done | +9 finals ingested; all 9 simulated games graded. Winners 7/9. Picks 6/8 (75.0%) vs 61.5% claimed. Season 60.5% / 53.6%. |
@@ -691,6 +692,12 @@ Hold-check 250g × 200r seed 1 (`results/backtest/stl_credit_{before,after}/`):
 | PTS / REB / AST MAE | flat | flat |
 | STL MAE | 0.714 | **0.712** |
 | 10–90 coverage | 0.833 | 0.833 |
+
+## Slate 2026-10-28
+
+- Guardrail PASS (80 games, REB +0.4%, starter REB +0.2%). Rosters refreshed, 521 players.
+- Philadelphia's live roster overlapped 2025-26 so little that the engine fell back to last year's open stints and also kept Kelly Oubre, who is on Indiana's live roster. The fallback now drops anyone claimed by another team's current roster. Full 12-game slate re-ran after that fix.
+- OKC @ DAL median: OKC 107–DAL 104 (OKC 55.5%). P(DAL wins) 44.5%. P(DAL loses by 6+) 47.6%. Both teams on 1 rest day. Chet Holmgren, Jalen Williams, Alex Caruso, and Cason Wallace are out; their minutes go to the remaining Thunder rotation, including Micah Peavy (no 2026-27 games, 36.9 median minutes).
 
 ## Post-game through 2026-10-27
 

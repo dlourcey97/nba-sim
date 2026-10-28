@@ -1413,7 +1413,16 @@ def _roster_for_team(
             if overlap < max(5, int(0.4 * len(prior_open))):
                 # Live CommonTeamRoster is untrustworthy — use prior-season open
                 # stints only (opening-week safeguard against feed corruption).
-                live_ids = list(prior_open)
+                # Drop anyone already on another team's live roster so a trade
+                # cannot put the same player on both sides of a game.
+                claimed_elsewhere = {
+                    int(row["player_id"])
+                    for row in live
+                    if int(row["team_id"]) != team_id
+                }
+                live_ids = [
+                    pid for pid in prior_open if pid not in claimed_elsewhere
+                ]
         if live_ids:
             # Keep the full live roster; minutes allocation / outs shrink the rotation.
             return sorted(live_ids, key=_depth_key)[:18]

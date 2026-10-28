@@ -33,6 +33,25 @@ Graded from `prediction_history` after finals. No sportsbook lines or odds.
 | 2026-10-27 | 4 | 50.0% | 13.75 | 18.00 | -16.00 | 5.52 | 4.77 | 1.66 | 1.24 | 0.63 | 0.35 | 88.7% | 4/8 (50.0%) | 58.5% | 3/8 (37.5%) | 41.0% |
 | Season | 53 | 66.0% | 11.48 | 16.77 | -4.85 | 6.99 | 5.24 | 2.15 | 1.34 | 0.66 | 0.44 | 80.9% | 76/127 (59.8%) | 53.9% | 3/8 (37.5%) | 41.0% |
 
+## Pending predictions
+
+Simulated games with no final yet. These rows are not in the graded totals.
+
+| Date | Matchup | Winner | Win % | Median score | Spread | Total |
+| --- | --- | --- | ---: | --- | --- | ---: |
+| 2026-10-28 | MIA @ ATL | MIA | 53.5% | MIA 114–ATL 112 | MIA by 2 | 225.0 |
+| 2026-10-28 | WAS @ CLE | CLE | 88.2% | WAS 103–CLE 129 | CLE by 26 | 232.0 |
+| 2026-10-28 | CHA @ DET | DET | 60.4% | CHA 101–DET 106 | DET by 6 | 208.0 |
+| 2026-10-28 | PHI @ IND | PHI | 57.7% | PHI 112–IND 108 | PHI by 5 | 220.0 |
+| 2026-10-28 | ORL @ TOR | TOR | 63.5% | ORL 110–TOR 117 | TOR by 8 | 226.0 |
+| 2026-10-28 | NYK @ CHI | NYK | 69.4% | NYK 116–CHI 105 | NYK by 11 | 222.0 |
+| 2026-10-28 | HOU @ MIL | HOU | 67.4% | HOU 120–MIL 110 | HOU by 11 | 230.0 |
+| 2026-10-28 | GSW @ MIN | MIN | 62.9% | GSW 109–MIN 116 | MIN by 8 | 224.0 |
+| 2026-10-28 | DEN @ NOP | DEN | 54.7% | DEN 122–NOP 120 | DEN by 3 | 242.0 |
+| 2026-10-28 | SAS @ UTA | SAS | 75.5% | SAS 119–UTA 104 | SAS by 15 | 224.0 |
+| 2026-10-28 | OKC @ DAL | OKC | 55.5% | OKC 107–DAL 104 | OKC by 4 | 211.0 |
+| 2026-10-28 | LAL @ LAC | LAL | 57.1% | LAL 117–LAC 113 | LAL by 5 | 230.0 |
+
 ## Notes
 
 - 2026-10-20: no Top confident picks were produced that night (feature landed with the 2026-10-21 slate).
