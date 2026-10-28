@@ -50,12 +50,33 @@ class NightGrade:
     player_mae: dict[str, list[float]] = field(default_factory=dict)
     coverage_hits: list[float] = field(default_factory=list)
     pick_grades: list[ConfidentPickGrade] = field(default_factory=list)
+    dd_grades: list[ConfidentPickGrade] = field(default_factory=list)
 
     def summary(self) -> dict[str, Any]:
         def _mae(vals: list[float]) -> float | None:
             return float(sum(vals) / len(vals)) if vals else None
 
-        pick_hits = [p for p in self.pick_grades if p.hit is not None]
+        def _rate(grades: list[ConfidentPickGrade]) -> dict[str, Any]:
+            graded = [p for p in grades if p.hit is not None]
+            hits = sum(1 for p in graded if p.hit)
+            return {
+                "n": len(grades),
+                "graded": len(graded),
+                "hits": hits,
+                "rate": hits / len(graded) if graded else None,
+                "claimed": (
+                    float(sum(p.confidence for p in graded) / len(graded))
+                    if graded
+                    else (
+                        float(sum(p.confidence for p in grades) / len(grades))
+                        if grades
+                        else None
+                    )
+                ),
+            }
+
+        pick_hits = _rate(self.pick_grades)
+        dd = _rate(self.dd_grades)
         return {
             "game_date": self.game_date,
             "games_graded": self.games_graded,
@@ -73,21 +94,16 @@ class NightGrade:
             "player_blk_mae": _mae(self.player_mae.get("blk", [])),
             "coverage_10_90": _mae(self.coverage_hits),
             "player_rows": len(self.player_rows),
-            "top_picks": len(self.pick_grades),
-            "top_picks_graded": len(pick_hits),
-            "top_picks_hits": sum(1 for p in pick_hits if p.hit),
-            "top_picks_hit_rate": (
-                sum(1 for p in pick_hits if p.hit) / len(pick_hits) if pick_hits else None
-            ),
-            "top_picks_avg_claimed_conf": (
-                float(sum(p.confidence for p in pick_hits) / len(pick_hits))
-                if pick_hits
-                else (
-                    float(sum(p.confidence for p in self.pick_grades) / len(self.pick_grades))
-                    if self.pick_grades
-                    else None
-                )
-            ),
+            "top_picks": pick_hits["n"],
+            "top_picks_graded": pick_hits["graded"],
+            "top_picks_hits": pick_hits["hits"],
+            "top_picks_hit_rate": pick_hits["rate"],
+            "top_picks_avg_claimed_conf": pick_hits["claimed"],
+            "dd_picks": dd["n"],
+            "dd_graded": dd["graded"],
+            "dd_hits": dd["hits"],
+            "dd_hit_rate": dd["rate"],
+            "dd_avg_claimed": dd["claimed"],
         }
 
 
@@ -198,7 +214,9 @@ def grade_night(
         if r["row_kind"] == "pick" and str(r["game_date"]) == game_date
     ]
     if hist_picks:
-        night.pick_grades = _grade_history_picks(hist_picks, name_by_id)
+        graded_picks = _grade_history_picks(hist_picks, name_by_id)
+        night.pick_grades = [p for p in graded_picks if not p.stat.upper().startswith("DD")]
+        night.dd_grades = [p for p in graded_picks if p.stat.upper().startswith("DD")]
     elif picks:
         night.pick_grades = grade_confident_picks(
             settings, season, picks, game_date=game_date
@@ -493,6 +511,20 @@ def write_season_scorecard(
             season_tot.get("top_picks_avg_claimed_conf"),
         )
     )
+    if season_tot.get("dd_graded"):
+        lines.append(
+            _pct_row(
+                "Double-double hit rate",
+                season_tot.get("dd_hit_rate"),
+                extra=f"{season_tot.get('dd_hits', 0)}/{season_tot.get('dd_graded', 0)}",
+            )
+        )
+        lines.append(
+            _pct_row(
+                "Double-double avg claimed P(DD)",
+                season_tot.get("dd_avg_claimed"),
+            )
+        )
     bias_num = 0.0
     bias_den = 0
     for night in nights:
@@ -506,11 +538,11 @@ def write_season_scorecard(
     lines.append("")
     lines.append(
         "| Date | Games | Winner | Spread MAE | Total MAE | Total bias | "
-        "MIN | PTS | REB | AST | STL | BLK | 10–90 | Picks | Claimed |"
+        "MIN | PTS | REB | AST | STL | BLK | 10–90 | Picks | Claimed | DD | DD claimed |"
     )
     lines.append(
         "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | "
-        "---: | ---: | ---: | ---: | ---: |"
+        "---: | ---: | ---: | ---: | ---: | ---: | ---: |"
     )
     for night in nights:
         s = night.summary()
@@ -533,6 +565,14 @@ def write_season_scorecard(
             if s.get("top_picks_avg_claimed_conf") is not None and s.get("top_picks_graded")
             else "—"
         )
+        if s.get("dd_graded"):
+            dd = (
+                f"{s['dd_hits']}/{s['dd_graded']} "
+                f"({100.0 * s['dd_hit_rate']:.1f}%)"
+            )
+            dd_claimed = f"{100.0 * s['dd_avg_claimed']:.1f}%"
+        else:
+            dd, dd_claimed = "n/a", "—"
         lines.append(
             f"| {night.game_date} | {s['games_graded']} | "
             f"{_pct(s.get('winner_accuracy'))} | {_n(s.get('spread_mae'))} | "
@@ -540,7 +580,7 @@ def write_season_scorecard(
             f"{_n(s.get('player_pts_mae'))} | {_n(s.get('player_reb_mae'))} | "
             f"{_n(s.get('player_ast_mae'))} | {_n(s.get('player_stl_mae'))} | "
             f"{_n(s.get('player_blk_mae'))} | {_pct(s.get('coverage_10_90'))} | "
-            f"{picks} | {claimed} |"
+            f"{picks} | {claimed} | {dd} | {dd_claimed} |"
         )
     if season_tot.get("games_graded"):
         lines.append(
@@ -553,7 +593,10 @@ def write_season_scorecard(
             f"{_pct(season_tot.get('coverage_10_90'))} | "
             f"{season_tot.get('top_picks_hits', 0)}/{season_tot.get('top_picks_graded', 0)} "
             f"({_pct(season_tot.get('top_picks_hit_rate'))}) | "
-            f"{_pct(season_tot.get('top_picks_avg_claimed_conf'))} |"
+            f"{_pct(season_tot.get('top_picks_avg_claimed_conf'))} | "
+            f"{season_tot.get('dd_hits', 0)}/{season_tot.get('dd_graded', 0)} "
+            f"({_pct(season_tot.get('dd_hit_rate'))}) | "
+            f"{_pct(season_tot.get('dd_avg_claimed'))} |"
         )
     lines.append("")
 
@@ -614,6 +657,20 @@ def write_season_scorecard(
                     s.get("top_picks_avg_claimed_conf"),
                 )
             )
+        if s.get("dd_graded"):
+            lines.append(
+                _pct_row(
+                    "Double-double hit rate",
+                    s.get("dd_hit_rate"),
+                    extra=f"{s['dd_hits']}/{s['dd_graded']}",
+                )
+            )
+            lines.append(
+                _pct_row(
+                    "Double-double avg claimed P(DD)",
+                    s.get("dd_avg_claimed"),
+                )
+            )
         elif s.get("top_picks") == 0:
             lines.append("| Top confident picks | n/a (none produced) |")
         lines.append("")
@@ -648,6 +705,20 @@ def write_season_scorecard(
                 lines.append(
                     f"| {p.player_name} | {p.team_abbr} vs {p.opponent_abbr} | "
                     f"{p.stat} | {int(p.lo)}-{int(p.hi)} | {act} | {hit} |"
+                )
+            lines.append("")
+
+        if night.dd_grades:
+            lines.append("### Double-doubles")
+            lines.append("")
+            lines.append("| Player | Matchup | Pair | Claimed | Hit |")
+            lines.append("| --- | --- | --- | ---: | --- |")
+            for p in night.dd_grades:
+                pair = p.stat.upper().removeprefix("DD_").replace("_", "+")
+                hit = "—" if p.hit is None else ("Y" if p.hit else "N")
+                lines.append(
+                    f"| {p.player_name} | {p.team_abbr} vs {p.opponent_abbr} | "
+                    f"{pair} | {100.0 * p.confidence:.1f}% | {hit} |"
                 )
             lines.append("")
 
@@ -789,6 +860,15 @@ def _aggregate(summaries: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "top_picks_graded": pick_graded,
         "top_picks_hit_rate": pick_hits / pick_graded if pick_graded else None,
         "top_picks_avg_claimed_conf": conf_num / conf_den if conf_den else None,
+        "dd_hits": sum(int(r.get("dd_hits") or 0) for r in rows),
+        "dd_graded": sum(int(r.get("dd_graded") or 0) for r in rows),
+        "dd_hit_rate": (
+            sum(int(r.get("dd_hits") or 0) for r in rows)
+            / sum(int(r.get("dd_graded") or 0) for r in rows)
+            if sum(int(r.get("dd_graded") or 0) for r in rows)
+            else None
+        ),
+        "dd_avg_claimed": wavg("dd_avg_claimed", "dd_graded"),
     }
 
 

@@ -1,10 +1,11 @@
 # Progress
 
-Last updated 2026-10-27 — Full 2026-10-27 slate (4 games, 10,000 runs). Reconcile guardrail PASS (80g, REB +0.4%). Double-double probabilities logged with the confident lines.
+Last updated 2026-10-28 — Post-game through 2026-10-27. Four finals graded. Season bias −4.85 on 53 games. Confident picks 4/8 vs 58.5% claimed. Double-doubles 3/8 vs 41.0% claimed.
 
 | Phase | Status | Notes |
 | --- | --- | --- |
-| Slate 2026-10-27 | done | 4 games. Guardrail PASS. 8 stat lines + 8 double-doubles in `prediction_history`. Pending rows on the scorecard. |
+| Post-game through 10-27 | done | +4 finals. Winners 2/4. Picks 4/8 vs 58.5%. Double-doubles 3/8 vs 41.0%. Roster +1 (Enrique Freeman, MIN). |
+| Slate 2026-10-27 | done | 4 games. Guardrail PASS. 8 stat lines + 8 double-doubles in `prediction_history`. Graded in the row above. |
 | Post-game through 10-26 | done | +9 finals ingested; all 9 simulated games graded. Winners 7/9. Picks 6/8 (75.0%) vs 61.5% claimed. Season 60.5% / 53.6%. |
 | Slate 2026-10-26 | done | 9 games simulated. Guardrail PASS. Typical replays in `results/typical/`. Graded in the post-game row above. |
 | Post-game through 10-25 | done | +7 finals ingested; 4 simulated games graded (ORL@NYK, TOR@MIN, LAC@OKC were not simmed). Picks 10/19 vs 42.8% claimed. Season picks 59.5% / 53.0%. |
@@ -690,6 +691,14 @@ Hold-check 250g × 200r seed 1 (`results/backtest/stl_credit_{before,after}/`):
 | PTS / REB / AST MAE | flat | flat |
 | STL MAE | 0.714 | **0.712** |
 | 10–90 coverage | 0.833 | 0.833 |
+
+## Post-game through 2026-10-27
+
+- Ingested **4** finals (10-27). Roster refresh **+1 / −0**: Enrique Freeman added to MIN (522 players).
+- Graded all 4 simulated games. Winners 2/4. Night total bias **−16.00**. Season bias **−4.85** (53 games).
+- Confident picks 4/8 (50.0%) vs 58.5% claimed. Double-doubles 3/8 (37.5%) vs 41.0% claimed P(DD).
+- Night reconcile vs box scores: MIN −2.4%. Flags: PTS −6.6%, REB +3.4%, AST −11.1%, STL +34.6%, BLK +9.2%, TOV +9.5%.
+- Scorecard: `results/season_scorecard.md`. Storage **11.80 MiB / 2 GB**.
 
 ## Slate 2026-10-27
 

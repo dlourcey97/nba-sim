@@ -6,40 +6,32 @@ Graded from `prediction_history` after finals. No sportsbook lines or odds.
 
 | Metric | Value |
 | --- | ---: |
-| Games graded | 49 |
-| Winner accuracy | 67.3% |
-| Spread MAE (margin) | 11.30 |
-| Total MAE | 16.67 |
-| Player MIN MAE | 7.11 |
-| Player PTS MAE | 5.28 |
-| 10–90 coverage (player stats) | 80.2% |
-| Top confident picks hit rate | 60.5% (72/119) |
-| Top picks avg claimed confidence | 53.6% |
-| Total bias (pred − actual) | -3.94 |
+| Games graded | 53 |
+| Winner accuracy | 66.0% |
+| Spread MAE (margin) | 11.48 |
+| Total MAE | 16.77 |
+| Player MIN MAE | 6.99 |
+| Player PTS MAE | 5.24 |
+| 10–90 coverage (player stats) | 80.9% |
+| Top confident picks hit rate | 59.8% (76/127) |
+| Top picks avg claimed confidence | 53.9% |
+| Double-double hit rate | 37.5% (3/8) |
+| Double-double avg claimed P(DD) | 41.0% |
+| Total bias (pred − actual) | -4.85 |
 
 ## Per night
 
-| Date | Games | Winner | Spread MAE | Total MAE | Total bias | MIN | PTS | REB | AST | STL | BLK | 10–90 | Picks | Claimed |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 2026-10-20 | 3 | 33.3% | 10.00 | 21.67 | 10.33 | 5.30 | 5.49 | 2.21 | 1.58 | 0.53 | 0.63 | 76.0% | n/a | — |
-| 2026-10-21 | 11 | 63.6% | 18.18 | 14.55 | 4.91 | 7.96 | 5.47 | 2.05 | 1.41 | 0.76 | 0.37 | 77.5% | 5/8 (62.5%) | 61.0% |
-| 2026-10-22 | 2 | 50.0% | 9.50 | 25.50 | 25.50 | 7.40 | 4.07 | 2.56 | 1.22 | 0.80 | 0.42 | 85.6% | 14/23 (60.9%) | 61.4% |
-| 2026-10-23 | 12 | 58.3% | 12.29 | 13.58 | -4.75 | 7.50 | 5.23 | 2.19 | 1.29 | 0.65 | 0.44 | 77.8% | 21/31 (67.7%) | 57.6% |
-| 2026-10-24 | 8 | 75.0% | 6.75 | 24.31 | -24.31 | 6.82 | 5.87 | 2.23 | 1.52 | 0.61 | 0.46 | 82.2% | 16/30 (53.3%) | 46.3% |
-| 2026-10-25 | 4 | 100.0% | 8.00 | 16.12 | -6.62 | 7.15 | 5.75 | 2.43 | 1.33 | 0.70 | 0.49 | 80.5% | 10/19 (52.6%) | 42.8% |
-| 2026-10-26 | 9 | 77.8% | 7.89 | 13.22 | -5.67 | 6.34 | 4.70 | 2.16 | 1.21 | 0.58 | 0.48 | 85.3% | 6/8 (75.0%) | 61.5% |
-| Season | 49 | 67.3% | 11.30 | 16.67 | -3.94 | 7.11 | 5.28 | 2.19 | 1.35 | 0.66 | 0.45 | 80.2% | 72/119 (60.5%) | 53.6% |
-
-## Pending predictions
-
-Simulated games with no final yet. These rows are not in the graded totals.
-
-| Date | Matchup | Winner | Win % | Median score | Spread | Total |
-| --- | --- | --- | ---: | --- | --- | ---: |
-| 2026-10-27 | BKN @ BOS | BOS | 87.8% | BKN 98–BOS 124 | BOS by 26 | 223.0 |
-| 2026-10-27 | DET @ NYK | DET | 52.6% | DET 107–NYK 105 | DET by 2 | 212.0 |
-| 2026-10-27 | SAC @ SAS | SAS | 90.1% | SAC 99–SAS 127 | SAS by 28 | 226.0 |
-| 2026-10-27 | POR @ LAL | LAL | 60.1% | POR 112–LAL 118 | LAL by 6 | 230.0 |
+| Date | Games | Winner | Spread MAE | Total MAE | Total bias | MIN | PTS | REB | AST | STL | BLK | 10–90 | Picks | Claimed | DD | DD claimed |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 2026-10-20 | 3 | 33.3% | 10.00 | 21.67 | 10.33 | 5.30 | 5.49 | 2.21 | 1.58 | 0.53 | 0.63 | 76.0% | n/a | — | n/a | — |
+| 2026-10-21 | 11 | 63.6% | 18.18 | 14.55 | 4.91 | 7.96 | 5.47 | 2.05 | 1.41 | 0.76 | 0.37 | 77.5% | 5/8 (62.5%) | 61.0% | n/a | — |
+| 2026-10-22 | 2 | 50.0% | 9.50 | 25.50 | 25.50 | 7.40 | 4.07 | 2.56 | 1.22 | 0.80 | 0.42 | 85.6% | 14/23 (60.9%) | 61.4% | n/a | — |
+| 2026-10-23 | 12 | 58.3% | 12.29 | 13.58 | -4.75 | 7.50 | 5.23 | 2.19 | 1.29 | 0.65 | 0.44 | 77.8% | 21/31 (67.7%) | 57.6% | n/a | — |
+| 2026-10-24 | 8 | 75.0% | 6.75 | 24.31 | -24.31 | 6.82 | 5.87 | 2.23 | 1.52 | 0.61 | 0.46 | 82.2% | 16/30 (53.3%) | 46.3% | n/a | — |
+| 2026-10-25 | 4 | 100.0% | 8.00 | 16.12 | -6.62 | 7.15 | 5.75 | 2.43 | 1.33 | 0.70 | 0.49 | 80.5% | 10/19 (52.6%) | 42.8% | n/a | — |
+| 2026-10-26 | 9 | 77.8% | 7.89 | 13.22 | -5.67 | 6.34 | 4.70 | 2.16 | 1.21 | 0.58 | 0.48 | 85.3% | 6/8 (75.0%) | 61.5% | n/a | — |
+| 2026-10-27 | 4 | 50.0% | 13.75 | 18.00 | -16.00 | 5.52 | 4.77 | 1.66 | 1.24 | 0.63 | 0.35 | 88.7% | 4/8 (50.0%) | 58.5% | 3/8 (37.5%) | 41.0% |
+| Season | 53 | 66.0% | 11.48 | 16.77 | -4.85 | 6.99 | 5.24 | 2.15 | 1.34 | 0.66 | 0.44 | 80.9% | 76/127 (59.8%) | 53.9% | 3/8 (37.5%) | 41.0% |
 
 ## Notes
 
@@ -1502,3 +1494,154 @@ Simulated games with no final yet. These rows are not in the graded totals.
 | Will Richard | GSW | 15.5/3 | 4.0/0 | 1.0/0 | 1.0/0 | 0.0/0 | 0.0/0 | MIN |
 | Charles Bassey | GSW | 0.0/2 | 0.0/0 | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | all |
 | Malevy Leons | GSW | 0.0/3 | 0.0/0 | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | all |
+
+## 2026-10-27
+
+| Metric | Value |
+| --- | ---: |
+| Games graded | 4 |
+| Winner accuracy | 50.0% |
+| Spread MAE | 13.75 |
+| Total MAE | 18.00 |
+| MIN MAE | 5.52 |
+| PTS MAE | 4.77 |
+| REB MAE | 1.66 |
+| AST MAE | 1.24 |
+| 10–90 coverage | 88.7% |
+| Top picks hit rate | 50.0% (4/8) |
+| Top picks avg claimed confidence | 58.5% |
+| Double-double hit rate | 37.5% (3/8) |
+| Double-double avg claimed P(DD) | 41.0% |
+
+### Games
+
+| Matchup | Pred winner | Actual | Hit | Pred score | Actual score | Pred margin | Act margin | Pred total | Act total |
+| --- | --- | --- | --- | --- | --- | ---: | ---: | ---: | ---: |
+| BKN@BOS | BOS (88%) | BOS | Y | BKN 98 – BOS 124 | BKN 124 – BOS 125 | +26.0 | +1.0 | 223.0 | 249.0 |
+| DET@NYK | DET (53%) | NYK | N | DET 107 – NYK 105 | DET 97 – NYK 111 | -2.0 | +14.0 | 212.0 | 208.0 |
+| SAC@SAS | SAS (90%) | SAS | Y | SAC 99 – SAS 127 | SAC 103 – SAS 130 | +28.0 | +27.0 | 226.0 | 233.0 |
+| POR@LAL | LAL (60%) | POR | N | POR 112 – LAL 118 | POR 136 – LAL 129 | +6.0 | -7.0 | 230.0 | 265.0 |
+
+### Top confident picks
+
+| Player | Matchup | Stat | Range | Actual | Hit |
+| --- | --- | --- | --- | ---: | --- |
+| Josh Hart | NYK vs DET | AST | 2-6 | 4 | Y |
+| Jalen Brunson | NYK vs DET | AST | 3-7 | 7 | Y |
+| Jayson Tatum | BOS vs BKN | AST | 2-6 | 8 | N |
+| Domantas Sabonis | SAC vs SAS | AST | 2-6 | 8 | N |
+| Cade Cunningham | DET vs NYK | REB | 3-7 | 9 | N |
+| Jrue Holiday | POR vs LAL | AST | 2-6 | 3 | Y |
+| Deni Avdija | POR vs LAL | AST | 3-7 | 9 | N |
+| De'Aaron Fox | SAS vs SAC | AST | 3-7 | 6 | Y |
+
+### Double-doubles
+
+| Player | Matchup | Pair | Claimed | Hit |
+| --- | --- | --- | ---: | --- |
+| Karl-Anthony Towns | NYK vs DET | PTS+REB | 62.4% | Y |
+| Victor Wembanyama | SAS vs SAC | PTS+REB | 60.6% | Y |
+| Domantas Sabonis | SAC vs SAS | PTS+REB | 56.8% | Y |
+| Walker Kessler | LAL vs POR | PTS+REB | 39.7% | N |
+| Luka Dončić | LAL vs POR | PTS+AST | 30.9% | N |
+| Cade Cunningham | DET vs NYK | PTS+AST | 26.7% | N |
+| Jayson Tatum | BOS vs BKN | PTS+REB | 26.3% | N |
+| Josh Hart | NYK vs DET | PTS+REB | 24.4% | N |
+
+### Player grades (MIN / PTS / REB / AST / STL / BLK)
+
+| Player | Team | MIN pred/act | PTS | REB | AST | STL | BLK | in 10–90 (any miss listed) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Luka Dončić | LAL | 33.1/37 | 21.0/41 | 6.0/5 | 6.0/9 | 1.0/0 | 0.0/1 | PTS |
+| Jayson Tatum | BOS | 30.4/42 | 16.0/40 | 7.0/5 | 4.0/8 | 1.0/0 | 0.0/1 | MIN,PTS |
+| Victor Wembanyama | SAS | 30.4/27 | 20.0/29 | 12.0/10 | 3.0/2 | 1.0/2 | 1.0/5 | BLK |
+| Michael Porter Jr. | BKN | 24.3/40 | 11.0/27 | 5.0/12 | 1.0/2 | 1.0/0 | 0.0/2 | MIN,REB,BLK |
+| Karl-Anthony Towns | NYK | 31.1/33 | 18.0/27 | 13.0/20 | 2.0/3 | 1.0/0 | 0.0/0 | all |
+| Julian Champagnie | SAS | 26.5/25 | 9.0/26 | 4.0/3 | 2.0/3 | 1.0/0 | 0.0/0 | PTS |
+| Austin Reaves | LAL | 34.1/39 | 17.0/26 | 3.0/4 | 5.0/7 | 1.0/0 | 0.0/0 | all |
+| Julius Randle | BKN | 26.2/44 | 12.0/24 | 4.0/9 | 2.0/4 | 0.0/2 | 0.0/0 | MIN |
+| De'Andre Hunter | SAC | 24.5/33 | 9.0/24 | 3.0/6 | 1.0/2 | 0.0/1 | 0.0/1 | MIN,PTS |
+| Jalen Brunson | NYK | 35.1/36 | 17.0/23 | 2.0/1 | 5.0/7 | 1.0/0 | 0.0/0 | all |
+| Deni Avdija | POR | 29.6/33 | 15.0/23 | 5.0/4 | 5.0/9 | 1.0/1 | 0.0/0 | all |
+| Ja Morant | POR | 24.3/31 | 13.0/23 | 2.0/0 | 4.0/4 | 1.0/0 | 0.0/0 | MIN |
+| Paul Reed | DET | 19.0/26 | 8.0/22 | 6.0/9 | 1.0/3 | 1.0/2 | 0.0/1 | MIN,PTS |
+| Zach LaVine | SAC | 32.5/31 | 15.0/22 | 2.0/3 | 2.0/3 | 1.0/0 | 0.0/0 | all |
+| Jrue Holiday | POR | 27.0/30 | 10.0/22 | 2.0/4 | 4.0/3 | 1.0/1 | 0.0/0 | all |
+| Damian Lillard | POR | 24.4/31 | 16.0/21 | 2.0/5 | 3.0/4 | 1.0/0 | 0.0/0 | MIN |
+| Paul George | BOS | 27.7/36 | 16.0/20 | 4.0/7 | 2.0/7 | 1.0/2 | 0.0/0 | MIN,AST |
+| Domantas Sabonis | SAC | 31.3/37 | 13.0/20 | 13.0/14 | 4.0/8 | 1.0/0 | 0.0/0 | all |
+| Cade Cunningham | DET | 32.3/36 | 19.0/19 | 5.0/9 | 7.0/8 | 1.0/0 | 0.0/1 | all |
+| Darius Acuff Jr. | SAC | 33.8/33 | 14.0/19 | 2.0/3 | 3.0/5 | 1.0/0 | 0.0/0 | all |
+| Mikel Brown Jr. | BKN | 17.8/28 | 3.0/17 | 1.0/5 | 2.0/5 | 0.0/0 | 0.0/0 | MIN,PTS,REB |
+| Sandro Mamukelashvili | LAL | 18.7/24 | 7.0/17 | 4.0/4 | 1.0/2 | 0.0/0 | 0.0/1 | all |
+| Derrick White | BOS | 27.1/33 | 15.0/16 | 3.0/5 | 5.0/7 | 1.0/0 | 0.0/0 | all |
+| Jordan Walsh | BOS | 16.2/24 | 4.0/15 | 3.0/6 | 1.0/1 | 0.0/1 | 0.0/0 | MIN,PTS |
+| Nolan Traore | BKN | 19.4/24 | 6.0/15 | 1.0/1 | 2.0/3 | 0.0/2 | 0.0/0 | all |
+| Chaney Johnson | BKN | 18.1/29 | 5.0/15 | 4.0/3 | 1.0/2 | 0.0/1 | 0.0/0 | MIN |
+| Moritz Wagner | BKN | 9.8/22 | 3.0/15 | 2.0/4 | 0.0/3 | 0.0/2 | 0.0/0 | MIN,AST |
+| Stephon Castle | SAS | 27.8/27 | 14.0/15 | 4.0/5 | 6.0/5 | 1.0/1 | 0.0/0 | all |
+| Devin Vassell | SAS | 31.3/24 | 11.0/14 | 3.0/4 | 3.0/8 | 1.0/1 | 0.0/0 | MIN,AST |
+| Keldon Johnson | SAS | 20.1/22 | 9.0/14 | 4.0/4 | 1.0/0 | 0.0/0 | 0.0/0 | all |
+| Robert Williams III | POR | 17.9/21 | 6.0/14 | 7.0/10 | 1.0/1 | 0.0/2 | 1.0/1 | all |
+| OG Anunoby | NYK | 33.7/36 | 12.0/13 | 4.0/7 | 2.0/2 | 1.0/2 | 0.0/2 | all |
+| Landry Shamet | NYK | 22.1/28 | 6.0/13 | 1.0/2 | 1.0/3 | 0.0/0 | 0.0/0 | MIN |
+| Dylan Harper | SAS | 28.8/30 | 13.0/13 | 4.0/6 | 4.0/6 | 1.0/2 | 0.0/0 | all |
+| Walker Kessler | LAL | 29.0/33 | 10.0/13 | 10.0/8 | 1.0/0 | 1.0/1 | 1.0/2 | all |
+| Mikal Bridges | NYK | 31.0/32 | 9.0/12 | 2.0/3 | 3.0/4 | 1.0/1 | 0.0/0 | all |
+| Duncan Robinson | DET | 26.9/33 | 11.0/12 | 2.0/0 | 2.0/2 | 1.0/1 | 0.0/1 | all |
+| Toumani Camara | POR | 25.9/24 | 8.0/12 | 3.0/1 | 2.0/1 | 1.0/1 | 0.0/0 | all |
+| Sam Hauser | BOS | 20.6/25 | 7.0/11 | 2.0/4 | 1.0/0 | 0.0/0 | 0.0/0 | all |
+| Daniss Jenkins | DET | 27.9/24 | 10.0/11 | 3.0/3 | 4.0/2 | 1.0/0 | 0.0/0 | all |
+| Ausar Thompson | DET | 18.6/25 | 4.0/11 | 3.0/6 | 1.0/2 | 0.0/2 | 0.0/1 | all |
+| De'Aaron Fox | SAS | 29.3/26 | 14.0/11 | 3.0/4 | 5.0/6 | 1.0/0 | 0.0/0 | all |
+| Ziaire Williams | LAL | 26.2/29 | 10.0/11 | 3.0/2 | 1.0/4 | 1.0/2 | 0.0/0 | AST |
+| Andre Drummond | NYK | 8.5/14 | 2.0/10 | 4.0/8 | 0.0/1 | 0.0/0 | 0.0/0 | all |
+| Collin Sexton | LAL | 21.4/14 | 11.0/9 | 1.0/1 | 2.0/4 | 1.0/0 | 0.0/0 | all |
+| Donovan Clingan | POR | 20.2/26 | 8.0/9 | 10.0/10 | 2.0/1 | 0.0/0 | 1.0/1 | MIN |
+| Neemias Queta | BOS | 20.9/15 | 8.0/7 | 6.0/3 | 1.0/2 | 0.0/0 | 0.0/0 | all |
+| Mitchell Robinson | BOS | 20.4/25 | 7.0/7 | 8.0/5 | 0.0/0 | 1.0/1 | 0.0/0 | all |
+| Kevin Huerter | DET | 17.8/16 | 6.0/7 | 2.0/1 | 1.0/0 | 0.0/1 | 0.0/1 | all |
+| Josh Hart | NYK | 33.4/27 | 9.0/6 | 8.0/4 | 4.0/4 | 1.0/5 | 0.0/0 | STL |
+| Sidy Cissoko | POR | 17.4/20 | 4.0/6 | 2.0/2 | 2.0/4 | 0.0/0 | 0.0/0 | all |
+| Miles McBride | NYK | 17.4/17 | 5.0/5 | 1.0/1 | 1.0/1 | 0.0/0 | 0.0/0 | all |
+| Emanuel Sharp | SAC | 15.0/20 | 3.0/5 | 0.0/0 | 0.0/2 | 0.0/0 | 0.0/0 | MIN,AST |
+| Matisse Thybulle | LAL | 20.9/22 | 5.0/5 | 2.0/2 | 1.0/1 | 1.0/0 | 0.0/0 | all |
+| Jake LaRavia | LAL | 14.6/19 | 4.0/5 | 2.0/1 | 1.0/1 | 0.0/3 | 0.0/0 | MIN,STL |
+| Payton Pritchard | BOS | 26.3/24 | 12.0/4 | 2.0/2 | 3.0/6 | 1.0/0 | 0.0/1 | all |
+| Day'Ron Sharpe | BKN | 17.8/17 | 6.0/4 | 6.0/6 | 1.0/0 | 0.0/1 | 0.0/1 | all |
+| Ronald Holland II | DET | 15.0/12 | 5.0/4 | 3.0/3 | 1.0/2 | 0.0/0 | 0.0/2 | BLK |
+| Tarris Reed Jr. | SAS | 0.5/5 | 0.0/4 | 0.0/5 | 0.0/0 | 0.0/0 | 0.0/0 | all |
+| Precious Achiuwa | SAC | 30.6/14 | 8.0/4 | 8.0/1 | 1.0/0 | 1.0/0 | 0.0/0 | MIN,REB |
+| Vít Krejčí | POR | 0.0/7 | 0.0/4 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | MIN,PTS |
+| Baylor Scheierman | BOS | 16.0/21 | 4.0/3 | 2.0/4 | 1.0/1 | 0.0/1 | 0.0/0 | MIN |
+| Noah Clowney | BKN | 19.4/24 | 6.0/3 | 3.0/4 | 1.0/1 | 0.0/0 | 0.0/2 | BLK |
+| Taurean Prince | DET | 29.2/7 | 8.0/3 | 3.0/0 | 1.0/0 | 1.0/2 | 0.0/0 | MIN |
+| Javonte Green | DET | 15.0/17 | 4.0/3 | 2.0/1 | 0.0/0 | 0.0/0 | 0.0/1 | all |
+| Harrison Barnes | SAS | 20.2/14 | 9.0/3 | 2.0/0 | 1.0/0 | 0.0/0 | 0.0/0 | all |
+| Malik Monk | SAC | 11.5/13 | 4.0/3 | 0.0/2 | 1.0/6 | 0.0/0 | 0.0/0 | AST |
+| Luka Garza | BOS | 9.9/13 | 6.0/2 | 2.0/4 | 0.0/0 | 0.0/0 | 0.0/0 | all |
+| Egor Dëmin | BKN | 21.7/10 | 6.0/2 | 2.0/1 | 2.0/2 | 1.0/1 | 0.0/0 | MIN |
+| Keon Ellis | BKN | 19.4/25 | 5.0/2 | 1.0/3 | 1.0/4 | 1.0/0 | 0.0/2 | AST,BLK |
+| Tyler Kolek | NYK | 8.3/11 | 2.0/2 | 1.0/1 | 1.0/3 | 0.0/2 | 0.0/0 | STL |
+| John Collins | DET | 26.5/27 | 12.0/2 | 7.0/9 | 1.0/1 | 1.0/0 | 0.0/3 | BLK |
+| Chaz Lanier | DET | 0.0/2 | 0.0/2 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | PTS |
+| Nique Clifford | SAC | 21.3/5 | 5.0/2 | 2.0/0 | 2.0/0 | 0.0/0 | 0.0/0 | MIN |
+| Leaky Black | SAC | 14.9/8 | 2.0/2 | 2.0/1 | 0.0/1 | 0.0/1 | 0.0/1 | all |
+| Jonathan Mogbo | SAC | 8.6/18 | 2.0/2 | 2.0/5 | 0.0/0 | 0.0/1 | 0.0/1 | MIN |
+| Quentin Grimes | LAL | 22.4/19 | 8.0/2 | 2.0/4 | 2.0/0 | 1.0/0 | 0.0/0 | all |
+| Scoot Henderson | POR | 14.0/17 | 4.0/2 | 0.0/2 | 1.0/3 | 0.0/0 | 0.0/0 | all |
+| Tolu Smith | DET | 0.0/6 | 0.0/1 | 0.0/4 | 0.0/0 | 0.0/0 | 0.0/0 | MIN,PTS |
+| Carter Bryant | SAS | 7.8/17 | 3.0/1 | 1.0/1 | 0.0/2 | 0.0/0 | 0.0/1 | MIN |
+| Hugo González | BOS | 10.4/6 | 2.0/0 | 1.0/2 | 0.0/0 | 0.0/0 | 0.0/0 | all |
+| James Wiseman | NYK | 7.8/1 | 2.0/0 | 1.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | all |
+| Mohamed Diawara | NYK | 0.4/1 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | all |
+| Pacôme Dadiet | NYK | 0.3/1 | 0.0/0 | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | all |
+| Jaden Akins | NYK | 0.1/2 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | all |
+| Elijah Harkless | DET | 21.8/3 | 3.0/0 | 1.0/0 | 1.0/0 | 0.0/0 | 0.0/0 | all |
+| Ebuka Okorie | DET | 0.0/4 | 0.0/0 | 0.0/0 | 0.0/2 | 0.0/0 | 0.0/0 | MIN,AST |
+| Isaac Jones | DET | 0.0/3 | 0.0/0 | 0.0/0 | 0.0/1 | 0.0/0 | 0.0/0 | AST |
+| Luke Kornet | SAS | 12.9/17 | 4.0/0 | 4.0/4 | 1.0/1 | 0.0/0 | 0.0/0 | all |
+| Jordan McLaughlin | SAS | 0.5/7 | 0.0/0 | 0.0/0 | 0.0/2 | 0.0/1 | 0.0/0 | MIN,AST,STL |
+| Daeqwon Plowden | SAC | 21.5/17 | 7.0/0 | 2.0/2 | 1.0/0 | 0.0/1 | 0.0/0 | all |
+| Alex Karaban | SAC | 0.4/11 | 0.0/0 | 0.0/1 | 0.0/1 | 0.0/0 | 0.0/0 | MIN,AST |
+| Kevon Looney | LAL | 8.3/5 | 0.0/0 | 2.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | all |
