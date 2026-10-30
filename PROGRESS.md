@@ -1,6 +1,6 @@
 # Progress
 
-Last updated 2026-10-30 — Current engine, 2025-26, 1,000 sims: 42.0 minutes, Brier 0.2135. The 2024-25 holdout is running.
+Last updated 2026-10-30 — 2024-25 holdout at 1,000 sims: Brier 0.2158, 38.0 minutes. Referees re-judge is running.
 
 | Phase | Status | Notes |
 | --- | --- | --- |
@@ -16,7 +16,7 @@ Last updated 2026-10-30 — Current engine, 2025-26, 1,000 sims: 42.0 minutes, B
 | External RAPM (nbarapm.com) | done | Weekly fetch + leakage-safe load; full 2025-26 WF kept (Brier/winner ↑). Credit nbarapm.com. |
 | BBall Index | reverted | Personal fetch kept. Roles, defense, play-type PPP, and matchup assignment all failed the 2025-26 WF keep bar. Credit bball-index.com. |
 | Referee crews | reverted | Assignments + box-score crews stored. Reconcile PASS. Full 2025-26 WF: total MAE better, Brier and spread MAE worse. `referees_enabled: false`. Credit NBA.com. |
-| Decision rule | in progress | 2025-26 current engine at 1,000 sims: 42.0 min, Brier 0.2135. Holdout next. |
+| Decision rule | in progress | 2025-26 baseline 42.0 min, Brier 0.2135. Holdout 2024-25: 38.0 min, Brier 0.2158. Referees re-judge started. |
 | Starter STL share fix | done | `stl_credit_raw_weight: 0.30` who-gets-steal blend; mid reconcile PASS (−2.7%); WF held. |
 | Post-game through 10-24 | done | +8 finals; 36 games graded; picks 60.9% hit vs 55.2% claimed. |
 | Reconcile fix (guardrail/MIN/TOV) | done | Any ±3% flag blocks slate; sim MIN=240; early TOV −2.9%; mid guardrail PASS. |
@@ -48,6 +48,18 @@ Games are projected in schedule order and simulated on all four logical cores, w
 | Sim vs actual PPG | 113.95 vs 115.09 | bias −1.14 |
 
 These intervals are on the metric itself. Paired intervals start with the next comparison. Rows are in `results/backtest/wf_2025_26_current_1000/`.
+
+Current engine on the 2024-25 holdout, 1,313 games, same protocol: **38.0 minutes** (2,279s). This season is reported only. It is not used to pick a feature.
+
+| Metric | 2025-26 | 2024-25 holdout |
+| --- | --- | --- |
+| Brier | 0.2135 (0.2057–0.2211) | 0.2158 (0.2075–0.2241) |
+| Winner | 66.59% | 65.19% |
+| Spread MAE | 12.00 (11.50–12.52) | 11.74 (11.26–12.25) |
+| Total MAE | 15.91 (15.26–16.59) | 17.31 (16.61–18.00) |
+| PTS / REB / AST MAE | 5.233 / 2.091 / 1.405 | 5.341 / 2.185 / 1.413 |
+| Coverage 10–90 | 0.816 | 0.790 |
+| Sim vs actual PPG | 113.95 vs 115.09 (−1.14) | 108.28 vs 113.50 (−5.22) |
 
 Historical injury reports are on the NBA CDN. `Injury-Report_2025-01-15_05PM.pdf` returned the PDF. The minute-stamped key `05_30PM` returned 403, and the 2024-25 index page redirects to the current season page. The getter still rewrites hour-only stamps to `HH_00PM`, so it would miss these files. Tip-off times are not in the stored schedule, so no season archive has been downloaded and walk-forward still uses an empty injury list. Waiting for approval before the crawl: store each game's tip-off, then keep the latest report whose clock time is before that tip. A stand-in based on players who missed the previous game is not in use.
 
