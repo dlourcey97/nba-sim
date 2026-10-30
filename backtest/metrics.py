@@ -32,6 +32,8 @@ class MetricReport:
     mae_stl: float = float("nan")
     mae_blk: float = float("nan")
     mae_tov: float = float("nan")
+    # Per-game rows for the bootstrap. Not part of the JSON metrics summary.
+    game_rows: list | None = None
 
     def as_dict(self) -> dict:
         return {

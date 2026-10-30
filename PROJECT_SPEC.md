@@ -76,6 +76,8 @@ History: append summaries to the prediction history Parquet table.
 - Walk-forward evaluation using only data available before each game (no future data leakage).
 - Metrics: calibration plots (predicted probability vs actual frequency), MAE for player stats, Brier score for win probability, and percentile coverage (about 80% of actual results should land inside the 10th-90th percentile band).
 - A tuning script that optimizes the config.yaml blend parameters against historical prediction-vs-actual results.
+- 2024-25 is a holdout season. Do not tune on it and do not use it to choose a feature.
+- Every keep/revert decision uses the full season, at least 1,000 simulations per game, the same seed on both sides, and a paired game-level bootstrap of the difference in Brier, spread MAE, and total MAE. A change counts as a win or a loss only when the 95% interval on that difference excludes zero. Confirm the same call on the 2024-25 holdout. Run these overnight. Save the per-game win probability, margin, and total beside the metrics. Do not save individual simulation draws.
 
 == COMMANDS ==
 python backfill.py --seasons 2015-2025   (one-time, rate-limited, resumable if interrupted)

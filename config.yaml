@@ -7,6 +7,9 @@ storage:
 season:
   # Nightly incremental and upsert writes are limited to this season.
   current: "2026-27"
+  # Holdout. backtest/tune.py refuses this season. Decision runs report it
+  # and do not use it to choose a feature.
+  holdout: "2024-25"
 
 http:
   max_retries: 5

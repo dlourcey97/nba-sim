@@ -20,6 +20,8 @@ from nba_sim.errors import NbaSimError
 from nba_sim.settings import load_settings
 from nba_sim.storage import finish_run
 
+HOLDOUT_SEASON = "2024-25"
+
 
 def score_report(report) -> float:
     """Lower is better. Optimize calibration, not MAE alone.
@@ -83,6 +85,12 @@ def main(argv: list[str] | None = None) -> int:
     try:
         settings = load_settings()
         seasons = parse_seasons(args.seasons)
+        if HOLDOUT_SEASON in seasons:
+            print(
+                f"{HOLDOUT_SEASON} is the holdout season and cannot be used for tuning.",
+                file=sys.stderr,
+            )
+            return 2
         base = copy.deepcopy(settings.config)
         trials = []
         best_score = 1e9

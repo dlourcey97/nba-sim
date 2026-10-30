@@ -1,6 +1,6 @@
 # Progress
 
-Last updated 2026-10-30 — Referee crews fetched and left out of the sim. 2025-26 walk-forward Brier and spread MAE missed the RAPM-on baseline. Fetch stays on.
+Last updated 2026-10-30 — Decision runs now require 1,000 sims, a 2024-25 holdout, and a paired bootstrap. Parallel backtests match serial output. Historical injury PDFs exist; they are not in the sim yet.
 
 | Phase | Status | Notes |
 | --- | --- | --- |
@@ -16,6 +16,7 @@ Last updated 2026-10-30 — Referee crews fetched and left out of the sim. 2025-
 | External RAPM (nbarapm.com) | done | Weekly fetch + leakage-safe load; full 2025-26 WF kept (Brier/winner ↑). Credit nbarapm.com. |
 | BBall Index | reverted | Personal fetch kept. Roles, defense, play-type PPP, and matchup assignment all failed the 2025-26 WF keep bar. Credit bball-index.com. |
 | Referee crews | reverted | Assignments + box-score crews stored. Reconcile PASS. Full 2025-26 WF: total MAE better, Brier and spread MAE worse. `referees_enabled: false`. Credit NBA.com. |
+| Decision rule | in progress | 2024-25 holdout. Full season, ≥1,000 sims, paired bootstrap. Current-engine 2025-26 run started. |
 | Starter STL share fix | done | `stl_credit_raw_weight: 0.30` who-gets-steal blend; mid reconcile PASS (−2.7%); WF held. |
 | Post-game through 10-24 | done | +8 finals; 36 games graded; picks 60.9% hit vs 55.2% claimed. |
 | Reconcile fix (guardrail/MIN/TOV) | done | Any ±3% flag blocks slate; sim MIN=240; early TOV −2.9%; mid guardrail PASS. |
@@ -28,6 +29,16 @@ Last updated 2026-10-30 — Referee crews fetched and left out of the sim. 2025-
 | Follow-up 2: coverage ~0.80 | done | shoot/usage/pace SDs tightened (caps bite below shoot_sd 0.40); PTS 10–90 **0.803**. |
 | Early-season blend fix | done | `season_reliability_games: 20` — 1-game season no longer takes full 0.40 weight. |
 | Post-game through 10-24 | done | +8 finals (36g); picks 60.9% / 55.2% claimed. |
+
+## Decision runs (2026-10-30)
+
+Keep/revert calls now follow the rule in PROJECT_SPEC: full season, at least 1,000 simulations per game, same seed on both sides, 2024-25 held out of tuning, and a paired game-level bootstrap. A Brier, spread MAE, or total MAE change counts only when the 95% interval on the paired difference excludes zero. `backtest/tune.py` exits 2 if asked to tune 2024-25. Each evaluation writes `games.parquet` (win probability, margin, total) next to `metrics.json`. Individual simulation draws are not saved.
+
+Games are projected in schedule order and simulated on all four logical cores, with one BLAS thread per process. The possession sim was already vectorized across runs. A same-seed check on the first 50 games of 2025-26 (200 runs) matched serial and parallel on every per-game row and on the full metric report, including player MAE, coverage, and CRPS. Serial wall clock 272.9s; four workers 189.7s. The same check on 2 games at 1,000 runs also matched. Fifty games at 1,000 runs on four workers took 270.1s (5.40s per game). Scaling that rate to a 1,314-game season is 1 hour 58 minutes. That figure is an extrapolation; the full 2025-26 run that is underway is the measured season time.
+
+Historical injury reports are on the NBA CDN. `Injury-Report_2025-01-15_05PM.pdf` returned the PDF. The minute-stamped key `05_30PM` returned 403, and the 2024-25 index page redirects to the current season page. The getter still rewrites hour-only stamps to `HH_00PM`, so it would miss these files. Tip-off times are not in the stored schedule, so no season archive has been downloaded and walk-forward still uses an empty injury list. Waiting for approval before the crawl: store each game's tip-off, then keep the latest report whose clock time is before that tip. A stand-in based on players who missed the previous game is not in use.
+
+Approximations used: none. The per-season runtime above is an extrapolation from 50 games and is labeled as such.
 
 ## Reconcile fix — guardrail, 240 minutes, TOV (2026-10-24)
 
