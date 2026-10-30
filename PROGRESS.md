@@ -1,6 +1,6 @@
 # Progress
 
-Last updated 2026-10-30 — Re-judge queue is running through referees, play types, RAPM, Step F, minutes, and BBall Index. Historical injury PDFs are downloading and are not in the sim yet.
+Last updated 2026-10-30 — Referees at 1,000 sims are inside the noise, so the flag stays off. Play types is running.
 
 | Phase | Status | Notes |
 | --- | --- | --- |
@@ -16,7 +16,7 @@ Last updated 2026-10-30 — Re-judge queue is running through referees, play typ
 | External RAPM (nbarapm.com) | done | Weekly fetch + leakage-safe load; full 2025-26 WF kept (Brier/winner ↑). Credit nbarapm.com. |
 | BBall Index | reverted | Personal fetch kept. Roles, defense, play-type PPP, and matchup assignment all failed the 2025-26 WF keep bar. Credit bball-index.com. |
 | Referee crews | reverted | Assignments + box-score crews stored. Reconcile PASS. Full 2025-26 WF: total MAE better, Brier and spread MAE worse. `referees_enabled: false`. Credit NBA.com. |
-| Decision rule | in progress | 2025-26 baseline 42.0 min, Brier 0.2135. Holdout 2024-25: 38.0 min, Brier 0.2158. Referees re-judge started. |
+| Decision rule | in progress | Referees at 1,000 sims inside the noise (Brier −0.00003). Flag stays off. Play types running. |
 | Starter STL share fix | done | `stl_credit_raw_weight: 0.30` who-gets-steal blend; mid reconcile PASS (−2.7%); WF held. |
 | Post-game through 10-24 | done | +8 finals; 36 games graded; picks 60.9% hit vs 55.2% claimed. |
 | Reconcile fix (guardrail/MIN/TOV) | done | Any ±3% flag blocks slate; sim MIN=240; early TOV −2.9%; mid guardrail PASS. |
@@ -60,6 +60,8 @@ Current engine on the 2024-25 holdout, 1,313 games, same protocol: **38.0 minute
 | PTS / REB / AST MAE | 5.233 / 2.091 / 1.405 | 5.341 / 2.185 / 1.413 |
 | Coverage 10–90 | 0.816 | 0.790 |
 | Sim vs actual PPG | 113.95 vs 115.09 (−1.14) | 108.28 vs 113.50 (−5.22) |
+
+Referees on, 2025-26, 1,314 games, 45.2 minutes. Paired difference versus the current engine: Brier −0.00003 (−0.00096 to +0.00090), spread MAE +0.004 (−0.037 to +0.045), total MAE −0.003 (−0.042 to +0.035). All three intervals include zero, so `referees_enabled` stays false.
 
 Historical injury reports use hour-only names. `Injury-Report_2025-01-15_05PM.pdf` is a real PDF whose header says 5:30 PM. The minute-stamped key `05_30PM` returns 403, and the live getter rewrites hour-only stamps to `HH_00PM`, so it misses these files. The archive crawl reads the report clock and each game's tip from the PDF and keeps a player only when the report is strictly earlier. It is writing `external/injuries/` and the walk-forward still uses an empty injury list. A stand-in based on players who missed the previous game is not in use.
 
