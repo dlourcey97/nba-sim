@@ -138,6 +138,9 @@ def simulate_game(
         players, getattr(projection, "defender_fg3_factor", None) or {}
     )
     packed["position_code"] = _position_codes(players)
+    guard_share = _guard_share_array(players)
+    if np.any(np.isfinite(guard_share)):
+        packed["guard_share"] = guard_share
     packed["defender_impact_weight"] = float(
         (cfg.get("context") or {}).get("defender_impact_weight", 0.55)
     )
@@ -582,6 +585,17 @@ def _defender_factor_array(
     return out
 
 
+def _guard_share_array(players: list[PlayerProjection]) -> np.ndarray:
+    """Minutes spent guarding PG, SG, SF, PF, C. NaN when the player has no row."""
+    out = np.full((len(players), 5), np.nan, dtype=float)
+    for index, player in enumerate(players):
+        share = getattr(player, "guard_share", None)
+        if not share or len(share) != 5:
+            continue
+        out[index] = [float(value) for value in share]
+    return out
+
+
 def _primary_defender_slots(
     rng: np.random.Generator,
     *,
@@ -590,6 +604,7 @@ def _primary_defender_slots(
     user_slot: np.ndarray,
     position_code: np.ndarray,
     remaining: np.ndarray,
+    guard_share: np.ndarray | None = None,
 ) -> np.ndarray:
     """Pick a primary defender slot (0-4) for each active run."""
     n_runs = off_lineups.shape[0]
@@ -607,10 +622,39 @@ def _primary_defender_slots(
     weights = np.where(same, 1.0, weights)
     weights = np.where(adj & ~same, 0.55, weights)
     weights = np.where(known & ~same & ~adj, 0.20, weights)
+    if guard_share is not None:
+        weights = _blend_guard_share(weights, off_pos, def_lineups, guard_share)
     # Only sample for remaining runs; others stay 0.
     picks = _weighted_choice(rng, weights)
     out = np.where(remaining, picks, out)
     return out
+
+
+def _blend_guard_share(
+    affinity: np.ndarray,
+    off_pos: np.ndarray,
+    def_lineups: np.ndarray,
+    guard_share: np.ndarray,
+) -> np.ndarray:
+    """Blend position affinity with how often each defender actually guards that spot.
+
+    ``guard_share`` is (n_players, 5) in PG–C order. Missing rows stay on affinity.
+    """
+    known_pos = off_pos >= 0
+    pos = np.clip(off_pos, 0, 4)
+    shares = guard_share[def_lineups, pos[:, None]]
+    finite = np.isfinite(shares)
+    row_has = known_pos & finite.any(axis=1)
+    if not np.any(row_has):
+        return affinity
+    raw = np.where(finite, np.maximum(shares, 0.0), 0.0)
+    row_sum = raw.sum(axis=1, keepdims=True)
+    share_w = raw / np.maximum(row_sum, 1e-9)
+    aff_sum = affinity.sum(axis=1, keepdims=True)
+    aff_w = affinity / np.maximum(aff_sum, 1e-9)
+    # The observed matchup is the main weight. Affinity covers players with no row.
+    blended = 0.35 * aff_w + 0.65 * share_w
+    return np.where(row_has[:, None], blended, affinity)
 
 
 def _soft_normalize_minute_draws(
@@ -1104,6 +1148,7 @@ def _vector_possession(
             user_slot=user_slot,
             position_code=packed["position_code"],
             remaining=remaining,
+            guard_share=packed.get("guard_share"),
         )
         defenders = def_lineups[np.arange(n_runs), def_slots]
         is_three = zone_i >= 3

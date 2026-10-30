@@ -1,4 +1,7 @@
-# DATA_DIR and ARCHIVE_DIR are set in .env and must stay outside this repo.
+# DATA_DIR, ARCHIVE_DIR, and BBALL_INDEX_COOKIE live in .env.
+.env
+.env.*
+!.env.example
 # Keep data files and display output out of the editor index.
 DATA_DIR
 ARCHIVE_DIR

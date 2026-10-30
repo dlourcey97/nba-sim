@@ -1,6 +1,6 @@
 # Progress
 
-Last updated 2026-10-28 — Full 2026-10-28 slate (12 games, 10,000 runs). Reconcile guardrail PASS (80g, REB +0.4%). OKC @ DAL: OKC 55.5%, 107–104.
+Last updated 2026-10-29 — BBall Index fetch kept; four sim trials reverted (2025-26 WF winner accuracy down ~1 point). Flags off.
 
 | Phase | Status | Notes |
 | --- | --- | --- |
@@ -14,6 +14,7 @@ Last updated 2026-10-28 — Full 2026-10-28 slate (12 games, 10,000 runs). Recon
 | Early-season league env | done | Pace+PPG blend (early window only); 400g WF improves total MAE; 2026-27 bias holds. |
 | Synergy play-types | reverted | Ingest+schema kept; `play_types_enabled: false` — full 2025-26 WF hurt Brier/winner/spread. |
 | External RAPM (nbarapm.com) | done | Weekly fetch + leakage-safe load; full 2025-26 WF kept (Brier/winner ↑). Credit nbarapm.com. |
+| BBall Index | reverted | Personal fetch kept. Roles, defense, play-type PPP, and matchup assignment all failed the 2025-26 WF keep bar. Credit bball-index.com. |
 | Starter STL share fix | done | `stl_credit_raw_weight: 0.30` who-gets-steal blend; mid reconcile PASS (−2.7%); WF held. |
 | Post-game through 10-24 | done | +8 finals; 36 games graded; picks 60.9% hit vs 55.2% claimed. |
 | Reconcile fix (guardrail/MIN/TOV) | done | Any ±3% flag blocks slate; sim MIN=240; early TOV −2.9%; mid guardrail PASS. |
@@ -796,6 +797,26 @@ Tests: `tests/test_league_env.py`. Mid reconcile **PASS**.
 **2026-27 resim** (36g, live-anchor fix): OFF bias −2.63 / MAE 17.06; ON bias **−2.62** / MAE 17.35 (bias holds; MAE ≈noise). Hist graded bias −3.21 unchanged (history not rewritten).
 
 **Kept.** `league_env_enabled: true`.
+
+## BBall Index (2026-10-29) — REVERTED from sim
+
+Credit: **[Basketball Index](https://www.bball-index.com)** leaderboard (bball-index.com). Personal use only. The password is never stored; `.env` holds `BBALL_INDEX_COOKIE` and is gitignored. Raw responses are not saved.
+
+**Ingest (kept):** `ingest/bball_index.py` reads the same DataTables JSON the leaderboard requests, one table at a time, with a 3–5s gap. Compact parquet under `DATA_DIR/external/bballindex/` for roles, defense, play types, matchups, playmaking, and rebounding. 2024-25 is 567 players and 2025-26 is 578. 2026-27 is unpublished on the tool, stamped so `daily.py` does not ask again until the weekly window. A failed fetch keeps the last good file.
+
+**Leakage:** walk-forward of season S uses season S−1 only. The live current season may use its own weekly file when one exists.
+
+**Sim trials (all disabled):** mid-season reconcile (80g×80r, skip 400, seed 1) passed every trial. Full 2025-26 walk-forward (1314g×200r, seed 1) did not hold the RAPM-on baseline (Brier 0.214, winner 66.7%, spread MAE 12.07, total MAE 16.12).
+
+| Trial | Brier | Winner | Spread MAE | Total MAE |
+| --- | ---: | ---: | ---: | ---: |
+| Baseline | **0.214** | **66.7%** | **12.07** | 16.12 |
+| Offense position replaces G/F/C | 0.216 | 65.4% | 12.10 | 16.05 |
+| Perimeter / interior defense on FG% | 0.216 | 65.4% | 12.10 | 16.05 |
+| Play-type PPP, weight 0.10 | 0.215 | 65.1% | 12.11 | **16.04** |
+| Who guards each position | 0.217 | 65.6% | 12.09 | **16.02** |
+
+Team scoring barely moved. Winner accuracy dropped about a point each time, which is a close-game reshuffle rather than a better shooting model. The box score already carries make rates. These grades are process (creation, matchup, rebounding skill). Using them as another FG% factor, or as a hard position swap, did not help. Flags stay off: `bball_roles_enabled`, `bball_defense_enabled`, `bball_play_types_enabled`, `bball_matchups_enabled`. The fetch stays on.
 
 ## Synergy play-types (2026-10-25) — REVERTED from sim
 

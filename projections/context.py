@@ -98,8 +98,13 @@ def position_defense_from_bundles(
     *,
     as_of: date,
     defender_team_id: int | None = None,
+    role_positions: dict[int, str] | None = None,
 ) -> dict[str, dict[str, float]]:
-    """Per-36 stats allowed to PG/SG/SF/PF/C before as_of (league or one defender)."""
+    """Per-36 stats allowed to PG/SG/SF/PF/C before as_of (league or one defender).
+
+    ``role_positions`` is a prior-season BBall Index offense position (PG–C).
+    When present it replaces the G/F/C heuristic for that player.
+    """
     totals: dict[str, dict[str, float]] = {
         pos: {"minutes": 0.0, "pts": 0.0, "reb": 0.0, "ast": 0.0, "fg3m": 0.0}
         for pos in POSITIONS_5
@@ -111,12 +116,18 @@ def position_defense_from_bundles(
                 if bundle.logs_sorted is not None or bundle.logs_by_defender is not None:
                     break
                 continue
-            position = five_position(
-                None if row.get("position") is None else str(row.get("position")),
-                reb=float(row.get("reb") or 0),
-                ast=float(row.get("ast") or 0),
-                minutes=float(row.get("minutes") or 0),
-            )
+            mapped = None
+            if role_positions:
+                mapped = role_positions.get(int(row.get("player_id") or 0))
+            if mapped in POSITIONS_5:
+                position = mapped
+            else:
+                position = five_position(
+                    None if row.get("position") is None else str(row.get("position")),
+                    reb=float(row.get("reb") or 0),
+                    ast=float(row.get("ast") or 0),
+                    minutes=float(row.get("minutes") or 0),
+                )
             bucket = totals[position]
             bucket["minutes"] += float(row.get("minutes") or 0)
             bucket["pts"] += float(row.get("pts") or 0)
@@ -892,11 +903,15 @@ def apply_opponent_position_defense(
     reb: float = 0.0,
     ast: float = 0.0,
     minutes: float = 0.0,
+    position_override: str | None = None,
 ) -> RateVector:
     """Shift FG% / rates from how much the opponent allows to this position vs league."""
     if weight == 0:
         return rates
-    pos = five_position(position, reb=reb, ast=ast, minutes=minutes)
+    if position_override in POSITIONS_5:
+        pos = position_override
+    else:
+        pos = five_position(position, reb=reb, ast=ast, minutes=minutes)
     league = league_allowed.get(pos) or {}
     opp = opp_allowed.get(pos) or league
     league_pts = float(league.get("pts_per_36") or 0.0)

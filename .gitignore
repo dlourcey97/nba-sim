@@ -1,5 +1,8 @@
 # DATA_DIR and ARCHIVE_DIR are set in .env and must stay outside this repo.
 # The patterns below are a backstop if those directories are ever created here.
+.env
+.env.*
+!.env.example
 DATA_DIR
 ARCHIVE_DIR
 data/

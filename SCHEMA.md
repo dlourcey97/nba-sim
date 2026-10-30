@@ -557,6 +557,26 @@ Key: `entity_kind`, `entity_id`, `play_type`, `side`
 
 **Play types stored:** Isolation, P&R Ball Handler, P&R Roll Man, Post Up, Spot Up, Handoff, Cut, Off Screen, Transition, Putbacks, Misc.
 
+## external/bballindex/ (Basketball Index)
+
+Not a season-partitioned engine table. Compact Parquet under `{DATA_DIR}/external/bballindex/`, written by `ingest/bball_index.py`. The leaderboard tool fills its grid from a DataTables JSON POST (`session/.../dataobj/query_table`); we request that same JSON and do not parse page HTML. Credit: [Basketball Index](https://www.bball-index.com/). Personal use only — these files are gitignored and must not be redistributed.
+
+Auth is the `BBALL_INDEX_COOKIE` environment variable (a browser session cookie). It is never written to logs, config, or git. 2024-25 and 2025-26 are fetched once. 2026-27 is fetched at most every `bball_index_fetch_interval_days` (default 7). A failed fetch keeps the previous parquet.
+
+Files (latest + `.prev.parquet` fallback):
+
+- `roles_{season}.parquet` — rotation / offensive / defensive role, offense position (PG–C), opportunity rates
+- `defense_{season}.parquet` — perimeter and interior defense grades
+- `play_types_{season}.parquet` — stable play-type points per possession
+- `matchup_{season}.parquet` — matchup difficulty and share of time guarding each position
+- `playmaking_{season}.parquet` — playmaking grades
+- `rebounding_{season}.parquet` — offensive and defensive rebounding grades
+- `bball_index_meta.parquet` — fetch time, row count, status
+
+**Leakage:** Walk-forward of season S loads only season S−1. The live current season may use its own weekly file when one exists. Offense position replaces the G/F/C heuristic only when `bball_roles_enabled` is true. Defense grades and play-type PPP adjust FG% only when their flags are true. When `bball_matchups_enabled` is true, prior-season time spent guarding each position chooses the primary defender.
+
+Identity columns on every dataset: `player_id`, `player_name`, `season`, `age`, `team_abbr`, `minutes`, `rotation_role`, `offensive_role`, `defensive_role`, plus the dataset's metric columns (snake_case of the tool's labels). The roles table also stores `offense_position` (PG/SG/SF/PF/C) from the Offense Position metric.
+
 ## external/ (nbarapm.com RAPM)
 
 Not a season-partitioned table. Compact Parquet under `{DATA_DIR}/external/`, refreshed by `ingest/rapm_fetch.py` at most every 7 days from the published JSON data files the nbarapm dataset pages load (`/load/timedecay`, `/load/SCALEDOUTPUT_SMALLER`). The site's "Download CSV" button builds a CSV in-browser from those same files — we never scrape HTML. Credit: [nbarapm.com](https://nbarapm.com).

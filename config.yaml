@@ -97,6 +97,22 @@ context:
   nbarapm_fetch_interval_days: 7
   nbarapm_prefer_external: true
 
+  # BBall Index leaderboard JSON (personal use). Cookie is BBALL_INDEX_COOKIE in
+  # .env — never stored here. 2024-25 and 2025-26 are fetched once; 2026-27 at
+  # most weekly. Feature flags below stay off until a reconcile + walk-forward
+  # keep decision.
+  bball_index_enabled: true
+  bball_index_fetch_interval_days: 7
+  bball_roles_enabled: false
+  bball_defense_enabled: false
+  # Opponent FG shift per sigma of prior-season perimeter/interior grade.
+  bball_defense_weight: 0.015
+  bball_play_types_enabled: false
+  # Light FG nudge from prior-season stable play-type PPP vs league.
+  bball_play_type_weight: 0.10
+  # Who guards the ballhandler, from prior-season time spent on each position.
+  bball_matchups_enabled: false
+
   # Synergy play-type offense mix × opponent play-type defense (stats.nba.com).
   # Walk-forward uses PREVIOUS season only; live blends current with prior.
   # DISABLED 2026-10-25: full 2025-26 WF failed keep criteria (Brier/winner/spread

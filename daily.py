@@ -80,6 +80,18 @@ def main(argv: list[str] | None = None) -> int:
         except Exception as exc:  # noqa: BLE001 — never block the slate
             log(f"WARNING: nbarapm RAPM refresh error (continuing): {exc}")
 
+        # BBall Index JSON tables. Final seasons once; current season at most weekly.
+        try:
+            from ingest.bball_index import format_bball_age_line, refresh_bball_index
+
+            log("bball index check")
+            bball_status = refresh_bball_index(settings, log=log)
+            log(format_bball_age_line(settings))
+            if bball_status.skipped_fresh:
+                log("bball index fetch skipped (still within interval or final copy on disk)")
+        except Exception as exc:  # noqa: BLE001 — never block the slate
+            log(f"WARNING: bball index refresh error (continuing): {exc}")
+
         # Synergy play-types: current season at most once/day; failures keep last copy.
         try:
             from ingest.play_types import refresh_play_types

@@ -93,6 +93,8 @@ class PlayerProjection:
     rest_days: int
     status: str
     depth_rank: int = 99
+    # Prior-season share of minutes guarding PG, SG, SF, PF, C. None = use position.
+    guard_share: tuple[float, float, float, float, float] | None = None
 
 
 @dataclass
@@ -150,6 +152,8 @@ class ProjectionCache:
     play_type_rows_by_season: dict[str, list] = field(default_factory=dict)
     play_type_context: object | None = None
     play_type_context_season: str | None = None
+    bball_ctx: object | None = None
+    bball_season: str | None = None
 
     def reset_if_needed(self, as_of: date) -> None:
         if self.as_of != as_of:
@@ -463,14 +467,34 @@ def _build(
 
     home_opp_zones = _opp_zones(away_team_id)
     away_opp_zones = _opp_zones(home_team_id)
+    role_positions: dict[int, str] | None = None
+    bball_ctx = None
+    want_bball_roles = bool(ctx_cfg.get("bball_roles_enabled", False))
+    want_bball_defense = bool(ctx_cfg.get("bball_defense_enabled", False))
+    want_bball_ppp = bool(ctx_cfg.get("bball_play_types_enabled", False))
+    want_bball_matchups = bool(ctx_cfg.get("bball_matchups_enabled", False))
+    if want_bball_roles or want_bball_defense or want_bball_ppp or want_bball_matchups:
+        if cache.bball_ctx is None or cache.bball_season != season:
+            from ingest.bball_index import load_bball_context
+
+            cache.bball_ctx = load_bball_context(settings, season)
+            cache.bball_season = season
+        bball_ctx = cache.bball_ctx
+        if want_bball_roles and bball_ctx is not None:
+            role_positions = bball_ctx.offense_position or None
     if cache.league_pos is None:
-        cache.league_pos = position_defense_from_bundles(bundles, as_of=as_of)
+        cache.league_pos = position_defense_from_bundles(
+            bundles, as_of=as_of, role_positions=role_positions
+        )
     league_pos = cache.league_pos
 
     def _opp_pos(team_id: int) -> dict[str, dict[str, float]]:
         if team_id not in cache.pos_by_team:
             cache.pos_by_team[team_id] = position_defense_from_bundles(
-                bundles, as_of=as_of, defender_team_id=team_id
+                bundles,
+                as_of=as_of,
+                defender_team_id=team_id,
+                role_positions=role_positions,
             )
         return cache.pos_by_team[team_id]
 
@@ -590,6 +614,7 @@ def _build(
                 opp_allowed=opp_pos,
                 league_allowed=league_pos,
                 weight=position_weight,
+                position_override=(role_positions or {}).get(player_id),
             )
             # Team strength / HCA applied after minutes allocation (roster-based).
             raw_rates[player_id] = rates
@@ -931,6 +956,9 @@ def _build(
             status = entry.status if entry is not None else "Available"
             minutes = minutes_by_id[player_id]
             info = meta.get(player_id, {})
+            guard_share = None
+            if want_bball_matchups and bball_ctx is not None:
+                guard_share = bball_ctx.guard_share.get(int(player_id))
             players[player_id] = PlayerProjection(
                 player_id=player_id,
                 player_name=str(info.get("player_name") or f"player:{player_id}"),
@@ -947,6 +975,7 @@ def _build(
                 rest_days=rest,
                 status=status,
                 depth_rank=int(_depth),
+                guard_share=guard_share,
             )
         return team_poss, players, team_str, rest
 
@@ -994,6 +1023,41 @@ def _build(
 
     _apply_strength(home_players, home_str, away_str, "H")
     _apply_strength(away_players, away_str, home_str, "A")
+    if bball_ctx is not None and (want_bball_defense or want_bball_ppp):
+        from projections.bball_features import (
+            apply_opponent_defense_grades,
+            apply_play_type_ppp,
+        )
+
+        if want_bball_defense:
+            defense_w = float(ctx_cfg.get("bball_defense_weight", 0.015))
+            apply_opponent_defense_grades(
+                home_players,
+                away_players,
+                perimeter=bball_ctx.perimeter,
+                interior=bball_ctx.interior,
+                weight=defense_w,
+            )
+            apply_opponent_defense_grades(
+                away_players,
+                home_players,
+                perimeter=bball_ctx.perimeter,
+                interior=bball_ctx.interior,
+                weight=defense_w,
+            )
+        if want_bball_ppp:
+            apply_play_type_ppp(
+                home_players,
+                play_ppp=bball_ctx.play_ppp,
+                league_ppp=bball_ctx.league_ppp,
+                weight=float(ctx_cfg.get("bball_play_type_weight", 0.10)),
+            )
+            apply_play_type_ppp(
+                away_players,
+                play_ppp=bball_ctx.play_ppp,
+                league_ppp=bball_ctx.league_ppp,
+                weight=float(ctx_cfg.get("bball_play_type_weight", 0.10)),
+            )
     # Play-type offense mix × opponent play-type defense (leakage-safe season).
     _apply_play_type_matchups(
         settings,
