@@ -1,6 +1,6 @@
 # Progress
 
-Last updated 2026-10-30 — Decision runs now require 1,000 sims, a 2024-25 holdout, and a paired bootstrap. Parallel backtests match serial output. Historical injury PDFs exist; they are not in the sim yet.
+Last updated 2026-10-30 — Current engine, 2025-26, 1,000 sims: 42.0 minutes, Brier 0.2135. The 2024-25 holdout is running.
 
 | Phase | Status | Notes |
 | --- | --- | --- |
@@ -16,7 +16,7 @@ Last updated 2026-10-30 — Decision runs now require 1,000 sims, a 2024-25 hold
 | External RAPM (nbarapm.com) | done | Weekly fetch + leakage-safe load; full 2025-26 WF kept (Brier/winner ↑). Credit nbarapm.com. |
 | BBall Index | reverted | Personal fetch kept. Roles, defense, play-type PPP, and matchup assignment all failed the 2025-26 WF keep bar. Credit bball-index.com. |
 | Referee crews | reverted | Assignments + box-score crews stored. Reconcile PASS. Full 2025-26 WF: total MAE better, Brier and spread MAE worse. `referees_enabled: false`. Credit NBA.com. |
-| Decision rule | in progress | 2024-25 holdout. Full season, ≥1,000 sims, paired bootstrap. Current-engine 2025-26 run started. |
+| Decision rule | in progress | 2025-26 current engine at 1,000 sims: 42.0 min, Brier 0.2135. Holdout next. |
 | Starter STL share fix | done | `stl_credit_raw_weight: 0.30` who-gets-steal blend; mid reconcile PASS (−2.7%); WF held. |
 | Post-game through 10-24 | done | +8 finals; 36 games graded; picks 60.9% hit vs 55.2% claimed. |
 | Reconcile fix (guardrail/MIN/TOV) | done | Any ±3% flag blocks slate; sim MIN=240; early TOV −2.9%; mid guardrail PASS. |
@@ -34,11 +34,24 @@ Last updated 2026-10-30 — Decision runs now require 1,000 sims, a 2024-25 hold
 
 Keep/revert calls now follow the rule in PROJECT_SPEC: full season, at least 1,000 simulations per game, same seed on both sides, 2024-25 held out of tuning, and a paired game-level bootstrap. A Brier, spread MAE, or total MAE change counts only when the 95% interval on the paired difference excludes zero. `backtest/tune.py` exits 2 if asked to tune 2024-25. Each evaluation writes `games.parquet` (win probability, margin, total) next to `metrics.json`. Individual simulation draws are not saved.
 
-Games are projected in schedule order and simulated on all four logical cores, with one BLAS thread per process. The possession sim was already vectorized across runs. A same-seed check on the first 50 games of 2025-26 (200 runs) matched serial and parallel on every per-game row and on the full metric report, including player MAE, coverage, and CRPS. Serial wall clock 272.9s; four workers 189.7s. The same check on 2 games at 1,000 runs also matched. Fifty games at 1,000 runs on four workers took 270.1s (5.40s per game). Scaling that rate to a 1,314-game season is 1 hour 58 minutes. That figure is an extrapolation; the full 2025-26 run that is underway is the measured season time.
+Games are projected in schedule order and simulated on all four logical cores, with one BLAS thread per process. The possession sim was already vectorized across runs. A same-seed check on the first 50 games of 2025-26 (200 runs) matched serial and parallel on every per-game row and on the full metric report, including player MAE, coverage, and CRPS. Serial wall clock 272.9s; four workers 189.7s. The same check on 2 games at 1,000 runs also matched. Fifty games at 1,000 runs on four workers took 270.1s, which extrapolated to about 2 hours. The full season is faster because the season bundles load once. Current engine, 2025-26, 1,314 games, 1,000 sims, seed 1, four workers: **42.0 minutes** (2,520s).
+
+| Metric | Value | 95% bootstrap interval |
+| --- | --- | --- |
+| Brier | 0.2135 | 0.2057–0.2211 |
+| Winner | 66.59% | |
+| Spread MAE | 12.00 | 11.50–12.52 |
+| Total MAE | 15.91 | 15.26–16.59 |
+| PTS / REB / AST MAE | 5.233 / 2.091 / 1.405 | |
+| STL / BLK / MIN MAE | 0.721 / 0.537 / 6.870 | |
+| Coverage 10–90 | 0.816 | |
+| Sim vs actual PPG | 113.95 vs 115.09 | bias −1.14 |
+
+These intervals are on the metric itself. Paired intervals start with the next comparison. Rows are in `results/backtest/wf_2025_26_current_1000/`.
 
 Historical injury reports are on the NBA CDN. `Injury-Report_2025-01-15_05PM.pdf` returned the PDF. The minute-stamped key `05_30PM` returned 403, and the 2024-25 index page redirects to the current season page. The getter still rewrites hour-only stamps to `HH_00PM`, so it would miss these files. Tip-off times are not in the stored schedule, so no season archive has been downloaded and walk-forward still uses an empty injury list. Waiting for approval before the crawl: store each game's tip-off, then keep the latest report whose clock time is before that tip. A stand-in based on players who missed the previous game is not in use.
 
-Approximations used: none. The per-season runtime above is an extrapolation from 50 games and is labeled as such.
+Approximations used: none. The 42.0 minute season time is the measured wall clock.
 
 ## Reconcile fix — guardrail, 240 minutes, TOV (2026-10-24)
 
