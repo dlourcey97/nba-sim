@@ -119,6 +119,22 @@ def main(argv: list[str] | None = None) -> int:
         except Exception as exc:  # noqa: BLE001 — never block the slate
             log(f"WARNING: play_types refresh error (continuing): {exc}")
 
+        try:
+            from ingest.tracking import refresh_tracking
+
+            log("tracking check")
+            log(f"tracking {refresh_tracking(settings, log=log)}")
+        except Exception as exc:  # noqa: BLE001 — never block the slate
+            log(f"WARNING: tracking refresh error (continuing): {exc}")
+
+        try:
+            from ingest.darko import refresh_darko
+
+            log("darko check")
+            log(f"darko {refresh_darko(settings, log=log)}")
+        except Exception as exc:  # noqa: BLE001 — never block the slate
+            log(f"WARNING: darko refresh error (continuing): {exc}")
+
         injuries = injuries_for_date(
             settings,
             slate_date,
@@ -202,6 +218,12 @@ def main(argv: list[str] | None = None) -> int:
             f"history_rows={slate.history_rows} actuals_rows={slate.actuals_rows} "
             f"confident_picks={len(slate.confident_picks)} report={slate.report_path}"
         )
+        try:
+            from ingest.darko import write_disagreements
+
+            write_disagreements(settings, slate.summaries, log=log)
+        except Exception as exc:  # noqa: BLE001 — disagreement list never blocks the slate
+            log(f"WARNING: darko disagreement list error (continuing): {exc}")
         from outputs.grade import refresh_season_scorecard
 
         scorecard = refresh_season_scorecard(settings, season=season)

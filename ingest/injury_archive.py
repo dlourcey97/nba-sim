@@ -340,6 +340,34 @@ def _reports_for_date(
             return reports, consecutive_403
 
 
+def load_injury_index(settings) -> dict[tuple[str, str], list]:
+    """Pre-tip archive rows keyed by (game date, AWAY@HOME)."""
+    from ingest.injuries import InjuryEntry
+
+    path = settings.data_dir / "external" / "injuries" / "reports.parquet"
+    if not path.is_file():
+        return {}
+    grouped: dict[tuple[str, str], list] = {}
+    for row in pq.read_table(path).to_pylist():
+        when = str(row["game_date"])[:10]
+        key = (when, str(row["matchup"]))
+        grouped.setdefault(key, []).append(
+            InjuryEntry(
+                game_date=date.fromisoformat(when),
+                matchup=str(row["matchup"]),
+                team_name=None,
+                team_abbr=str(row.get("team_abbr") or "") or None,
+                player_name=str(row["player_name"]),
+                player_id=None,
+                status=str(row["status"]),
+                reason=str(row.get("reason") or ""),
+                minutes_cap=None,
+                source="injury_archive",
+            )
+        )
+    return grouped
+
+
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
     settings = load_settings()

@@ -579,7 +579,20 @@ Not a season-partitioned engine table. Compact Parquet under `{DATA_DIR}/externa
 - `reports.parquet` — one row per player on the latest report whose clock time is strictly before that game's tip. Both times come from the PDF.
 - `dates.parquet` — game dates already attempted, so a rerun does not download them again.
 
-The live slate still uses `ingest/injuries.py`, which looks up the current season's `HH_MMPM` files and does not write them. Walk-forward does not read `reports.parquet` until that wiring is turned on.
+The live slate still uses `ingest/injuries.py`, which looks up the current season's `HH_MMPM` files and does not write them. Walk-forward reads `reports.parquet` only when `context.injury_archive_enabled` is true. That flag stays false until a 1,000-sim decision adopts it. A player is kept only from a report whose own clock is strictly before that game's tip. Zero minutes in the box score is not treated as an out.
+
+## external/tracking/ (NBA.com tracking)
+
+Not a season-partitioned engine table. Compact Parquet under `{DATA_DIR}/external/tracking/`, written by `ingest/tracking.py` from stats.nba.com `LeagueDashPtStats` (player, totals, regular season). Measures: pull-up shots, catch-and-shoot, rebounding, passing. Seasons stored: 2023-24 through the current season, so a backtest of season S can read S−1 only. One request at a time. A 401, 403, or 429 stops the batch and keeps whatever rows were already parsed. Raw JSON is not stored. Credit: NBA.com.
+
+- `player_tracking.parquet` — `season`, `player_id`, `player_name`, `team_abbr`, `pullup_fga`, `catch_fga`, `reb_chances`, `minutes`, `potential_ast`.
+- `tracking_meta.parquet` — fetch time and row count.
+
+Sim switches, each off until its own decision run: `tracking_shot_creation_enabled` (pull-up share of pull-up plus catch-and-shoot), `tracking_rebounds_enabled` (rebound chances per minute), `tracking_passing_enabled` (potential assists per minute). The shift is shrunk and clipped to ±2%.
+
+## external/darko/ (DARKO DPM)
+
+Not a season-partitioned engine table and not an input to the simulator. Compact Parquet under `{DATA_DIR}/external/darko/`, written by `ingest/darko.py` from one GET of the public leaderboard at darko.app. The about page says the leaderboard can be downloaded. Expected points are `x_pts_100 / 100 * (x_minutes / 48) * x_pace`. `daily.py` writes the ten largest point gaps against the slate to `results/darko_disagreements.md`. Those numbers never enter `simulate` or `build_game_projections`. Credit: darko.app.
 
 ## external/bballindex/ (Basketball Index)
 

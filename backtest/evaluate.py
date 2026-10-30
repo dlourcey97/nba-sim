@@ -30,6 +30,7 @@ from backtest.metrics import (
     write_calibration_svg,
 )
 from backtest.sim_job import score_projected_game
+from ingest.injury_archive import load_injury_index
 from ingest.parse import parse_seasons
 from nba_sim.errors import NbaSimError
 from nba_sim.settings import load_settings
@@ -94,6 +95,11 @@ def evaluate_seasons(
     bundle_cache = {
         label: load_season_bundle(local, label) for label in sorted(needed)
     }
+    injury_index = (
+        load_injury_index(local)
+        if bool((config.get("context") or {}).get("injury_archive_enabled", False))
+        else None
+    )
 
     for season in seasons:
         schedule = [
@@ -190,6 +196,12 @@ def evaluate_seasons(
                 prior_same_season = any(item["game_date"] < row["game_date"] for item in schedule)
                 if not prior_same_season:
                     continue
+                injuries = []
+                if injury_index is not None:
+                    when = row["game_date"]
+                    when_key = when.isoformat() if hasattr(when, "isoformat") else str(when)[:10]
+                    matchup = f"{row['away_abbr']}@{row['home_abbr']}"
+                    injuries = injury_index.get((when_key, matchup), [])
                 try:
                     projection = build_game_projections(
                         local,
@@ -198,6 +210,7 @@ def evaluate_seasons(
                         as_of=row["game_date"],
                         bundles=bundles,
                         cache=proj_cache,
+                        injuries=injuries,
                     )
                 except ValueError:
                     continue

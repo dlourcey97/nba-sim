@@ -1,6 +1,6 @@
 # Progress
 
-Last updated 2026-10-30 — The 1,000-sim re-judge left every flag as it was. External RAPM is being rerun with the sim switch.
+Last updated 2026-10-30 — External RAPM is being compared with internal stint RAPM. Injury, travel, and tracking stay off until that queue finishes. RotoWire is not fetched.
 
 | Phase | Status | Notes |
 | --- | --- | --- |
@@ -16,7 +16,7 @@ Last updated 2026-10-30 — The 1,000-sim re-judge left every flag as it was. Ex
 | External RAPM (nbarapm.com) | done | Weekly fetch + leakage-safe load; full 2025-26 WF kept (Brier/winner ↑). Credit nbarapm.com. |
 | BBall Index | reverted | Personal fetch kept. Roles, defense, play-type PPP, and matchup assignment all failed the 2025-26 WF keep bar. Credit bball-index.com. |
 | Referee crews | reverted | Assignments + box-score crews stored. Reconcile PASS. Full 2025-26 WF: total MAE better, Brier and spread MAE worse. `referees_enabled: false`. Credit NBA.com. |
-| Decision rule | in progress | Re-judge queue left every flag as it was. External RAPM is being rerun; the first switch only skipped the download. |
+| Decision rule | in progress | Re-judge left every flag as it was. Stint RAPM, the injury archive, travel, and three tracking switches are in the 1,000-sim queue. RotoWire is not fetched. DARKO stays out of the sim. |
 | Starter STL share fix | done | `stl_credit_raw_weight: 0.30` who-gets-steal blend; mid reconcile PASS (−2.7%); WF held. |
 | Post-game through 10-24 | done | +8 finals; 36 games graded; picks 60.9% hit vs 55.2% claimed. |
 | Reconcile fix (guardrail/MIN/TOV) | done | Any ±3% flag blocks slate; sim MIN=240; early TOV −2.9%; mid guardrail PASS. |
@@ -76,7 +76,19 @@ The rest of the queue, same protocol, difference is the variant minus the curren
 
 Turning `nbarapm_enabled` off and turning Step F off both matched the current engine to four decimals. `nbarapm_enabled` only skips the download; the sim follows `nbarapm_prefer_external`. Step F is skipped while `minutes_model` is `naive_last10`. The engine-minutes row above is the path that includes Step F, and that path is worse.
 
-Historical injury reports use two CDN names. Through 2025-12-21 the hour-only file is the PDF. From 2025-12-22 the file is the minute-stamped PDF. The archive is complete for both walk-forward seasons: 422 game dates from 2024-10-22 through 2026-06-13, 24,275 rows, each kept only when the report clock is before that game's tip. The walk-forward still uses an empty injury list. A stand-in based on players who missed the previous game is not in use.
+Historical injury reports use two CDN names. Through 2025-12-21 the hour-only file is the PDF. From 2025-12-22 the file is the minute-stamped PDF. The archive is complete for both walk-forward seasons: 422 game dates from 2024-10-22 through 2026-06-13, 24,275 rows, each kept only when the report clock is before that game's tip. Walk-forward reads that file only when `injury_archive_enabled` is true. The flag is false until the 1,000-sim call below. A stand-in based on players who missed the previous game is not in use.
+
+## Tracking, travel, RotoWire, DARKO (2026-10-30)
+
+`travel_enabled`, `tracking_shot_creation_enabled`, `tracking_rebounds_enabled`, and `tracking_passing_enabled` are false. Each switch is one 1,000-sim job against the frozen current engine. The 2024-25 holdout runs only if 2025-26 is a clean improvement (at least one decisive gain, no decisive loss). The external-RAPM comparison uses `nbarapm_prefer_external: false`, which fits stint RAPM. The earlier off-switch only skipped the download and matched the baseline exactly, so it is not a result.
+
+Tracking is prior-season NBA.com pull-up, catch-and-shoot, rebound chances, and potential assists. Season S reads season S−1. The multiplier is shrunk and clipped at ±2%. Travel uses fixed arena locations and only games before the tip. No website is fetched for travel.
+
+RotoWire's terms prohibit it. Article VI (Automated Access; No Scraping) says the user shall not use manual or automated software to crawl, scrape, or spider the site, and shall not collect the service by any automated means. The lineup page is not fetched, so there is no backtest and no live minutes check against RotoWire.
+
+DARKO stays out of the simulator. The about page says the leaderboard can be downloaded. One copy of that public page is stored as compact parquet (`external/darko/leaderboard.parquet`, 523 players). Expected points are `x_pts_100 / 100 * (x_minutes / 48) * x_pace`. `daily.py` writes the ten largest point gaps after a slate and does not pass those numbers into the projection or the sim. Credit: darko.app, NBA.com.
+
+No leakage stand-in is in use for these sources.
 
 Approximations used: none. The 42.0 minute season time is the measured wall clock. Historical injury rows, when stored, keep a player only from a report whose clock time is strictly before that game's tip. Those rows are not read by the walk-forward yet.
 

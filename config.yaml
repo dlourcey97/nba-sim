@@ -130,6 +130,15 @@ context:
   # Max relative shift on possessions and ft_rate.
   referees_factor_clip: 0.015
 
+  # Historical pre-tip injury archive. Off until a 1,000-sim decision adopts it.
+  injury_archive_enabled: false
+  # Schedule travel and altitude. Off until a 1,000-sim decision adopts it.
+  travel_enabled: false
+  # Prior-season NBA.com tracking. Each switch is judged on its own.
+  tracking_shot_creation_enabled: false
+  tracking_rebounds_enabled: false
+  tracking_passing_enabled: false
+
   # Synergy play-type offense mix × opponent play-type defense (stats.nba.com).
   # Walk-forward uses PREVIOUS season only; live blends current with prior.
   # DISABLED 2026-10-25: full 2025-26 WF failed keep criteria (Brier/winner/spread

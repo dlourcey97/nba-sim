@@ -69,6 +69,8 @@ from projections.kalman import (
 )
 from projections.rapm import RapmModel, load_rapm_model
 from projections.referees import apply_referee_crew
+from projections.tracking import apply_tracking_rates
+from projections.travel import travel_pace_delta, travel_state
 from projections.rotations import (
     RotationModel,
     expected_abs_margin_from_strength,
@@ -157,6 +159,8 @@ class ProjectionCache:
     bball_season: str | None = None
     referee_index: object | None = None
     referee_index_ready: bool = False
+    schedule_by_season: dict[str, list] = field(default_factory=dict)
+    tracking_rows: list | None = None
 
     def reset_if_needed(self, as_of: date) -> None:
         if self.as_of != as_of:
@@ -605,6 +609,14 @@ def _build(
                 priors=priors,
                 position=position,
             )
+            rates = apply_tracking_rates(
+                rates,
+                player_id=player_id,
+                season=season,
+                config=config,
+                cache=cache,
+                settings=settings,
+            )
             rates = apply_opponent_defense(
                 rates,
                 opp_zone_pct=opp_zones,
@@ -719,13 +731,30 @@ def _build(
         # Rest from team game dates (already collected for minutes alignment).
         team_dates = team_dates_for_minutes
         rest = rest_days_before(team_dates, game_date)
+        travel_delta = 0.0
+        if bool((config.get("context") or {}).get("travel_enabled", False)):
+            slate = cache.schedule_by_season.get(season)
+            if slate is None:
+                slate = read_rows(settings, "schedule", season)
+                cache.schedule_by_season[season] = slate
+            travel_delta = travel_pace_delta(
+                travel_state(
+                    slate,
+                    team_id=team_id,
+                    team_abbr=team_abbr,
+                    game_date=game_date,
+                    home_away=home_away,
+                    opponent_abbr=opp_abbr,
+                ),
+                enabled=True,
+            )
         team_poss = expected_possessions(
             team_pace=team_pace,
             opp_pace=opp_pace,
             home_away=home_away,
             rest_days=rest,
             config=config,
-        )
+        ) * (1.0 + travel_delta)
 
         # Project minutes, redistribute OUT minutes to historical replacements
         # (Step F), then force the healthy roster to sum to 240.
