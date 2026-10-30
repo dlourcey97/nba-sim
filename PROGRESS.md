@@ -63,7 +63,7 @@ Current engine on the 2024-25 holdout, 1,313 games, same protocol: **38.0 minute
 
 Referees on, 2025-26, 1,314 games, 45.2 minutes. Paired difference versus the current engine: Brier −0.00003 (−0.00096 to +0.00090), spread MAE +0.004 (−0.037 to +0.045), total MAE −0.003 (−0.042 to +0.035). All three intervals include zero, so `referees_enabled` stays false.
 
-Historical injury reports use hour-only names. `Injury-Report_2025-01-15_05PM.pdf` is a real PDF whose header says 5:30 PM. The minute-stamped key `05_30PM` returns 403, and the live getter rewrites hour-only stamps to `HH_00PM`, so it misses these files. The archive crawl reads the report clock and each game's tip from the PDF and keeps a player only when the report is strictly earlier. It is writing `external/injuries/` and the walk-forward still uses an empty injury list. A stand-in based on players who missed the previous game is not in use.
+Historical injury reports use two CDN names. Through 2025-12-21 the hour-only file is the PDF (`Injury-Report_2025-01-15_05PM.pdf`, header 5:30 PM). Starting 2025-12-22 those names return 403 and the minute form is the PDF (`Injury-Report_2025-12-22_05_30PM.pdf`). The first crawl stored 271 dates and 15,890 pre-tip rows, then stopped on eight hour-only 403s. The walk-forward still uses an empty injury list. A stand-in based on players who missed the previous game is not in use.
 
 Approximations used: none. The 42.0 minute season time is the measured wall clock. Historical injury rows, when stored, keep a player only from a report whose clock time is strictly before that game's tip. Those rows are not read by the walk-forward yet.
 

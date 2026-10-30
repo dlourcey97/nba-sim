@@ -41,6 +41,35 @@ _TIP_RE = re.compile(r"(\d{1,2}:\d{2})\s*\(ET\)\s*([A-Z]{2,3}@[A-Z]{2,3})")
 # Evening report first. Earlier hours are fetched only when a tip is before it.
 _ANCHOR_STAMPS = ("05PM", "01PM", "06PM", "12PM", "02PM", "04PM", "07PM", "11AM", "03PM", "08PM")
 _EARLIER = ("04PM", "03PM", "02PM", "01PM", "12PM", "11AM", "10AM", "09AM")
+# Hour-only keys 403 starting 2025-12-22. That day's 05_30PM file is a PDF.
+_MINUTE_STAMP_START = date(2025, 12, 22)
+_ANCHOR_STAMPS_MINUTE = (
+    "05_30PM",
+    "01_30PM",
+    "06_00PM",
+    "12_00PM",
+    "02_00PM",
+    "04_00PM",
+    "07_00PM",
+    "11_00AM",
+    "03_00PM",
+    "08_00PM",
+)
+_EARLIER_MINUTE = (
+    "04_30PM",
+    "04_00PM",
+    "03_30PM",
+    "03_00PM",
+    "02_30PM",
+    "02_00PM",
+    "01_30PM",
+    "01_00PM",
+    "12_30PM",
+    "12_00PM",
+    "11_30AM",
+    "11_00AM",
+    "10_00AM",
+)
 _SCHEMA = pa.schema(
     [
         ("game_date", pa.string()),
@@ -81,10 +110,17 @@ def _ampm_to_clock(text: str, ampm: str) -> clock:
 
 
 def _stamp_clock(stamp: str) -> clock:
-    match = re.fullmatch(r"(\d{2})(AM|PM)", stamp.upper())
+    match = re.fullmatch(r"(\d{2})(?:_(\d{2}))?(AM|PM)", stamp.upper())
     if match is None:
         raise ValueError(stamp)
-    return _ampm_to_clock(f"{int(match.group(1)):02d}:00", match.group(2))
+    minute = int(match.group(2) or 0)
+    return _ampm_to_clock(f"{int(match.group(1)):02d}:{minute:02d}", match.group(3))
+
+
+def _stamp_lists(game_date: date) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    if game_date >= _MINUTE_STAMP_START:
+        return _ANCHOR_STAMPS_MINUTE, _EARLIER_MINUTE
+    return _ANCHOR_STAMPS, _EARLIER
 
 
 def joined_pdf_text(payload: bytes) -> str:
@@ -214,13 +250,14 @@ def _write(path, rows: list[dict]) -> None:
     pq.write_table(table, path, compression="zstd")
 
 
-def _stamps_needed(anchor: ParsedReport | None, tried: set[str]) -> list[str]:
+def _stamps_needed(anchor: ParsedReport | None, tried: set[str], game_date: date) -> list[str]:
+    anchors, earlier = _stamp_lists(game_date)
     if anchor is None:
-        return [stamp for stamp in _ANCHOR_STAMPS if stamp not in tried]
+        return [stamp for stamp in anchors if stamp not in tried]
     earliest = min(anchor.tips.values())
     if anchor.published.time() < earliest:
         return []
-    return [stamp for stamp in _EARLIER if stamp not in tried and _stamp_clock(stamp) < earliest]
+    return [stamp for stamp in earlier if stamp not in tried and _stamp_clock(stamp) < earliest]
 
 
 def archive_seasons(settings, seasons: list[str], *, max_consecutive_403: int = 8) -> dict:
@@ -275,7 +312,7 @@ def _reports_for_date(
     reports: list[ParsedReport] = []
     anchor: ParsedReport | None = None
     while True:
-        pending = _stamps_needed(anchor, tried)
+        pending = _stamps_needed(anchor, tried, game_date)
         if not pending:
             return reports, consecutive_403
         stamp = pending[0]

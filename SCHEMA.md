@@ -574,7 +574,7 @@ Files (latest + `.prev.parquet` fallback):
 
 ## external/injuries/ (historical injury reports)
 
-Not a season-partitioned engine table. Compact Parquet under `{DATA_DIR}/external/injuries/`, written by `ingest/injury_archive.py`. 2024-25 and 2025-26 reports use hour-only CDN names (`Injury-Report_YYYY-MM-DD_05PM.pdf`). The PDF is parsed in memory and not stored. Credit: NBA.com.
+Not a season-partitioned engine table. Compact Parquet under `{DATA_DIR}/external/injuries/`, written by `ingest/injury_archive.py`. Through 2025-12-21 the files are hour-only (`Injury-Report_YYYY-MM-DD_05PM.pdf`). From 2025-12-22 the hour-only key returns 403 and the file is `Injury-Report_YYYY-MM-DD_05_30PM.pdf`. The PDF is parsed in memory and not stored. Credit: NBA.com.
 
 - `reports.parquet` — one row per player on the latest report whose clock time is strictly before that game's tip. Both times come from the PDF.
 - `dates.parquet` — game dates already attempted, so a rerun does not download them again.
