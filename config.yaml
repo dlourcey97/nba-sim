@@ -113,6 +113,20 @@ context:
   # Who guards the ballhandler, from prior-season time spent on each position.
   bball_matchups_enabled: false
 
+  # NBA referee crews. Live page: official.nba.com/referee-assignments (once
+  # per day). History: stats.nba.com box score summaries. Credit NBA.com.
+  # Sim flag off: 2025-26 walk-forward Brier 0.216 and spread MAE 12.16
+  # missed the RAPM-on baseline (0.214 / 12.07). Fetch stays on.
+  referees_fetch_enabled: true
+  referees_enabled: false
+  referees_backfill_per_run: 40
+  # Pseudo-games of league average mixed into a referee's residual.
+  referees_prior_games: 25
+  referees_pace_weight: 0.50
+  referees_ft_weight: 0.50
+  # Max relative shift on possessions and ft_rate.
+  referees_factor_clip: 0.015
+
   # Synergy play-type offense mix × opponent play-type defense (stats.nba.com).
   # Walk-forward uses PREVIOUS season only; live blends current with prior.
   # DISABLED 2026-10-25: full 2025-26 WF failed keep criteria (Brier/winner/spread

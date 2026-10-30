@@ -68,6 +68,7 @@ from projections.kalman import (
     rest_hca_points,
 )
 from projections.rapm import RapmModel, load_rapm_model
+from projections.referees import apply_referee_crew
 from projections.rotations import (
     RotationModel,
     expected_abs_margin_from_strength,
@@ -154,6 +155,8 @@ class ProjectionCache:
     play_type_context_season: str | None = None
     bball_ctx: object | None = None
     bball_season: str | None = None
+    referee_index: object | None = None
+    referee_index_ready: bool = False
 
     def reset_if_needed(self, as_of: date) -> None:
         if self.as_of != as_of:
@@ -1109,6 +1112,19 @@ def _build(
                             player.rates, efficiency_scale=eff_scale
                         ),
                     )
+    home_poss, away_poss = apply_referee_crew(
+        settings,
+        config=config,
+        cache=cache,
+        game_id=game_id,
+        game_date=game_date,
+        home_abbr=home_abbr,
+        away_abbr=away_abbr,
+        home_poss=home_poss,
+        away_poss=away_poss,
+        home_players=home_players,
+        away_players=away_players,
+    )
     # Expected closeness uses Kalman nets + rest HCA when available.
     if home_team_id in kalman.ratings and away_team_id in kalman.ratings:
         expected_abs_margin = abs(

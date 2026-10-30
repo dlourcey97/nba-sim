@@ -557,6 +557,21 @@ Key: `entity_kind`, `entity_id`, `play_type`, `side`
 
 **Play types stored:** Isolation, P&R Ball Handler, P&R Roll Man, Post Up, Spot Up, Handoff, Cut, Off Screen, Transition, Putbacks, Misc.
 
+## external/referees/ (NBA officials)
+
+Not a season-partitioned engine table. Compact Parquet under `{DATA_DIR}/external/referees/`, written by `ingest/referees.py`. The live crew (crew chief, referee, umpire) is parsed from the public assignments table at [official.nba.com/referee-assignments](https://official.nba.com/referee-assignments/), at most once per day. Historical crews come from stats.nba.com `boxscoresummaryv3` (the officials list on each game's box score summary), one game at a time, for 2023-24 through the current season. Personal fouls are the sum of both teams' `PF` from `leaguegamelog`, one request per season. Raw HTML and JSON are not stored. Credit: NBA.com.
+
+Files (latest + `.prev.parquet` fallback):
+
+- `assignments.parquet` — today's NBA crews (date, away, home, role, name, jersey). The WNBA table on the same page is ignored.
+- `game_officials.parquet` — one row per official per game (`official_id`, name, jersey, role). Box scores do not label the role, so the first three names are stored as crew chief, referee, and umpire in listed order. Alternates are dropped.
+- `officials_gaps.parquet` — game ids whose summary had no crew, so they are not requested again.
+- `game_fouls.parquet` — game id and combined personal fouls.
+- `game_environment.parquet` — regulation pace, possessions, free throws, fouls, and points joined from our logs.
+- `referees_meta.parquet` — fetch time and row counts.
+
+**Leakage:** A slate on date D uses only games with `game_date < D`. Each official's residual (fouls and FTA per 100 possessions, pace, points versus the league mean of those prior games) is shrunk toward zero with `referees_prior_games` pseudo-games. The three-official mean scales expected possessions and `ft_rate`, clipped by `referees_factor_clip`. The points residual is recorded and not applied. The sim uses this only when `referees_enabled` is true.
+
 ## external/bballindex/ (Basketball Index)
 
 Not a season-partitioned engine table. Compact Parquet under `{DATA_DIR}/external/bballindex/`, written by `ingest/bball_index.py`. The leaderboard tool fills its grid from a DataTables JSON POST (`session/.../dataobj/query_table`); we request that same JSON and do not parse page HTML. Credit: [Basketball Index](https://www.bball-index.com/). Personal use only — these files are gitignored and must not be redistributed.

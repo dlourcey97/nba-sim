@@ -1,6 +1,6 @@
 # Progress
 
-Last updated 2026-10-29 — BBall Index fetch kept; four sim trials reverted (2025-26 WF winner accuracy down ~1 point). Flags off.
+Last updated 2026-10-30 — Referee crews fetched and left out of the sim. 2025-26 walk-forward Brier and spread MAE missed the RAPM-on baseline. Fetch stays on.
 
 | Phase | Status | Notes |
 | --- | --- | --- |
@@ -15,6 +15,7 @@ Last updated 2026-10-29 — BBall Index fetch kept; four sim trials reverted (20
 | Synergy play-types | reverted | Ingest+schema kept; `play_types_enabled: false` — full 2025-26 WF hurt Brier/winner/spread. |
 | External RAPM (nbarapm.com) | done | Weekly fetch + leakage-safe load; full 2025-26 WF kept (Brier/winner ↑). Credit nbarapm.com. |
 | BBall Index | reverted | Personal fetch kept. Roles, defense, play-type PPP, and matchup assignment all failed the 2025-26 WF keep bar. Credit bball-index.com. |
+| Referee crews | reverted | Assignments + box-score crews stored. Reconcile PASS. Full 2025-26 WF: total MAE better, Brier and spread MAE worse. `referees_enabled: false`. Credit NBA.com. |
 | Starter STL share fix | done | `stl_credit_raw_weight: 0.30` who-gets-steal blend; mid reconcile PASS (−2.7%); WF held. |
 | Post-game through 10-24 | done | +8 finals; 36 games graded; picks 60.9% hit vs 55.2% claimed. |
 | Reconcile fix (guardrail/MIN/TOV) | done | Any ±3% flag blocks slate; sim MIN=240; early TOV −2.9%; mid guardrail PASS. |
@@ -797,6 +798,36 @@ Tests: `tests/test_league_env.py`. Mid reconcile **PASS**.
 **2026-27 resim** (36g, live-anchor fix): OFF bias −2.63 / MAE 17.06; ON bias **−2.62** / MAE 17.35 (bias holds; MAE ≈noise). Hist graded bias −3.21 unchanged (history not rewritten).
 
 **Kept.** `league_env_enabled: true`.
+
+## Referee crews (2026-10-30) — REVERTED from sim
+
+Credit: **NBA.com** — the public crew table at official.nba.com/referee-assignments, and the officials list on each game's box score summary (stats.nba.com `boxscoresummaryv3`). Personal noncommercial use. Raw HTML and JSON are not stored.
+
+**Access check before any fetch.** official.nba.com `robots.txt` allows `/referee-assignments/` (the disallows are admin, plugins, uploads, and query-string URLs) and sets `Crawl-Delay: 1`. That host has no terms page of its own (`/terms-of-use/` is 404); the assignments page links to NBA.com's terms. Those terms allow a personal, noncommercial download to one computer, and section 9 allows NBA statistics for private non-commercial use when NBA.com is credited. They do not ban automated access. They do bar gambling use and a public, regularly updated stats database. stats.nba.com `/robots.txt` redirects to a page that is not a robots file. This repo already reads that API. The fetch uses a clear `nba-sim/1.0` user agent, one request at a time, a 1.5s gap, and stops on HTTP 401, 403, or 429.
+
+**Ingest (kept):** `ingest/referees.py`. Live NBA crews (not the WNBA table) at most once per day. History is 2023-24 through the current season: 4,002 games with a crew chief, referee, and umpire, 3 games with no crew returned. Combined personal fouls come from one `leaguegamelog` request per season. Compact parquet under `DATA_DIR/external/referees/`, with a `.prev.parquet` fallback. A failed fetch keeps the last file and does not stop `daily.py`.
+
+**Leakage:** a slate on date D uses only games before D. Each official's foul, free-throw, pace, and points residual versus the league is shrunk with 25 pseudo-games. The crew mean scales possessions and `ft_rate`, clipped to ±1.5%. The points residual is not applied.
+
+**Sim trial (disabled):** mid-season reconcile (80g×80r, skip 400, seed 1) **PASS** (largest team flag TOV +2.8%). Full 2025-26 walk-forward (1314g×200r, seed 1) versus the RAPM-on baseline:
+
+| Metric | Baseline | Referees | |
+| --- | ---: | ---: | --- |
+| Brier | **0.214** | 0.216 | worse |
+| Winner accuracy | **66.7%** | 66.7% | hold |
+| Spread MAE | **12.07** | 12.16 | worse |
+| Total MAE | 16.12 | **16.02** | better |
+| Total bias (sim − actual PPG) | −1.18 | **−1.14** | better |
+| PTS MAE | 5.245 | 5.245 | hold |
+| REB MAE | 2.098 | **2.096** | hold |
+| AST MAE | 1.408 | 1.408 | hold |
+| STL MAE | — | 0.722 | new on this run |
+| BLK MAE | — | 0.537 | new on this run |
+| 10–90 coverage | 0.811 | 0.810 | hold |
+
+The prior baseline file did not record STL or BLK MAE. Live scorecard is unchanged, because this flag is off and historical picks were not resimmed: 2026-27 to date is 76/127 top picks (59.8%) against 53.9% claimed confidence (`results/season_scorecard.md`).
+
+**Reverted.** `referees_enabled: false`. Totals moved the right way. Win probability and the spread did not hold. The fetch stays on.
 
 ## BBall Index (2026-10-29) — REVERTED from sim
 

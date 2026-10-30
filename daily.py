@@ -92,6 +92,18 @@ def main(argv: list[str] | None = None) -> int:
         except Exception as exc:  # noqa: BLE001 — never block the slate
             log(f"WARNING: bball index refresh error (continuing): {exc}")
 
+        # Referee assignments (once per day) and a small officials catch-up.
+        try:
+            from ingest.referees import format_referee_age_line, refresh_referees
+
+            log("referees check")
+            ref_status = refresh_referees(settings, log=log)
+            log(format_referee_age_line(settings))
+            if ref_status.stopped_status is not None:
+                log(f"referees stopped on HTTP {ref_status.stopped_status}")
+        except Exception as exc:  # noqa: BLE001 — never block the slate
+            log(f"WARNING: referees refresh error (continuing): {exc}")
+
         # Synergy play-types: current season at most once/day; failures keep last copy.
         try:
             from ingest.play_types import refresh_play_types

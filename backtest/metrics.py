@@ -30,6 +30,7 @@ class MetricReport:
     mae_total: float = float("nan")
     winner_accuracy: float = float("nan")
     mae_stl: float = float("nan")
+    mae_blk: float = float("nan")
     mae_tov: float = float("nan")
 
     def as_dict(self) -> dict:
@@ -43,6 +44,7 @@ class MetricReport:
             "mae_reb": _json_float(self.mae_reb),
             "mae_ast": _json_float(self.mae_ast),
             "mae_stl": _json_float(self.mae_stl),
+            "mae_blk": _json_float(self.mae_blk),
             "mae_tov": _json_float(self.mae_tov),
             "mae_fg3m": _json_float(self.mae_fg3m),
             "mae_min": _json_float(self.mae_min),

@@ -56,6 +56,8 @@ def evaluate_seasons(
     act_ast: list[float] = []
     pred_stl: list[float] = []
     act_stl: list[float] = []
+    pred_blk: list[float] = []
+    act_blk: list[float] = []
     pred_tov: list[float] = []
     act_tov: list[float] = []
     pred_fg3m: list[float] = []
@@ -171,6 +173,8 @@ def evaluate_seasons(
                 act_ast.append(float(actual["ast"]))
                 pred_stl.append(player.stats["stl"].mean)
                 act_stl.append(float(actual["stl"]))
+                pred_blk.append(player.stats["blk"].mean)
+                act_blk.append(float(actual["blk"]))
                 pred_tov.append(player.stats["tov"].mean)
                 act_tov.append(float(actual["tov"]))
                 pred_fg3m.append(player.stats["fg3m"].mean)
@@ -212,6 +216,7 @@ def evaluate_seasons(
         mae_reb=mean_abs_error(np.asarray(pred_reb), np.asarray(act_reb)),
         mae_ast=mean_abs_error(np.asarray(pred_ast), np.asarray(act_ast)),
         mae_stl=mean_abs_error(np.asarray(pred_stl), np.asarray(act_stl)),
+        mae_blk=mean_abs_error(np.asarray(pred_blk), np.asarray(act_blk)),
         mae_tov=mean_abs_error(np.asarray(pred_tov), np.asarray(act_tov)),
         mae_fg3m=mean_abs_error(np.asarray(pred_fg3m), np.asarray(act_fg3m)),
         mae_min=mean_abs_error(np.asarray(pred_min), np.asarray(act_min)),
