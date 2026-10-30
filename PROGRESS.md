@@ -1,6 +1,6 @@
 # Progress
 
-Last updated 2026-10-30 — 2024-25 holdout at 1,000 sims: Brier 0.2158, 38.0 minutes. Referees re-judge is running.
+Last updated 2026-10-30 — Re-judge queue is running through referees, play types, RAPM, Step F, minutes, and BBall Index. Historical injury PDFs are downloading and are not in the sim yet.
 
 | Phase | Status | Notes |
 | --- | --- | --- |
@@ -61,9 +61,9 @@ Current engine on the 2024-25 holdout, 1,313 games, same protocol: **38.0 minute
 | Coverage 10–90 | 0.816 | 0.790 |
 | Sim vs actual PPG | 113.95 vs 115.09 (−1.14) | 108.28 vs 113.50 (−5.22) |
 
-Historical injury reports are on the NBA CDN. `Injury-Report_2025-01-15_05PM.pdf` returned the PDF. The minute-stamped key `05_30PM` returned 403, and the 2024-25 index page redirects to the current season page. The getter still rewrites hour-only stamps to `HH_00PM`, so it would miss these files. Tip-off times are not in the stored schedule, so no season archive has been downloaded and walk-forward still uses an empty injury list. Waiting for approval before the crawl: store each game's tip-off, then keep the latest report whose clock time is before that tip. A stand-in based on players who missed the previous game is not in use.
+Historical injury reports use hour-only names. `Injury-Report_2025-01-15_05PM.pdf` is a real PDF whose header says 5:30 PM. The minute-stamped key `05_30PM` returns 403, and the live getter rewrites hour-only stamps to `HH_00PM`, so it misses these files. The archive crawl reads the report clock and each game's tip from the PDF and keeps a player only when the report is strictly earlier. It is writing `external/injuries/` and the walk-forward still uses an empty injury list. A stand-in based on players who missed the previous game is not in use.
 
-Approximations used: none. The 42.0 minute season time is the measured wall clock.
+Approximations used: none. The 42.0 minute season time is the measured wall clock. Historical injury rows, when stored, keep a player only from a report whose clock time is strictly before that game's tip. Those rows are not read by the walk-forward yet.
 
 ## Reconcile fix — guardrail, 240 minutes, TOV (2026-10-24)
 

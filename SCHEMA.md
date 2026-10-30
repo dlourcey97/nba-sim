@@ -572,6 +572,15 @@ Files (latest + `.prev.parquet` fallback):
 
 **Leakage:** A slate on date D uses only games with `game_date < D`. Each official's residual (fouls and FTA per 100 possessions, pace, points versus the league mean of those prior games) is shrunk toward zero with `referees_prior_games` pseudo-games. The three-official mean scales expected possessions and `ft_rate`, clipped by `referees_factor_clip`. The points residual is recorded and not applied. The sim uses this only when `referees_enabled` is true.
 
+## external/injuries/ (historical injury reports)
+
+Not a season-partitioned engine table. Compact Parquet under `{DATA_DIR}/external/injuries/`, written by `ingest/injury_archive.py`. 2024-25 and 2025-26 reports use hour-only CDN names (`Injury-Report_YYYY-MM-DD_05PM.pdf`). The PDF is parsed in memory and not stored. Credit: NBA.com.
+
+- `reports.parquet` — one row per player on the latest report whose clock time is strictly before that game's tip. Both times come from the PDF.
+- `dates.parquet` — game dates already attempted, so a rerun does not download them again.
+
+The live slate still uses `ingest/injuries.py`, which looks up the current season's `HH_MMPM` files and does not write them. Walk-forward does not read `reports.parquet` until that wiring is turned on.
+
 ## external/bballindex/ (Basketball Index)
 
 Not a season-partitioned engine table. Compact Parquet under `{DATA_DIR}/external/bballindex/`, written by `ingest/bball_index.py`. The leaderboard tool fills its grid from a DataTables JSON POST (`session/.../dataobj/query_table`); we request that same JSON and do not parse page HTML. Credit: [Basketball Index](https://www.bball-index.com/). Personal use only — these files are gitignored and must not be redistributed.
