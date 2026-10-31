@@ -1,6 +1,6 @@
 # Progress
 
-Last updated 2026-10-31 — Shot-creation tracking made spread MAE worse, so that flag stays off. Rebound tracking is in the 1,000-sim queue, then passing. RotoWire is not fetched.
+Last updated 2026-10-31 — Rebound tracking stayed inside noise, so that flag stays off. Passing tracking is the last 1,000-sim run. RotoWire is not fetched.
 
 | Phase | Status | Notes |
 | --- | --- | --- |
@@ -16,7 +16,7 @@ Last updated 2026-10-31 — Shot-creation tracking made spread MAE worse, so tha
 | External RAPM (nbarapm.com) | done | Weekly fetch + leakage-safe load; full 2025-26 WF kept (Brier/winner ↑). Credit nbarapm.com. |
 | BBall Index | reverted | Personal fetch kept. Roles, defense, play-type PPP, and matchup assignment all failed the 2025-26 WF keep bar. Credit bball-index.com. |
 | Referee crews | reverted | Assignments + box-score crews stored. Reconcile PASS. Full 2025-26 WF: total MAE better, Brier and spread MAE worse. `referees_enabled: false`. Credit NBA.com. |
-| Decision rule | in progress | Stint RAPM and the injury archive were noise. Travel and shot-creation tracking were worse, so those flags stay off. Rebound and passing tracking are still in the 1,000-sim queue. RotoWire is not fetched. DARKO stays out of the sim. |
+| Decision rule | in progress | Stint RAPM, the injury archive, and rebound tracking were noise. Travel and shot-creation tracking were worse. Passing tracking is the last 1,000-sim run. RotoWire is not fetched. DARKO stays out of the sim. |
 | Starter STL share fix | done | `stl_credit_raw_weight: 0.30` who-gets-steal blend; mid reconcile PASS (−2.7%); WF held. |
 | Post-game through 10-24 | done | +8 finals; 36 games graded; picks 60.9% hit vs 55.2% claimed. |
 | Reconcile fix (guardrail/MIN/TOV) | done | Any ±3% flag blocks slate; sim MIN=240; early TOV −2.9%; mid guardrail PASS. |
@@ -82,7 +82,7 @@ Historical injury reports use two CDN names. Through 2025-12-21 the hour-only fi
 
 `travel_enabled`, `tracking_shot_creation_enabled`, `tracking_rebounds_enabled`, and `tracking_passing_enabled` are false. Each switch is one 1,000-sim job against the frozen current engine. The 2024-25 holdout runs only if 2025-26 is a clean improvement (at least one decisive gain, no decisive loss). Stint RAPM lost that comparison on noise, so these jobs still use external RAPM.
 
-Tracking is prior-season NBA.com pull-up, catch-and-shoot, rebound chances, and potential assists. Season S reads season S−1. The multiplier is shrunk and clipped at ±2%. Travel uses fixed arena locations and only games before the tip. On 2025-26, 1,314 games, 1,000 sims, seed 1, travel took 106.9 minutes. Paired difference versus the current engine: Brier −0.0004 (−0.0013 to +0.0005), spread MAE −0.014 (−0.052 to +0.023), total MAE +0.126 (+0.038 to +0.216). Total MAE is decisively worse, so `travel_enabled` stays false. No holdout was run. Shot creation, on the same protocol, took 140.5 minutes. Paired difference: Brier +0.0004 (−0.0006 to +0.0014), spread MAE +0.048 (+0.006 to +0.090), total MAE +0.006 (−0.029 to +0.040). Spread MAE is decisively worse, so `tracking_shot_creation_enabled` stays false. No holdout was run. No website is fetched for travel.
+Tracking is prior-season NBA.com pull-up, catch-and-shoot, rebound chances, and potential assists. Season S reads season S−1. The multiplier is shrunk and clipped at ±2%. Travel uses fixed arena locations and only games before the tip. On 2025-26, 1,314 games, 1,000 sims, seed 1, travel took 106.9 minutes. Paired difference versus the current engine: Brier −0.0004 (−0.0013 to +0.0005), spread MAE −0.014 (−0.052 to +0.023), total MAE +0.126 (+0.038 to +0.216). Total MAE is decisively worse, so `travel_enabled` stays false. No holdout was run. Shot creation, on the same protocol, took 140.5 minutes. Paired difference: Brier +0.0004 (−0.0006 to +0.0014), spread MAE +0.048 (+0.006 to +0.090), total MAE +0.006 (−0.029 to +0.040). Spread MAE is decisively worse, so `tracking_shot_creation_enabled` stays false. No holdout was run. Rebound chances, on the same protocol, took 131.4 minutes. Paired difference: Brier −0.0002 (−0.0012 to +0.0008), spread MAE +0.027 (−0.016 to +0.069), total MAE −0.013 (−0.048 to +0.020). All three intervals include zero, so `tracking_rebounds_enabled` stays false. No holdout was run. No website is fetched for travel.
 
 RotoWire's terms prohibit it. Article VI (Automated Access; No Scraping) says the user shall not use manual or automated software to crawl, scrape, or spider the site, and shall not collect the service by any automated means. The lineup page is not fetched, so there is no backtest and no live minutes check against RotoWire.
 
