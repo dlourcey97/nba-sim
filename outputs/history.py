@@ -12,6 +12,26 @@ from outputs.confidence import ConfidentPick
 from outputs.summarize import GameSummary, StatSummary
 
 
+def _tagged_kind(base: str, model: str | None) -> str:
+    """Official rows stay ``game`` / ``player`` / ``pick``.
+
+    Any other model is stored as ``{base}:{model}`` so an experimental slate
+    does not upsert over the main prediction for the same game.
+    """
+    if model is None:
+        return base
+    token = str(model).strip().lower()
+    if token in {"", "main"}:
+        return base
+    if not token.replace("_", "").isalnum():
+        raise ValueError(f"history model must be a short token, got {model!r}")
+    return f"{base}:{token}"
+
+
+def _kind_base(kind: object) -> str:
+    return str(kind or "").split(":", 1)[0]
+
+
 def _empty_pick_fields() -> dict[str, Any]:
     return {
         "pick_stat": "",
@@ -24,13 +44,17 @@ def _empty_pick_fields() -> dict[str, Any]:
     }
 
 
-def history_rows_from_summary(summary: GameSummary) -> list[dict[str, Any]]:
+def history_rows_from_summary(
+    summary: GameSummary,
+    *,
+    model: str | None = None,
+) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     game_row: dict[str, Any] = {
         "season": summary.season,
         "game_id": summary.game_id,
         "game_date": summary.game_date,
-        "row_kind": "game",
+        "row_kind": _tagged_kind("game", model),
         "player_id": None,
         "team_abbr": None,
         "opponent_abbr": None,
@@ -61,7 +85,7 @@ def history_rows_from_summary(summary: GameSummary) -> list[dict[str, Any]]:
             "season": summary.season,
             "game_id": summary.game_id,
             "game_date": summary.game_date,
-            "row_kind": "player",
+            "row_kind": _tagged_kind("player", model),
             "player_id": player.player_id,
             "team_abbr": player.team_abbr,
             "opponent_abbr": player.opponent_abbr,
@@ -97,6 +121,7 @@ def pick_history_rows(
     runs: int,
     seed: int | None,
     simulated_at: datetime | None = None,
+    model: str | None = None,
 ) -> list[dict[str, Any]]:
     """Rows for top confident picks (claimed confidence logged for grading)."""
     now = simulated_at or datetime.now(timezone.utc).replace(tzinfo=None)
@@ -106,7 +131,7 @@ def pick_history_rows(
             "season": season,
             "game_id": pick.game_id,
             "game_date": game_date,
-            "row_kind": "pick",
+            "row_kind": _tagged_kind("pick", model),
             "player_id": int(pick.player_id),
             "team_abbr": pick.team_abbr,
             "opponent_abbr": pick.opponent_abbr,
@@ -144,8 +169,9 @@ def write_prediction_history(
     summary: GameSummary,
     *,
     allow_historical: bool = False,
+    model: str | None = None,
 ) -> int:
-    rows = history_rows_from_summary(summary)
+    rows = history_rows_from_summary(summary, model=model)
     result = store_rows(
         settings,
         "prediction_history",
@@ -165,11 +191,17 @@ def write_pick_history(
     runs: int,
     seed: int | None = None,
     allow_historical: bool = False,
+    model: str | None = None,
 ) -> int:
     if not picks:
         return 0
     rows = pick_history_rows(
-        picks, season=season, game_date=game_date, runs=runs, seed=seed
+        picks,
+        season=season,
+        game_date=game_date,
+        runs=runs,
+        seed=seed,
+        model=model,
     )
     result = store_rows(
         settings,
@@ -209,7 +241,7 @@ def fill_actuals_for_season(
             continue
         new_row = dict(row)
         new_row["pick_stat"] = str(row.get("pick_stat") or "")
-        if row["row_kind"] == "game":
+        if _kind_base(row["row_kind"]) == "game":
             home = team_by_key.get((game_id, sched["home_abbr"]))
             away = team_by_key.get((game_id, sched["away_abbr"]))
             new_row["actual_home_pts"] = sched.get("home_pts")
@@ -226,7 +258,7 @@ def fill_actuals_for_season(
         if player_id is None:
             continue
         log = log_by_key.get((game_id, int(player_id)))
-        if row["row_kind"] == "pick":
+        if _kind_base(row["row_kind"]) == "pick":
             stat = str(row.get("pick_stat") or "").lower()
             if stat.startswith("dd"):
                 if log is None:

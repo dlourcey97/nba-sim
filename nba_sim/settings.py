@@ -42,7 +42,10 @@ def assert_outside_repo(path: Path, repo_root: Path) -> Path:
     return resolved
 
 
-def load_settings(repo_root: Path | None = None) -> Settings:
+def load_settings(
+    repo_root: Path | None = None,
+    config_path: Path | None = None,
+) -> Settings:
     root = (repo_root or repo_root_from_here()).resolve()
     env_path = root / ".env"
     if env_path.is_file():
@@ -55,13 +58,15 @@ def load_settings(repo_root: Path | None = None) -> Settings:
     archive_dir = assert_outside_repo(Path(archive_raw), root) if archive_raw else None
     if archive_dir is not None and archive_dir == data_dir:
         raise ConfigError("ARCHIVE_DIR must be different from DATA_DIR.")
-    config_path = root / "config.yaml"
-    if not config_path.is_file():
-        raise ConfigError(f"missing {config_path}")
-    with config_path.open(encoding="utf-8") as handle:
+    path = root / "config.yaml" if config_path is None else Path(config_path)
+    if not path.is_absolute():
+        path = root / path
+    if not path.is_file():
+        raise ConfigError(f"missing {path}")
+    with path.open(encoding="utf-8") as handle:
         loaded = yaml.safe_load(handle)
     if not isinstance(loaded, dict):
-        raise ConfigError("config.yaml must be a mapping.")
+        raise ConfigError(f"{path.name} must be a mapping.")
     _validate_config(loaded)
     return Settings(
         repo_root=root,

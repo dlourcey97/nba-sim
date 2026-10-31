@@ -53,6 +53,9 @@ def run_game(
     write_history: bool = True,
     allow_historical: bool = False,
     clear_json_first: bool = False,
+    history_model: str | None = None,
+    write_typical: bool = True,
+    write_report: bool = True,
 ) -> SlateResult:
     return run_slate(
         settings,
@@ -66,6 +69,9 @@ def run_game(
         write_history=write_history,
         allow_historical=allow_historical,
         clear_json_first=clear_json_first,
+        history_model=history_model,
+        write_typical=write_typical,
+        write_report=write_report,
     )
 
 
@@ -90,6 +96,8 @@ def run_slate(
     write_report: bool = True,
     report_notes: Sequence[str] | None = None,
     report_assumptions: Sequence[str] | None = None,
+    history_model: str | None = None,
+    write_typical: bool = True,
 ) -> SlateResult:
     schedule = read_rows(settings, "schedule", season, season_type=season_type)
     selected = []
@@ -144,29 +152,30 @@ def run_slate(
         raw_dds.extend(double_double_candidates(projection, sim))
         # Typical-game narrative: persist one possession log + WP chart only.
         # WP grid is computed from the full sim cloud in memory, then discarded.
-        try:
-            from outputs.typical_game import (
-                build_typical_game,
-                format_typical_fit,
-                write_typical_game_artifacts,
-            )
+        if write_typical:
+            try:
+                from outputs.typical_game import (
+                    build_typical_game,
+                    format_typical_fit,
+                    write_typical_game_artifacts,
+                )
 
-            _idx, typical_log = build_typical_game(
-                projection, sim, config=settings.config
-            )
-            chart_dir = settings.repo_root / "results" / "typical"
-            paths = write_typical_game_artifacts(
-                projection=projection,
-                result=sim,
-                log=typical_log,
-                out_dir=chart_dir,
-            )
-            print(f"typical-game log {paths['log']}")
-            print(f"typical-game viewer {paths['html']}")
-            print(format_typical_fit(typical_log))
-            result.json_paths.append(paths["html"])
-        except Exception as exc:
-            print(f"typical-game skipped for {projection.game_id}: {exc}")
+                _idx, typical_log = build_typical_game(
+                    projection, sim, config=settings.config
+                )
+                chart_dir = settings.repo_root / "results" / "typical"
+                paths = write_typical_game_artifacts(
+                    projection=projection,
+                    result=sim,
+                    log=typical_log,
+                    out_dir=chart_dir,
+                )
+                print(f"typical-game log {paths['log']}")
+                print(f"typical-game viewer {paths['html']}")
+                print(format_typical_fit(typical_log))
+                result.json_paths.append(paths["html"])
+            except Exception as exc:
+                print(f"typical-game skipped for {projection.game_id}: {exc}")
         # Drop raw runs immediately (typical log already extracted).
         del sim
         result.summaries.append(summary)
@@ -177,6 +186,7 @@ def run_slate(
                 settings,
                 summary,
                 allow_historical=allow_historical,
+                model=history_model,
             )
 
     result.confident_picks = select_slate_picks(raw_picks, n_picks=8)
@@ -218,6 +228,7 @@ def run_slate(
                 runs=runs_used,
                 seed=seed_used,
                 allow_historical=allow_historical,
+                model=history_model,
             )
         result.actuals_rows = fill_actuals_for_season(
             settings,

@@ -1,0 +1,292 @@
+# Experimental side-by-side config. daily.py and load_settings() keep using
+# config.yaml. Load this file only with load_settings(config_path=...).
+#
+# On relative to config.yaml:
+# - referees_enabled
+# - Synergy play types, at a lighter defense weight (0.15, was 0.35)
+# - BBall Index roles, defense grades, and matchups
+# - RAPM left on (same external file and 0.55 weight as the default)
+# - Step F rotations, by setting minutes_model to engine. The step-F flag is
+#   already true in the default file, but naive_last10 skips that path.
+# BBall play-type PPP, travel, tracking, and the injury archive stay off.
+# Those were not part of this stack, and play-type PPP would stack on Synergy.
+#
+# Tunable parameters. Later phases read these instead of hard-coding them.
+
+storage:
+  # Hard cap on DATA_DIR. A run aborts instead of writing past this size.
+  max_bytes: 2147483648
+
+season:
+  # Nightly incremental and upsert writes are limited to this season.
+  current: "2026-27"
+  # Holdout. backtest/tune.py refuses this season. Decision runs report it
+  # and do not use it to choose a feature.
+  holdout: "2024-25"
+
+http:
+  max_retries: 5
+  backoff_seconds: 1.0
+  delay_seconds: 0.6
+  timeout_seconds: 60
+
+archive:
+  # Optional compressed play-by-play under ARCHIVE_DIR. The engine never reads it.
+  save_play_by_play: false
+
+simulation:
+  runs: 10000
+  # Null draws a fresh seed per game. Set an integer to reproduce a run.
+  seed: null
+  # Late-game intentional foul probability when defense trails in a close Q4.
+  intentional_foul_prob: 0.22
+  # Soft remaining-budget scale applied once when progress crosses 0.70.
+  late_pace_adjust: true
+  # Overdispersion: coverage comes from shoot/usage/pace — not minutes_variance.
+  # Tuned 2026-10-23: post-stabilize ~0.86 PTS 10–90. Caps are 1.5×SD (max 0.60),
+  # so shoot_sd must drop below 0.40 before bands actually tighten. Target ~0.80.
+  player_shoot_sd: 0.32
+  player_usage_sd: 0.28
+  team_hot_sd: 0.05
+  pace_sd: 6.5
+  # Multiply sum-of-on-court ast_rates before P(assisted). Season-average rates
+  # stacked in a lineup slightly overstate team assists; 0.86 centers 2025-26.
+  # 1.02 drifted to ~+3.4% team AST after variance tighten; 0.99 recenters.
+  assist_p_scale: 0.99
+  # Fraction of live misses that become team rebounds (no player credit).
+  # 2025-26 box: player REB / missed FG ≈ 0.927. Tuned with Gumbel lineups
+  # (more bench → more misses) so sim team REB stays within ±3%.
+  team_reb_rate: 0.115
+  # Softmax sharpness for who gets a player rebound. 1.0 = raw rates;
+  # >1 concentrates boards on elite rebounders (fixes post-stabilize REB/36
+  # under-projection for Jokic-class players) without changing team totals.
+  reb_share_power: 1.55
+  # Who-gets-steal credit blend: raw stl_rate vs on-court mean.
+  # 1.0 = raw rates only; lower pulls toward equal on-court credit.
+  # Raw rates over-credit high-rate bench specialists (~−3.3% starter STL
+  # share). Blend keeps P(steal) on the raw sum so team STL stays put.
+  stl_credit_raw_weight: 0.30
+
+blending:
+  season_weights:
+    # 0 is the most recent season in the baseline window.
+    seasons_back: [0, 1, 2, 3]
+    # Tuned 2026-10-16: flatter recent-season weights beat the prior 0.50/0.25/0.15/0.10.
+    weights: [0.40, 0.30, 0.20, 0.10]
+  # Weight of a game played k games ago is exp(-form_decay * k). Tuned from 0.08 -> 0.04.
+  form_decay: 0.04
+  # Pseudo-possessions of the position prior mixed in for small samples.
+  # Applied against the player's blended sample_possessions (not as a raw
+  # weight next to season weights that sum to 1).
+  regression_strength: 12.0
+  min_games_for_form: 5
+  # Scale each season's blend weight by min(1, games / this). Stops a 1-game
+  # current season from taking its full 0.40 weight and wrecking FG%.
+  season_reliability_games: 20
+
+context:
+  home_pace_factor: 0.012
+  away_pace_factor: -0.006
+  # Soft FG%/FT% edge at home (Fix 5 HCA). Relative multiplicative.
+  home_fg_factor: 0.015
+  away_fg_factor: -0.005
+  # Roster-weighted ORtg/DRtg vs league, blended with current-season results.
+  # 1.0 ≈ linear ORtg/DRtg → FG factor so a ~13-pt prior net is not crushed to ~3 pts.
+  team_offense_weight: 1.0
+  team_defense_weight: 1.0
+
+  # Games of current-season results at which roster vs results are 50/50.
+  team_strength_half_life: 20.0
+  # Soft pull of roster DRtg toward prior-season team DRtg (defense is noisier).
+  roster_defense_prior_weight: 0.35
+  # Blend RAPM-implied ORtg/DRtg with prior/roster anchors.
+  rapm_strength_weight: 0.55
+  # Games at which RAPM blend reaches ~50% of rapm_strength_weight. Keeps
+  # opening-week RAPM (tiny samples / replacement lineups) from erasing priors.
+  rapm_blend_half_life: 10.0
+  # Candidate ridge penalties for stint RAPM (chosen by OOS MSE).
+  rapm_lambdas: [200, 500, 1000, 2000, 5000]
+  rapm_box_lambda: 400
+  # External RAPM from nbarapm.com (time-decay + six-factor). Fetched at most
+  # weekly into DATA_DIR/external/; prefer over stint RAPM when a local copy exists.
+  nbarapm_enabled: true
+  nbarapm_fetch_interval_days: 7
+  nbarapm_prefer_external: true
+
+  # BBall Index leaderboard JSON (personal use). Cookie is BBALL_INDEX_COOKIE in
+  # .env — never stored here. 2024-25 and 2025-26 are fetched once; 2026-27 at
+  # most weekly. Feature flags below stay off until a reconcile + walk-forward
+  # keep decision.
+  bball_index_enabled: true
+  bball_index_fetch_interval_days: 7
+  bball_roles_enabled: true
+  bball_defense_enabled: true
+  # Opponent FG shift per sigma of prior-season perimeter/interior grade.
+  bball_defense_weight: 0.015
+  bball_play_types_enabled: false
+  # Light FG nudge from prior-season stable play-type PPP vs league.
+  bball_play_type_weight: 0.10
+  # Who guards the ballhandler, from prior-season time spent on each position.
+  bball_matchups_enabled: true
+
+  # NBA referee crews. Live page: official.nba.com/referee-assignments (once
+  # per day). History: stats.nba.com box score summaries. Credit NBA.com.
+  # Sim flag off: 2025-26 walk-forward Brier 0.216 and spread MAE 12.16
+  # missed the RAPM-on baseline (0.214 / 12.07). Fetch stays on.
+  referees_fetch_enabled: true
+  referees_enabled: true
+  referees_backfill_per_run: 40
+  # Pseudo-games of league average mixed into a referee's residual.
+  referees_prior_games: 25
+  referees_pace_weight: 0.50
+  referees_ft_weight: 0.50
+  # Max relative shift on possessions and ft_rate.
+  referees_factor_clip: 0.015
+
+  # Historical pre-tip injury archive. Off until a 1,000-sim decision adopts it.
+  injury_archive_enabled: false
+  # Schedule travel and altitude. Off until a 1,000-sim decision adopts it.
+  travel_enabled: false
+  # Prior-season NBA.com tracking. Each switch is judged on its own.
+  tracking_shot_creation_enabled: false
+  tracking_rebounds_enabled: false
+  tracking_passing_enabled: false
+
+  # Synergy play-type offense mix × opponent play-type defense (stats.nba.com).
+  # Walk-forward uses PREVIOUS season only; live blends current with prior.
+  # DISABLED 2026-10-25: full 2025-26 WF failed keep criteria (Brier/winner/spread
+  # worse). Ingest + table retained; re-enable only after a passing retune.
+  play_types_enabled: true
+  play_types_fetch_interval_days: 1
+  play_types_regression_possessions: 200
+  play_types_season_half_life_possessions: 400
+  # Softens matchup FG/TOV/FT factors toward 1.0 (keeps league totals in guardrail).
+  # Lighter than the 0.35 default so this unverified feature moves the sim less.
+  play_type_defense_weight: 0.15
+
+  # Kalman team ratings + rest-aware HCA (points of expected margin).
+  kalman_hca_points: 2.8
+  kalman_process_var: 1.5
+  kalman_obs_var: 140.0
+  kalman_init_var: 25.0
+  both_b2b_hca_scale: 0.55
+  hca_points_to_fg: 0.004
+  rest_hca_curve:
+    0: -2.2
+    1: 0.0
+    2: 0.6
+    3: 0.9
+    4: 1.0
+  # Blend Kalman nets into team strength (alongside RAPM/roster).
+  kalman_strength_weight: 0.45
+  # Games at which Kalman blend reaches ~50% of kalman_strength_weight.
+  # Keeps opening-week 0–2 starts from washing out prior-season gaps.
+  kalman_blend_half_life: 15.0
+  # When OUT players remove RAPM from the rotation, shift season prior by that
+  # healthy−available gap (only when gap > 0 — never credit removing negative RAPM).
+  absence_prior_weight: 1.0
+  # Extra net-rating hit from OUT minutes (RAPM is noisy on stars). ~3.5 pts of
+  # team net per 36 base minutes sidelined.
+  absence_minutes_net_per_36: 3.5
+  # Strength-of-schedule adjust for current-season ORtg/DRtg (prior opp ratings).
+  # 1.0 = full credit for facing tough/weak clubs; 0 = raw scoring only.
+  current_sos_weight: 1.0
+
+  # Pseudo-FGA for Bayesian shrink of defender FG% allowed toward league.
+  defender_regression_fga: 80.0
+  # Scale of primary-defender FG% adjustment in the possession engine.
+  defender_impact_weight: 0.55
+  # Keys are rest days. 0 is a back-to-back.
+  rest_day_factors:
+    0: -0.030
+    1: 0.000
+    2: 0.010
+    3: 0.015
+  # Softened so stacked zone+position adjustments do not crush league FG%.
+  opponent_defense_weight: 0.35
+  # Soft shift from stats allowed to PG/SG/SF/PF/C vs league (stacks lightly with zone).
+  opponent_position_defense_weight: 0.15
+  teammate_absence_usage_share: 0.85
+  # Current-season TOV/STL vs prior: scale player rates once this many team-games
+  # have been played before as_of (fixes early 2026-27 TOV ~16.4 vs prior ~13.8).
+  # 6 team-games ≈ 3 finals so the scale engages after opening night.
+  tov_stl_scale_min_team_games: 6
+  # Early-season league environment: blend as-of pace/PPG toward prior season
+  # (leakage-safe). Active only while games_played < early_season_games so
+  # mid-season YoY scales do not double-count current-season rate blends.
+  league_env_enabled: true
+  league_env_half_life_games: 12
+  team_pace_half_life_games: 8
+  league_env_early_season_games: 40
+
+minutes:
+  blowout_margin_threshold: 15.0
+  # |margin| below this is a "close" game for rotation shortening.
+  close_margin_threshold: 6.0
+  foul_trouble_rate_prior: 0.08
+  # Historical-scale minutes sd floor — coverage comes from possession /
+  # shooting variance and lineup stints, not from inflated minutes noise.
+  minutes_variance: 5.0
+  min_minutes: 0.0
+  max_minutes: 42.0
+  # Regulation team total (5 players × 48). Sim draws are renormalized to this.
+  team_minutes_target: 240.0
+  # Prefer at least this many players with meaningful minutes on a healthy roster.
+  min_rotation_size: 8
+  # Soft cap on how many players receive regulation minutes before scaling to 240.
+  max_rotation_size: 11
+  # Never truncate a player projected at/above this when enforcing max_rotation.
+  rotation_keep_threshold: 10.0
+  # When team total > 240, zero players below this before proportional scale.
+  fringe_cut_minutes: 8.0
+  # After trimming ghosts, close this fraction of the remaining gap to 240.
+  # 0.0 keeps Step-2-like means (best MIN MAE) once the season has games.
+  normalize_gap_close: 0.0
+  # When fewer than this many current-season finals exist before as_of, use
+  # early_season_gap_close instead (opening night / week 1 trade rosters).
+  # Also: naive_last10 blends toward prior-season regular-season MPG until
+  # this many current-season appearances are in the last-10 window.
+  early_season_games: 10
+  # Partial close for week-1 / opening night. Full close (1.0) dumps cut
+  # fringe minutes onto stars and blows past max_minutes (Cade ~48 MPG).
+  # Sim draws always hard-normalize to team_minutes_target regardless.
+  early_season_gap_close: 0.55
+  # Mid-season: pull rotation means this fraction toward equal share.
+  starter_share_shrink: 0.08
+  # Early season: raise means to this power before re-fit (concentrates starters
+  # when naive last-10 is thin / flat).
+  # 1.0 = off. Higher values over-concentrated on wrong players early.
+  early_starter_power: 1.0
+  # Players with projected mean above this share on-court usage.
+  play_threshold: 1.0
+  recent_window: 10
+  # When > 0, recent minutes mean weights newer games more (exp decay by age).
+  recent_decay: 0.45
+  starter_floor: 24.0
+  bench_floor: 6.0
+  # Depth-chart priors by as-of roster rank (0 = most used). Zeros at the fringe
+  # so ghost DNPs are not invented and then scaled into the 240 total.
+  depth_minutes: [36, 34, 32, 30, 28, 20, 14, 10, 6, 0, 0, 0, 0, 0, 0]
+  # Step F: share of an OUT player's minutes that go to historical replacements
+  # first; the remainder is split by current minute share among active players.
+  replacement_share: 0.85
+  # Recency half-life (days) when learning stint/absence rotation patterns.
+  stint_recency_half_life_days: 60.0
+
+# U8 late-season incentives — not implemented for opening night.
+# Kept disabled so mid-season tanking/rest adjustments never apply.
+# Step F stint rotations: substitution edges + absence minute redistribution.
+# minutes_model: engine | naive_last10 | blend
+#   engine = depth/rotation/Step F path; naive_last10 = last N games played;
+#   blend = naive_blend * naive + (1-naive_blend) * engine.
+features:
+  late_season_incentives: false
+  stint_rotations_step_f: true
+  # Bakeoff 2025-26 full season (1314g/1000r): pure naive_last10 beat engine
+  # and blend on MIN/PTS/REB/AST MAE and coverage. Keep Step F for engine path.
+  # engine so Step F absence redistribution actually runs (naive_last10 skips it).
+  minutes_model: engine
+  naive_blend: 0.5
+
+outputs:
+  percentiles: [10, 25, 50, 75, 90]
