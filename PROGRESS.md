@@ -1,6 +1,6 @@
 # Progress
 
-Last updated 2026-10-30 — Stint RAPM stayed inside noise, so external RAPM stays. Injury, travel, and tracking are still in the 1,000-sim queue. RotoWire is not fetched.
+Last updated 2026-10-30 — The injury archive stayed inside noise, so that flag stays off. Travel is in the 1,000-sim queue, then the three tracking switches. RotoWire is not fetched.
 
 | Phase | Status | Notes |
 | --- | --- | --- |
@@ -16,7 +16,7 @@ Last updated 2026-10-30 — Stint RAPM stayed inside noise, so external RAPM sta
 | External RAPM (nbarapm.com) | done | Weekly fetch + leakage-safe load; full 2025-26 WF kept (Brier/winner ↑). Credit nbarapm.com. |
 | BBall Index | reverted | Personal fetch kept. Roles, defense, play-type PPP, and matchup assignment all failed the 2025-26 WF keep bar. Credit bball-index.com. |
 | Referee crews | reverted | Assignments + box-score crews stored. Reconcile PASS. Full 2025-26 WF: total MAE better, Brier and spread MAE worse. `referees_enabled: false`. Credit NBA.com. |
-| Decision rule | in progress | Stint RAPM was noise, so external RAPM stays. Injury, travel, and three tracking switches are still in the 1,000-sim queue. RotoWire is not fetched. DARKO stays out of the sim. |
+| Decision rule | in progress | Stint RAPM and the injury archive were noise, so both stay as they were. Travel, then three tracking switches, are still in the 1,000-sim queue. RotoWire is not fetched. DARKO stays out of the sim. |
 | Starter STL share fix | done | `stl_credit_raw_weight: 0.30` who-gets-steal blend; mid reconcile PASS (−2.7%); WF held. |
 | Post-game through 10-24 | done | +8 finals; 36 games graded; picks 60.9% hit vs 55.2% claimed. |
 | Reconcile fix (guardrail/MIN/TOV) | done | Any ±3% flag blocks slate; sim MIN=240; early TOV −2.9%; mid guardrail PASS. |
@@ -76,7 +76,7 @@ The rest of the queue, same protocol, difference is the variant minus the curren
 
 Turning `nbarapm_enabled` off and turning Step F off both matched the current engine to four decimals. `nbarapm_enabled` only skips the download; the sim follows `nbarapm_prefer_external`. The real off-switch, `nbarapm_prefer_external: false`, fits stint RAPM. On 2025-26, 1,314 games, 1,000 sims, seed 1, that run took 89.1 minutes. Paired difference versus external RAPM: Brier −0.0002 (−0.0011 to +0.0007), spread MAE −0.0005 (−0.042 to +0.040), total MAE −0.026 (−0.058 to +0.006). All three intervals include zero, so external RAPM stays. No holdout was run. Step F is skipped while `minutes_model` is `naive_last10`. The engine-minutes row above is the path that includes Step F, and that path is worse.
 
-Historical injury reports use two CDN names. Through 2025-12-21 the hour-only file is the PDF. From 2025-12-22 the file is the minute-stamped PDF. The archive is complete for both walk-forward seasons: 422 game dates from 2024-10-22 through 2026-06-13, 24,275 rows, each kept only when the report clock is before that game's tip. Walk-forward reads that file only when `injury_archive_enabled` is true. The flag is false until the 1,000-sim call below. A stand-in based on players who missed the previous game is not in use.
+Historical injury reports use two CDN names. Through 2025-12-21 the hour-only file is the PDF. From 2025-12-22 the file is the minute-stamped PDF. The archive is complete for both walk-forward seasons: 422 game dates from 2024-10-22 through 2026-06-13, 24,275 rows, each kept only when the report clock is before that game's tip. Walk-forward reads that file only when `injury_archive_enabled` is true. On 2025-26, 1,314 games, 1,000 sims, seed 1, that run took 109.1 minutes. Paired difference versus the current engine: Brier −0.0026 (−0.0056 to +0.0003), spread MAE −0.072 (−0.241 to +0.097), total MAE −0.080 (−0.209 to +0.055). All three intervals include zero, so the flag stays false. No holdout was run. A stand-in based on players who missed the previous game is not in use.
 
 ## Tracking, travel, RotoWire, DARKO (2026-10-30)
 
@@ -90,7 +90,7 @@ DARKO stays out of the simulator. The about page says the leaderboard can be dow
 
 No leakage stand-in is in use for these sources.
 
-Approximations used: none. The 42.0 minute season time is the measured wall clock. Historical injury rows, when stored, keep a player only from a report whose clock time is strictly before that game's tip. Those rows are not read by the walk-forward yet.
+Approximations used: none. The 42.0 minute season time is the measured wall clock. Historical injury rows, when stored, keep a player only from a report whose clock time is strictly before that game's tip. The 2025-26 injury-archive comparison was inside noise, so the walk-forward still uses an empty injury list.
 
 ## Reconcile fix — guardrail, 240 minutes, TOV (2026-10-24)
 
