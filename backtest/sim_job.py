@@ -118,6 +118,10 @@ def score_projected_game(payload: dict) -> dict:
         "cover_hits": cover_hits,
         "crps_pts": crps_pts_vals,
         "pit_pts": pit_pts_vals,
+        "pred_home_pts": float(summary.home_pts.mean),
+        "pred_away_pts": float(summary.away_pts.mean),
+        "act_home_pts": home_pts,
+        "act_away_pts": away_pts,
     }
 
 

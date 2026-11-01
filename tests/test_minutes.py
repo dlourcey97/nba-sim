@@ -243,6 +243,37 @@ def test_bench_with_recent_minutes_gets_nontrivial_projection():
     assert found, "expected a mid-rotation bench player in January sample"
 
 
+def test_role_prior_scales_previous_minutes_and_fills_a_slot():
+    from projections.minutes import role_prior_bases, scale_previous_to_role
+
+    config = {
+        "minutes": {
+            "role_prior_enabled": True,
+            "play_threshold": 1.0,
+            "max_rotation_size": 11,
+            "role_depth_minutes": [36, 34, 32, 30, 28, 22, 16, 12, 10, 8, 6],
+        }
+    }
+    # 26 minutes on the old team, new slot is rank 6 (16 minutes) → 19.0.
+    assert scale_previous_to_role(26.0, 16.0) == pytest.approx(19.0)
+    rows = [
+        {"player_id": 1, "base": 30.0, "depth_rank": 0, "previous": 30.0, "epm_mpg": 0.0, "out": False, "same_team_n": 6},
+        {"player_id": 2, "base": 0.0, "depth_rank": 6, "previous": 26.0, "epm_mpg": 0.0, "out": False, "same_team_n": 0},
+        {"player_id": 3, "base": 0.0, "depth_rank": 9, "previous": 0.0, "epm_mpg": 28.0, "out": False, "same_team_n": 0},
+        {"player_id": 4, "base": 0.0, "depth_rank": 10, "previous": 0.0, "epm_mpg": 0.0, "out": False, "same_team_n": 0},
+        {"player_id": 5, "base": 0.0, "depth_rank": 12, "previous": 0.0, "epm_mpg": 20.0, "out": False, "same_team_n": 0},
+        {"player_id": 6, "base": 0.0, "depth_rank": 8, "previous": 18.0, "epm_mpg": 0.0, "out": True, "same_team_n": 0},
+    ]
+    updates = role_prior_bases(rows, config)
+    assert 1 not in updates
+    assert updates[2] == pytest.approx(19.0)
+    assert updates[3] == pytest.approx(28.0)
+    assert updates[4] == pytest.approx(6.0)
+    assert 5 not in updates
+    assert 6 not in updates
+    assert role_prior_bases(rows, {"minutes": {"role_prior_enabled": False}}) == {}
+
+
 def test_project_minutes_out_unchanged():
     settings = load_settings()
     out = project_minutes(

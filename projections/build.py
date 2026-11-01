@@ -54,9 +54,11 @@ from projections.minutes import (
     allocate_team_minutes,
     depth_prior_minutes,
     effective_minutes_gap_close,
+    minute_history,
     naive_last10_minutes,
     project_minutes,
     recent_minutes_detail,
+    role_prior_bases,
     rotation_base_minutes,
 )
 from projections.rates import RateVector
@@ -583,6 +585,17 @@ def _build(
     else:
         expected_abs_margin = 8.0
 
+    epm_by_id: dict = {}
+    if bool(config["minutes"].get("role_prior_enabled", False)):
+        from pathlib import Path
+
+        from projections.dunks import _epm_map
+
+        dunks_dir = Path(settings.data_dir) / "external" / "dunks"
+        if dunks_dir.is_dir():
+            # Latest EPM file dated on or before the tip. Not tonight's box.
+            epm_by_id = _epm_map(dunks_dir, as_of)
+
     def project_side(
         team_id: int,
         team_abbr: str,
@@ -595,7 +608,9 @@ def _build(
     ) -> tuple[float, dict[int, PlayerProjection], object]:
         raw_rates: dict[int, RateVector] = {}
         # depth_rank follows as-of roster order (minutes history / appearances).
-        minute_bases: dict[int, tuple[float, float, bool, str | None, int]] = {}
+        minute_bases: dict[int, tuple[float, float, bool, str | None, int, float]] = {}
+        role_rows: list[dict[str, Any]] = []
+        role_prior = bool(config["minutes"].get("role_prior_enabled", False))
         team_dates_for_minutes = _team_game_dates(minute_source, team_id, as_of)
         for depth_rank, player_id in enumerate(roster):
             info = meta.get(player_id, {})
@@ -719,6 +734,43 @@ def _build(
                 depth_rank,
                 float(appear_rate),
             )
+            if role_prior:
+                entry = injury_by_id.get(player_id)
+                status_name = (entry.status if entry is not None else "Available").lower()
+                same_n, previous = minute_history(
+                    minute_source,
+                    player_id=player_id,
+                    team_id=team_id,
+                    as_of=as_of,
+                    window=recent_window,
+                )
+                epm_row = epm_by_id.get(player_id)
+                epm_mpg = 0.0
+                if epm_row is not None and epm_row.team == team_abbr:
+                    epm_mpg = float(epm_row.mpg)
+                role_rows.append(
+                    {
+                        "player_id": player_id,
+                        "base": float(base),
+                        "depth_rank": depth_rank,
+                        "previous": previous,
+                        "epm_mpg": epm_mpg,
+                        "out": status_name in {"out", "doubtful"},
+                        "same_team_n": same_n,
+                    }
+                )
+        if role_rows:
+            for pid, new_base in role_prior_bases(role_rows, config).items():
+                old_base, sd_min, started, position, depth_rank, appear_rate = minute_bases[pid]
+                del old_base
+                minute_bases[pid] = (
+                    float(new_base),
+                    max(float(sd_min), 4.0),
+                    started,
+                    position,
+                    depth_rank,
+                    float(appear_rate),
+                )
 
         adjusted = redistribute_for_absences(
             raw_rates,
@@ -1161,10 +1213,6 @@ def _build(
             - kalman.ratings[away_team_id]
             + rest_hca_points(rest_home, rest_away, config=config)
         )
-    players = sorted(
-        list(home_players.values()) + list(away_players.values()),
-        key=lambda row: (row.home_away != "H", -row.minutes.mean, row.player_name),
-    )
     # Refine expected margin with roster-weighted nets once both sides exist.
     refined_margin = expected_abs_margin_from_strength(
         home_str.ortg,
@@ -1187,6 +1235,33 @@ def _build(
         bundles=bundles,
         cache=cache,
         config=config,
+    )
+    from projections.dunks import append_fallback_log, apply_dunks_blend
+
+    fallbacks = apply_dunks_blend(
+        home_players,
+        away_players,
+        settings=settings,
+        as_of=game_date,
+        home_poss=home_poss,
+        away_poss=away_poss,
+        home_strength=home_str,
+        away_strength=away_str,
+        league=league_str,
+        config=config,
+        defender_fg_factor=def_fg,
+        defender_fg3_factor=def_fg3,
+    )
+    log_flag = (config.get("context") or {}).get("dunks_fallback_log", True)
+    if fallbacks and log_flag:
+        for event in fallbacks:
+            event["season"] = season
+            event["game_id"] = game_id
+            event["game_date"] = game_date.isoformat()
+        append_fallback_log(settings.repo_root, fallbacks)
+    players = sorted(
+        list(home_players.values()) + list(away_players.values()),
+        key=lambda row: (row.home_away != "H", -row.minutes.mean, row.player_name),
     )
     return GameProjection(
         season=season,

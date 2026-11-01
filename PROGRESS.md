@@ -1,6 +1,30 @@
 # Progress
 
-Last updated 2026-10-31 — The remaining 1,000-sim queue is finished. Every new flag stays off. RotoWire is not fetched.
+Last updated 2026-11-01 — Rotation minute prior is on for the live roster. Walk-forward cannot see it. Dunks zero-minute fallback is logged separately. RotoWire is not fetched.
+
+## Rotation minute prior (2026-11-01)
+
+A healthy player with no game yet for this team gets a minute prior, and only then: previous-team minutes scaled to his depth-chart slot (70% slot, 30% previous load), then EPM minutes per game, then the slot. Ranks past the 11-man rotation are unchanged. Tonight's box score is not an input. OUT and doubtful stay at 0. `minutes.role_prior_enabled: true`.
+
+The 2025-26 and 2024-25 walk-forwards do not contain this case. A historical stint starts on the first played game, and the as-of rule is `from_date < tip`, so a player is never both on the pre-tip roster and without a same-team minute. Count of those roster rows: 0 of 1,316 games in 2025-26, 0 of 1,315 in 2024-25. A 21-game projection sample, including trade debuts, changed 0 players. The paired difference versus the same code with the flag off is 0, so a 1,000-sim bootstrap would be exactly zero on both seasons. Those jobs were not run. The flag is not a backtest adoption. It is on because the live CommonTeamRoster lists players before their first box score, which is the only place the prior exists, and the next seven days (November 1–7) are the grade.
+
+Reference regrade of the 79 finals from October 21–31 (opening night is skipped; 1,000 sims, seed 1, Dunks blend on both sides, not used for the call):
+
+| | Prior off | Prior on |
+| --- | ---: | ---: |
+| Projected under 0.5 min, played 8+ | 23 | 23 |
+| MIN / PTS / REB / AST MAE | 6.717 / 4.942 / 1.998 / 1.345 | 6.636 / 4.935 / 1.998 / 1.343 |
+| Total MAE (bias, pred − actual per team) | 15.97 (−1.28) | 15.86 (−1.24) |
+| Spread MAE | 12.10 | 12.05 |
+| Brier / winner | 0.2094 / 60.8% | 0.2097 / 63.3% |
+
+The zero-minute count did not move. The players at 0 are outside the pre-tip rotation, not inside it with an empty base. Home and road are short by the same amount (about 1.25 points per team on both sides). There is no road-only miss in this regrade, so away pace and away shooting were left alone.
+
+## Dunks minute fallback (2026-11-01)
+
+If our minutes are 0, the player is not out, and EPM or that night's Dunks box has a minute number, the partial blend applies and his play probability is at least 0.85. Each case is appended to `results/dunks_fallback.jsonl`. The season scorecard grades that log in its own section and does not mix it into the season totals. No rows yet. The next seven live days are the check.
+
+Lineup draws for both minute models now use the same minute-weighted sample. A rotation player with a minute line gets on the floor. Both sides of the reference regrade include that draw.
 
 | Phase | Status | Notes |
 | --- | --- | --- |

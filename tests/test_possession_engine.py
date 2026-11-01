@@ -140,3 +140,31 @@ def test_trace_fields_do_not_change_the_sim():
     assert all(e.shot_made is False and e.shot_zone for e in boards)
     assert sum(e.points for e in log.events) == log.final_home_pts + log.final_away_pts
     assert all(e.period >= 1 and e.home_pts >= 0 and e.away_pts >= 0 for e in log.events)
+
+
+def test_rotation_lineup_includes_mid_minute_player():
+    """A ~18 MPG player must actually crack the five, not just own a minute draw."""
+    from types import SimpleNamespace
+
+    from projections.rotations import RotationModel
+    from sim.engine import _lineups_state_grid
+
+    rng = np.random.default_rng(1)
+    players = [
+        SimpleNamespace(team_id=1, player_id=100 + i, depth_rank=i) for i in range(8)
+    ]
+    column = np.array([36, 34, 32, 30, 24, 20, 18, 10], dtype=float)
+    minutes = np.repeat(column[:, None], 300, axis=1)
+    grid = _lineups_state_grid(
+        rng,
+        np.arange(8),
+        minutes,
+        players,
+        rotation=RotationModel(step_f=True),
+        flat=False,
+    )
+    in_lineup = np.any(grid == 6, axis=-1)
+    share = float(np.mean(in_lineup))
+    star_share = float(np.mean(np.any(grid == 0, axis=-1)))
+    assert share > 0.12
+    assert star_share > share

@@ -82,6 +82,7 @@ def evaluate_seasons(
     pred_total: list[float] = []
     act_total: list[float] = []
     games = 0
+    projected_zero_played = 0
     game_rows: list[dict] = []
 
     # Cache season bundles once across the whole evaluation so walk-forward does
@@ -154,6 +155,10 @@ def evaluate_seasons(
                     "act_margin": item["act_margin"],
                     "pred_total": item["pred_total"],
                     "act_total": item["act_total"],
+                    "pred_home_pts": item.get("pred_home_pts"),
+                    "pred_away_pts": item.get("pred_away_pts"),
+                    "act_home_pts": item.get("act_home_pts"),
+                    "act_away_pts": item.get("act_away_pts"),
                 }
             )
             home_probs.append(item["home_win_prob"])
@@ -219,6 +224,7 @@ def evaluate_seasons(
                 if home_n < 5 or away_n < 5:
                     continue
                 game_logs = logs_by_game.get(row["game_id"], {})
+                projected_zero_played += _projected_zero_played(projection, game_logs)
                 game_seed = seed + games + len(pending)
                 pending.append(
                     {
@@ -272,8 +278,26 @@ def evaluate_seasons(
         mae_margin=mean_abs_error(np.asarray(pred_margin), np.asarray(act_margin)),
         mae_total=mean_abs_error(np.asarray(pred_total), np.asarray(act_total)),
         winner_accuracy=winner_accuracy,
+        projected_zero_played=projected_zero_played,
         game_rows=game_rows,
     )
+
+
+def _projected_zero_played(projection, logs: dict) -> int:
+    """Count players under 0.5 projected minutes who played 8 or more.
+
+    A player in the box score and missing from the projection counts as 0.
+    """
+    projected: dict[int, float] = {}
+    for player in projection.players:
+        mean = 0.0 if player.minutes.out else float(player.minutes.mean)
+        projected[int(player.player_id)] = mean
+    count = 0
+    for pid, row in logs.items():
+        actual = float(row.get("minutes") or 0.0)
+        if actual >= 8.0 and projected.get(int(pid), 0.0) < 0.5:
+            count += 1
+    return count
 
 
 def _write_game_rows(path: Path, rows: list[dict]) -> None:

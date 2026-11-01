@@ -466,6 +466,67 @@ def _pending_predictions(history: Sequence[dict[str, Any]]) -> list[dict[str, An
     return rows
 
 
+def _dunks_fallback_lines(repo_root: Path, season: str) -> list[str]:
+    """Live-only grade for players whose minutes were filled from Dunks.
+
+    This block is not part of the season totals above. A row exists only when
+    our projection was 0 minutes, the player was not out, and EPM or that
+    night's box had a number.
+    """
+    lines = ["## Dunks minute fallback", ""]
+    lines.append(
+        "Separate from the season grade. These are healthy players we had at "
+        "0 minutes who received an EPM or same-day box minute number. The "
+        "check is the next seven live days, not the backtest."
+    )
+    lines.append("")
+    path = repo_root / "results" / "dunks_fallback.jsonl"
+    if not path.is_file():
+        lines.append("No fallback rows yet.")
+        lines.append("")
+        return lines
+    import json
+
+    events = []
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        raw = raw.strip()
+        if not raw:
+            continue
+        row = json.loads(raw)
+        if str(row.get("season") or season) == season:
+            events.append(row)
+    if not events:
+        lines.append("No fallback rows for this season yet.")
+        lines.append("")
+        return lines
+    actuals: dict[tuple[str, int], float] = {}
+    try:
+        from nba_sim.settings import load_settings
+        from nba_sim.storage import read_rows
+
+        settings = load_settings()
+        for log in read_rows(settings, "player_game_logs", season):
+            actuals[(str(log["game_id"]), int(log["player_id"]))] = float(log["minutes"])
+    except Exception:
+        actuals = {}
+    graded = []
+    played = 0
+    for event in events:
+        actual = actuals.get((str(event.get("game_id")), int(event["player_id"])))
+        if actual is None:
+            continue
+        graded.append(abs(float(event["minutes_after"]) - actual))
+        if actual >= 8.0:
+            played += 1
+    mae = sum(graded) / len(graded) if graded else None
+    lines.append("| Rows | Graded | Played 8+ | Minute MAE |")
+    lines.append("| ---: | ---: | ---: | ---: |")
+    mae_txt = "—" if mae is None else f"{mae:.2f}"
+    lines.append(f"| {len(events)} | {len(graded)} | {played} | {mae_txt} |")
+    lines.append("")
+    return lines
+
+
 def write_season_scorecard(
     repo_root: Path,
     *,
@@ -623,6 +684,8 @@ def write_season_scorecard(
         for note in notes:
             lines.append(f"- {note}")
         lines.append("")
+
+    lines.extend(_dunks_fallback_lines(repo_root, season))
 
     for night in nights:
         s = night.summary()

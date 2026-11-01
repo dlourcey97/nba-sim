@@ -146,9 +146,10 @@ def simulate_game(
     )
     # Period × margin-bucket lineup grid (stint substitution model).
     # close games shorten rotations late; blowouts put the bench on the floor.
-    # Pure naive minutes: keep lineups proportional to minute draws only —
-    # period/margin starter boosts were putting stars on the floor more than
-    # their box MIN share, inflating starter PTS/REB/AST role shares.
+    # Both minute models draw the five proportional to the minute line.
+    # The engine path still multiplies by period and co-appearance weights.
+    # Additive lineup noise was leaving rotation players off the floor, so
+    # their box minutes did not produce points or rebounds.
     minutes_cfg = cfg.get("minutes", {})
     close_thr = float(minutes_cfg.get("close_margin_threshold", 6.0))
     blowout_thr = float(minutes_cfg.get("blowout_margin_threshold", 15.0))
@@ -828,21 +829,18 @@ def _lineups_state_grid(
                     dtype=float,
                 )
             weights = base * period_w[:, None] * co_boost[:, None]
-            if flat:
-                # Gumbel-top-k ≈ sample without replacement with probs ∝ minutes.
-                # Temperature scales how often 12–18 MPG bench cracks the five.
-                # temp≈1 → near hard top-5; temp≈3 → heavy bench rotation.
-                # 1.35 keeps starter role shares near actual; elite REB/36 is
-                # restored via reb_share_power on who-gets-it (not colder lineups).
-                temperature = 1.35
-                logits = np.log(np.maximum(weights, 1e-6)) / temperature
-                gumbel = rng.gumbel(size=weights.shape)
-                noisy = logits + gumbel
-            else:
-                noise_sd = np.maximum(3.0, 0.25 * np.std(weights, axis=0) + 2.0)
-                noisy = weights + rng.normal(0.0, 1.0, size=(n_pool, n_runs)) * noise_sd[
-                    None, :
-                ]
+            # Gumbel-top-k ≈ sample without replacement with probs ∝ weights.
+            # Additive noise on the raw weights let the top five lock every
+            # period, so a 15–20 MPG player kept his minute line and recorded
+            # no possessions: 0 points and 0 rebounds.
+            # Temperature scales how often that bench cracks the five.
+            # temp≈1 → near hard top-5; temp≈3 → heavy bench rotation.
+            # 1.35 keeps starter role shares near actual; elite REB/36 is
+            # restored via reb_share_power on who-gets-it (not colder lineups).
+            temperature = 1.35
+            logits = np.log(np.maximum(weights, 1e-6)) / temperature
+            gumbel = rng.gumbel(size=weights.shape)
+            noisy = logits + gumbel
             zero_runs = weights.sum(axis=0) <= 0
             if np.any(zero_runs):
                 noisy[:, zero_runs] = rng.random((n_pool, int(np.sum(zero_runs))))

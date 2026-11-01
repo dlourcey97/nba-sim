@@ -308,6 +308,110 @@ def depth_prior_minutes(depth_rank: int, config: dict[str, Any]) -> float:
     return float(priors[depth_rank])
 
 
+# Non-zero slots through the rotation. Rank 11 and deeper stay off the floor
+# unless a later open-slot pass explicitly seats them.
+_ROLE_DEPTH_MINUTES = (36.0, 34.0, 32.0, 30.0, 28.0, 22.0, 16.0, 12.0, 10.0, 8.0, 6.0)
+
+
+def rotation_slot_minutes(depth_rank: int, config: dict[str, Any]) -> float:
+    """Expected minutes for a rotation rank. Zero means 'not in the rotation'."""
+    minutes_cfg = config.get("minutes") or {}
+    priors = minutes_cfg.get("role_depth_minutes") or _ROLE_DEPTH_MINUTES
+    max_rotation = int(minutes_cfg.get("max_rotation_size", len(priors)))
+    if depth_rank < 0 or depth_rank >= max_rotation or depth_rank >= len(priors):
+        return 0.0
+    return float(priors[depth_rank])
+
+
+def scale_previous_to_role(previous: float, role: float) -> float:
+    """Shrink a previous-team minute load toward the new depth slot.
+
+    Seventy percent of the result is the slot. A starter slot keeps a starter
+    load. A bench slot cannot inherit a full 30-minute role.
+    """
+    previous = min(max(float(previous), 0.0), 36.0)
+    role = max(float(role), 0.0)
+    if role <= 0.0:
+        return 0.0
+    if previous <= 0.0:
+        return role
+    blended = 0.70 * role + 0.30 * previous
+    if role >= 24.0:
+        low = min(role, previous) * 0.85
+        high = max(role, previous)
+    else:
+        low = 0.75 * role
+        high = max(role, min(previous, role * 1.35))
+    return float(min(max(blended, low), high))
+
+
+def minute_history(
+    bundles: Sequence[SeasonBundle],
+    *,
+    player_id: int,
+    team_id: int,
+    as_of: date,
+    window: int = 10,
+) -> tuple[int, float]:
+    """Same-team games played, and the mean of the last ``window`` games elsewhere.
+
+    Only appearances with minutes > 0 count. Dates on or after ``as_of`` are
+    ignored, so tonight's box score never enters the prior.
+    """
+    same_team = 0
+    previous: list[tuple[date, float]] = []
+    for bundle in bundles:
+        for row in bundle.logs_by_player.get(player_id, []):
+            if row["game_date"] >= as_of:
+                continue
+            minutes = float(row.get("minutes") or 0.0)
+            if minutes <= 0.0:
+                continue
+            if int(row["team_id"]) == team_id:
+                same_team += 1
+            else:
+                previous.append((row["game_date"], minutes))
+    if not previous:
+        return same_team, 0.0
+    previous.sort(key=lambda item: item[0])
+    recent = [minutes for _when, minutes in previous[-window:]]
+    return same_team, float(sum(recent) / len(recent))
+
+
+def role_prior_bases(rows: Sequence[dict[str, Any]], config: dict[str, Any]) -> dict[int, float]:
+    """Replacement minute bases for healthy players who would otherwise sit at ~0.
+
+    Same-team games are left alone. With no same-team sample and a rotation
+    slot, the order is previous-team minutes scaled to that slot, then EPM
+    minutes per game, then the slot itself. Players outside the rotation are
+    unchanged. An OUT or doubtful row is never given a prior. Returns only
+    the ids that change.
+    """
+    minutes_cfg = config.get("minutes") or {}
+    if not bool(minutes_cfg.get("role_prior_enabled", False)):
+        return {}
+    play_threshold = float(minutes_cfg.get("play_threshold", 1.0))
+    updates: dict[int, float] = {}
+    for row in rows:
+        if row.get("out"):
+            continue
+        if int(row.get("same_team_n") or 0) > 0:
+            continue
+        role = rotation_slot_minutes(int(row.get("depth_rank") or 0), config)
+        if role <= 0.0:
+            continue
+        previous = float(row.get("previous") or 0.0)
+        epm_mpg = float(row.get("epm_mpg") or 0.0)
+        base = float(row.get("base") or 0.0)
+        if previous > 0.0:
+            updates[int(row["player_id"])] = scale_previous_to_role(previous, role)
+        elif epm_mpg >= 1.0:
+            updates[int(row["player_id"])] = min(epm_mpg, 36.0)
+        elif base <= play_threshold:
+            updates[int(row["player_id"])] = role
+    return updates
+
+
 def rotation_base_minutes(
     *,
     recent_mean: float,

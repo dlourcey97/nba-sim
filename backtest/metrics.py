@@ -32,6 +32,8 @@ class MetricReport:
     mae_stl: float = float("nan")
     mae_blk: float = float("nan")
     mae_tov: float = float("nan")
+    # Players projected under 0.5 minutes who played 8 or more.
+    projected_zero_played: int = 0
     # Per-game rows for the bootstrap. Not part of the JSON metrics summary.
     game_rows: list | None = None
 
@@ -50,6 +52,7 @@ class MetricReport:
             "mae_tov": _json_float(self.mae_tov),
             "mae_fg3m": _json_float(self.mae_fg3m),
             "mae_min": _json_float(self.mae_min),
+            "projected_zero_played": int(self.projected_zero_played),
             "mae_margin": _json_float(self.mae_margin),
             "mae_total": _json_float(self.mae_total),
             "crps_pts": _json_float(self.crps_pts),

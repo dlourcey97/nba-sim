@@ -178,6 +178,14 @@ context:
   # 1.0 = full credit for facing tough/weak clubs; 0 = raw scoring only.
   current_sos_weight: 1.0
 
+  # Dunks & Threes priors. Partial blend: EPM is the player rating, the same-day
+  # box line is tonight's rotation and counting stats, team ratings nudge
+  # offense and defense. The possession model keeps the rest.
+  dunks_enabled: true
+  dunks_epm_weight: 0.30
+  dunks_box_weight: 0.25
+  dunks_team_weight: 0.20
+
   # Pseudo-FGA for Bayesian shrink of defender FG% allowed toward league.
   defender_regression_fga: 80.0
   # Scale of primary-defender FG% adjustment in the possession engine.
@@ -253,6 +261,14 @@ minutes:
   # Depth-chart priors by as-of roster rank (0 = most used). Zeros at the fringe
   # so ghost DNPs are not invented and then scaled into the 240 total.
   depth_minutes: [36, 34, 32, 30, 28, 20, 14, 10, 6, 0, 0, 0, 0, 0, 0]
+  # Healthy players with no same-team game get a prior, in this order:
+  # previous-team minutes scaled to the depth slot, EPM minutes per game, then
+  # the slot. Tonight's box score is not an input. Ranks past max_rotation_size
+  # stay untouched. Walk-forward seasons never contain this case (a historical
+  # stint starts only after a played game), so 2024-25 and 2025-26 are unchanged.
+  # It applies to the live roster. The next seven days grade it.
+  role_prior_enabled: true
+  role_depth_minutes: [36, 34, 32, 30, 28, 22, 16, 12, 10, 8, 6]
   # Step F: share of an OUT player's minutes that go to historical replacements
   # first; the remainder is split by current minute share among active players.
   replacement_share: 0.85
