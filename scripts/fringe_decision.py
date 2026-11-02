@@ -234,6 +234,26 @@ def step4() -> None:
     print("STEP 4 DONE", flush=True)
 
 
+def step5() -> None:
+    """March-April bench seat. Compared with the kept pre-debut baseline.
+
+    The reconcile window is mid-season, so this flag is off for those games.
+    A pass there does not measure March or April.
+    """
+    settings = load_settings()
+    config = _base_config(settings)
+    config["minutes"]["pre_debut_stint"] = True
+    config.setdefault("features", {})["late_season_incentives"] = True
+    local = replace(settings, config=config)
+    print("RECONCILE is mid-season; March-April seating does not run there.", flush=True)
+    _guardrail(settings, config)
+    for season in SEASONS:
+        out = _out(season, "late")
+        _run(local, config, season, out)
+        _paired(season, "late", "stint")
+    print("STEP 5 DONE", flush=True)
+
+
 def step0() -> None:
     settings = load_settings()
     config = _base_config(settings)
@@ -261,6 +281,9 @@ def main() -> None:
         return
     if step in {"4", "step4", "stint"}:
         step4()
+        return
+    if step in {"5", "step5", "late"}:
+        step5()
         return
     raise SystemExit(f"unknown step {step}")
 

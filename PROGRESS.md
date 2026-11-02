@@ -1,6 +1,6 @@
 # Progress
 
-Last updated 2026-11-02 — Honest scoring is the baseline. Pre-debut stints stay on. The 15-man cap, the fringe floor, and the return-game blend stay off.
+Last updated 2026-11-02 — Honest scoring is the baseline. Pre-debut stints stay on. The 15-man cap, the fringe floor, the return blend, and March-April bench seating stay off.
 
 ## Honest scoring (2026-11-02)
 
@@ -69,6 +69,32 @@ Pre-debut stints stay on. The guardrail passed (team minutes −0.40%, starter m
 | Brier | 0.2159 | 0.2159 | +0.0000 (−0.0006 to +0.0007), inside noise |
 
 The stored mean of 0 on a player like Andre Drummond (2026-03-15, last-10 mean 15.9, play probability 0.96) is the mid-season trim, which zeros from the bottom once the book is more than 40 minutes over 240. It is not a sub-1-minute base.
+
+March-April bench seating stays off. `features.late_season_incentives` had no code. The test gave a wiped player a short bench line on March and April games only, and left October through February alone. The mid-season guardrail passed because those months are outside its window (team minutes −0.40%, starter minutes +1.82%). That pass does not measure March or April.
+
+Against the pre-debut baseline, Brier, spread, and total are inside noise on both seasons. Minute error got worse where the seat ran hardest: 2025-26 MIN MAE 7.335 → 7.369. The "played 8+" bucket fell (3,931 → 3,245 in 2025-26, 3,984 → 3,001 in 2024-25) because those players moved from 0 expected minutes to about 0.6, and some of them reclassified into cause (c). The rotation lost more minute accuracy, when the team scaled back to 240, than the bench gained. Call: revert. The flag stays false. The March-April path remains in the tree and does not run.
+
+2025-26, 1,314 games, 39.6 minutes. Difference is late minus pre-debut.
+
+| | Pre-debut | March-April seat | Paired difference |
+| --- | ---: | ---: | --- |
+| MIN / PTS / REB / AST MAE | 7.335 / 5.218 / 2.118 / 1.394 | 7.369 / 5.225 / 2.108 / 1.394 | |
+| Causes a / b / c / d / e | 86 / 1,036 / 2 / 616 / 2,191 | 86 / 1,036 / 51 / 456 / 1,616 | |
+| Total bias | −2.26 | −2.52 | |
+| Spread MAE | 12.042 | 12.013 | −0.030 (−0.093 to +0.039), inside noise |
+| Total MAE | 15.914 | 15.919 | +0.005 (−0.050 to +0.060), inside noise |
+| Brier | 0.2136 | 0.2136 | +0.0001 (−0.0010 to +0.0012), inside noise |
+
+2024-25 holdout, 1,313 games, 39.8 minutes.
+
+| | Pre-debut | March-April seat | Paired difference |
+| --- | ---: | ---: | --- |
+| MIN / PTS / REB / AST MAE | 7.380 / 5.288 / 2.193 / 1.386 | 7.384 / 5.281 / 2.169 / 1.390 | |
+| Causes a / b / c / d / e | 74 / 933 / 3 / 653 / 2,321 | 74 / 933 / 64 / 425 / 1,505 | |
+| Total bias | −10.46 | −10.52 | |
+| Spread MAE | 11.746 | 11.681 | −0.066 (−0.135 to +0.004), inside noise |
+| Total MAE | 17.317 | 17.306 | −0.011 (−0.061 to +0.037), inside noise |
+| Brier | 0.2159 | 0.2153 | −0.0007 (−0.0017 to +0.0004), inside noise |
 
 ## Rotation selection (2026-11-01)
 
@@ -171,6 +197,7 @@ Lineup draws for both minute models now use the same minute-weighted sample. A r
 | Fringe minute floor | reverted | Guardrail failed. Starter points −8.95%, starter minutes −4.46%. Team assists −4.11%. Flag stays off. |
 | Return-game minute blend | reverted | Guardrail failed. Starter points −3.26%, starter steals −3.27%, team turnovers +3.15%. Flag stays off. |
 | Pre-debut stint | kept | Guardrail passed. Cause (a) 260 → 86 in 2025-26. Player MAE down on both seasons. Game metrics inside noise. |
+| March-April bench seat | reverted | Flag had no code. Game metrics inside noise. 2025-26 MIN MAE 7.335 → 7.369. Flag stays off. |
 | Slate 2026-10-28 | done | 12 games. Guardrail PASS. Fixed a fallback that listed Kelly Oubre on both PHI and IND. 8 stat lines + 8 double-doubles logged. |
 | Post-game through 10-27 | done | +4 finals. Winners 2/4. Picks 4/8 vs 58.5%. Double-doubles 3/8 vs 41.0%. Roster +1 (Enrique Freeman, MIN). |
 | Slate 2026-10-27 | done | 4 games. Guardrail PASS. 8 stat lines + 8 double-doubles in `prediction_history`. Graded in the row above. |
@@ -315,7 +342,7 @@ Player MAE and coverage improved; winner accuracy dipped on the resim (opening-n
 | U5. Variance (player RE + pace) | done | Per-player shoot/usage draws; pace_sd 5.5; minutes noise unchanged. |
 | U6. Kalman + rest HCA | done | Dynamic team nets; non-linear rest HCA; Brier back to 0.222. |
 | U7. Shot clusters | deferred | Not needed for opening night; leave for mid-season. |
-| U8. Late-season incentives | deferred | Not started. `features.late_season_incentives: false` in config.yaml. Opening-night freeze — no new features. |
+| U8. Late-season incentives | reverted | March-April bench seat only. Guardrail cannot see those months. 2025-26 MIN MAE worse. Flag stays false. |
 | Preseason storage | done | `season_type=Preseason` hive partition; excluded from default reads. |
 | Opening night v1.0 | done | Tag `v1.0-opening-night`. Trade-history minutes + 240 allocate; injury CDN hang fix; RUNBOOK.md. |
 | Minutes + calibration | done | Full-season bakeoff → default `naive_last10`; shoot/usage SDs widened for ~80% PTS coverage. |
@@ -1135,7 +1162,7 @@ Coverage up slightly; still short of ~0.80. Artifacts: `results/backtest/upgrade
 
 ## Opening night freeze (2026-10-19)
 
-- **U8 deferred:** `features.late_season_incentives: false` (not implemented).
+- **U8 reverted:** `features.late_season_incentives: false`. March and April would seat a wiped player on a short bench line. That raised 2025-26 MIN MAE, so the flag stays off.
 - **Minutes:** traded / new-roster players no longer get a full window of same-team zeros; any-team history + depth priors apply. `allocate_team_minutes` fringe-trims and soft-scales to 240 when gap_close=0. Mid-rotation minutes SD capped so PTS p10 is not 0 at 20+ MIN.
 - **Injuries:** ak-static primary; static.cms fallback only once (was hanging on unpublished keys). 403 treated as not-posted.
 - **Schedule:** 2026-27 regular season schedule stored (opening night 2026-10-20: BOS@DET, PHI@NYK, OKC@SAS).

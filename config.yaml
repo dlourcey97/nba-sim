@@ -298,8 +298,11 @@ minutes:
   # Recency half-life (days) when learning stint/absence rotation patterns.
   stint_recency_half_life_days: 60.0
 
-# U8 late-season incentives — not implemented for opening night.
-# Kept disabled so mid-season tanking/rest adjustments never apply.
+# U8 late-season incentives. The flag was a stub. When it is on, March and
+# April games seat players the minute trim would zero instead of wiping them.
+# October through February are unchanged. Tested 2026-11-02 against the
+# pre-debut baseline: game metrics inside noise, 2025-26 MIN MAE worse
+# (7.335 → 7.369). Stays off.
 # Step F stint rotations: substitution edges + absence minute redistribution.
 # minutes_model: engine | naive_last10 | blend
 #   engine = depth/rotation/Step F path; naive_last10 = last N games played;

@@ -54,6 +54,7 @@ from projections.minutes import (
     allocate_team_minutes,
     apply_play_rotation,
     blend_return_base,
+    late_season_game,
     depth_prior_minutes,
     effective_minutes_gap_close,
     minute_history,
@@ -430,6 +431,12 @@ def _build(
     if minutes_gap != float(config["minutes"].get("normalize_gap_close", 0.0)):
         minutes_cfg = dict(config["minutes"])
         minutes_cfg["normalize_gap_close"] = minutes_gap
+        config = {**config, "minutes": minutes_cfg}
+    # Copied so a March game cannot leave the bit on for the next tip.
+    late_now = late_season_game(game_date, config)
+    if bool(config["minutes"].get("late_season_active", False)) != late_now:
+        minutes_cfg = dict(config["minutes"])
+        minutes_cfg["late_season_active"] = late_now
         config = {**config, "minutes": minutes_cfg}
     seasons_back = list(config["blending"]["season_weights"]["seasons_back"])
     window = available_season_window(settings, season, seasons_back)

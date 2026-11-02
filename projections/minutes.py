@@ -843,6 +843,18 @@ def project_minutes(
     return MinutesProjection(mean, sd, min_minutes, max_minutes, False, play_prob=play_prob)
 
 
+def late_season_game(game_date: date, config: dict[str, Any]) -> bool:
+    """True only for a March or April game when the late-season flag is on.
+
+    The flag was a stub. This is the whole behavior: those months seat the
+    players the trim would zero, instead of wiping them. Every other month
+    is unchanged.
+    """
+    if not bool((config.get("features") or {}).get("late_season_incentives", False)):
+        return False
+    return int(game_date.month) in (3, 4)
+
+
 def _fringe_line(rank: int) -> tuple[float, float]:
     """Minutes if he plays, and P(plays), for someone outside the rotation.
 
@@ -964,6 +976,10 @@ def allocate_team_minutes(
     )
     original_play = play_probs.copy()
     fringe_floor = bool(minutes_cfg.get("fringe_minute_floor", False))
+    # March and April only. The flag is set per game in the projection build.
+    # U8 had no behavior before this; the all-season fringe floor already
+    # failed the guardrail, so this seat does not run in October–February.
+    seat_fringe = fringe_floor or bool(minutes_cfg.get("late_season_active", False))
     floors = np.zeros(n, dtype=float)
     if return_floors is not None:
         for i, value in enumerate(return_floors):
@@ -1001,7 +1017,7 @@ def allocate_team_minutes(
                 if means[i] < keep_threshold:
                     means[i] = 0.0
 
-        if fringe_floor:
+        if seat_fringe:
             _seat_fringe(
                 means,
                 play_probs,
@@ -1053,7 +1069,7 @@ def allocate_team_minutes(
                 else:
                     means[i] = 0.0
     elif active_idx.size:
-        if fringe_floor:
+        if seat_fringe:
             # The mid-season trim was zeroing real bases once the book was more
             # than 40 over 240 (a 16-minute man at the bottom of 15 landed at
             # mean 0 with his old play probability still near 1). Seat him on
@@ -1128,7 +1144,7 @@ def allocate_team_minutes(
         for i in np.where(~out)[0]
         if means[i] > play_threshold
         and caps[i] > 0
-        and (not fringe_floor or float(play_probs[i]) >= 0.50)
+        and (not seat_fringe or float(play_probs[i]) >= 0.50)
     ]
     if len(playing) >= 7:
         if gap_close <= 0:

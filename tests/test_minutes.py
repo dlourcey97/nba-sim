@@ -572,6 +572,36 @@ def test_return_blend_does_not_fully_restore_or_cut_a_kept_line():
     assert fringe_base < raised
 
 
+def test_late_season_seat_runs_only_when_the_game_is_marked():
+    import copy
+
+    from projections.minutes import late_season_game
+
+    settings = load_settings()
+    config = copy.deepcopy(settings.config)
+    config["features"]["late_season_incentives"] = True
+    assert late_season_game(date(2026, 3, 15), config) is True
+    assert late_season_game(date(2026, 4, 10), config) is True
+    assert late_season_game(date(2026, 1, 15), config) is False
+    config["features"]["late_season_incentives"] = False
+    assert late_season_game(date(2026, 3, 15), config) is False
+
+    config = copy.deepcopy(settings.config)
+    config["minutes"]["normalize_gap_close"] = 0.0
+    config["minutes"]["late_season_active"] = False
+    means = [36, 34, 32, 30, 28, 24, 20, 16, 14, 12, 10, 8, 6, 4, 0.4]
+    raw = [
+        MinutesProjection(float(mean), 3.0, 0.0, 42.0, False, play_prob=0.96)
+        for mean in means
+    ]
+    off = allocate_team_minutes(raw, config=config, depth_ranks=list(range(len(means))))
+    assert off[-1].mean == 0.0
+    config["minutes"]["late_season_active"] = True
+    on = allocate_team_minutes(raw, config=config, depth_ranks=list(range(len(means))))
+    assert on[-1].mean > 1.0
+    assert on[-1].play_prob < 0.2
+
+
 def test_sub_minute_base_is_not_trusted_when_fringe_floor_is_on():
     from projections.minutes import apply_play_rotation
 
