@@ -285,3 +285,173 @@ def test_project_minutes_out_unchanged():
         started=True,
     )
     assert out.out and out.mean == 0.0
+
+
+def test_games_before_arrival_are_not_dnps():
+    from projections.blend import SeasonBundle
+    from projections.minutes import appearance_since_arrival
+
+    logs = [
+        {"game_date": date(2026, 10, 22), "team_id": 1, "minutes": 30.0},
+    ]
+    bundle = SeasonBundle("2026-27", rates_by_player={}, logs_by_player={7: logs})
+    team_dates = [date(2026, 10, 20), date(2026, 10, 21), date(2026, 10, 22)]
+    rate, real = appearance_since_arrival(
+        [bundle], player_id=7, team_id=1, as_of=date(2026, 10, 24), team_dates=team_dates
+    )
+    assert real is False
+    assert rate == 1.0
+    empty_rate, empty_real = appearance_since_arrival(
+        [bundle], player_id=8, team_id=1, as_of=date(2026, 10, 24), team_dates=team_dates
+    )
+    assert empty_real is False
+    assert empty_rate == 1.0
+
+
+def test_low_overlap_keeps_the_live_roster_and_players_who_already_played():
+    from projections.build import merge_live_roster
+
+    live = [1, 2, 3]
+    prior = [1, 4, 5]
+    # 3 is new. 4 already played here. 5 did not, and is not on the live list.
+    # 2 is also listed on another club.
+    merged = merge_live_roster(live, prior, claimed_elsewhere={2}, appeared_here={4})
+    assert merged == [1, 3, 4]
+
+
+def test_rank_score_uses_every_pre_tip_source_and_dnp_history():
+    from projections.minutes import rotation_rank_score
+
+    incumbent = rotation_rank_score(
+        same_mean=28.0, same_n=8, previous=0.0, epm_mpg=0.0,
+        preseason_mean=0.0, preseason_n=0, rookie=False, appear_rate=1.0, dnp_window=True,
+    )
+    traded = rotation_rank_score(
+        same_mean=0.0, same_n=0, previous=22.0, epm_mpg=0.0,
+        preseason_mean=0.0, preseason_n=0, rookie=False, appear_rate=1.0, dnp_window=False,
+    )
+    rookie = rotation_rank_score(
+        same_mean=0.0, same_n=0, previous=0.0, epm_mpg=0.0,
+        preseason_mean=18.0, preseason_n=4, rookie=True, appear_rate=1.0, dnp_window=False,
+    )
+    empty = rotation_rank_score(
+        same_mean=0.0, same_n=0, previous=0.0, epm_mpg=0.0,
+        preseason_mean=0.0, preseason_n=0, rookie=True, appear_rate=1.0, dnp_window=False,
+    )
+    assert incumbent > traded > rookie > empty
+    full = rotation_rank_score(
+        same_mean=22.0, same_n=8, previous=0.0, epm_mpg=0.0,
+        preseason_mean=0.0, preseason_n=0, rookie=False, appear_rate=1.0, dnp_window=True,
+    )
+    scratched = rotation_rank_score(
+        same_mean=22.0, same_n=8, previous=0.0, epm_mpg=0.0,
+        preseason_mean=0.0, preseason_n=0, rookie=False, appear_rate=0.2, dnp_window=True,
+    )
+    assert full * 0.80 < scratched < full
+
+
+def test_twelfth_man_gets_play_probability_not_a_hard_zero():
+    from projections.minutes import apply_play_rotation
+
+    rows = []
+    for i in range(11):
+        rows.append(
+            {
+                "player_id": i,
+                "same_n": 10,
+                "same_mean": 34.0 - i,
+                "previous": 0.0,
+                "epm_mpg": 0.0,
+                "preseason_mean": 0.0,
+                "preseason_n": 0,
+                "appear_rate": 1.0,
+                "dnp_window": True,
+                "out": False,
+                "status": "available",
+            }
+        )
+    rows.append(
+        {
+            "player_id": 99,
+            "same_n": 0,
+            "same_mean": 0.0,
+            "previous": 0.0,
+            "epm_mpg": 0.0,
+            "preseason_mean": 14.0,
+            "preseason_n": 3,
+            "appear_rate": 1.0,
+            "dnp_window": False,
+            "out": False,
+            "status": "available",
+        }
+    )
+    rows.append(
+        {
+            "player_id": 100,
+            "same_n": 0,
+            "same_mean": 0.0,
+            "previous": 0.0,
+            "epm_mpg": 0.0,
+            "preseason_mean": 0.0,
+            "preseason_n": 0,
+            "appear_rate": 1.0,
+            "dnp_window": False,
+            "out": True,
+            "status": "out",
+        }
+    )
+    assigned = apply_play_rotation(rows, {"minutes": {"play_prob_rotation": True}})
+    assert assigned[99]["rank"] == 11
+    assert assigned[99]["play_prob"] == pytest.approx(0.30, abs=0.02)
+    assert 6.0 <= assigned[99]["mean"] <= 12.0
+    assert assigned[0]["mean"] is None
+    assert assigned[100]["play_prob"] is None
+
+
+def test_allocate_keeps_twelfth_man_when_play_prob_rotation_is_on():
+    import copy
+
+    settings = load_settings()
+    config = copy.deepcopy(settings.config)
+    config["minutes"]["normalize_gap_close"] = 0.55
+    means = [36, 34, 32, 30, 28, 24, 20, 16, 14, 12, 10, 8]
+    raw = []
+    for i, mean in enumerate(means):
+        prob = 0.30 if i == 11 else 0.96
+        raw.append(MinutesProjection(float(mean), 3.0, 0.0, 42.0, False, play_prob=prob))
+    config["minutes"]["play_prob_rotation"] = False
+    off = allocate_team_minutes(raw, config=config, depth_ranks=list(range(12)))
+    assert off[-1].mean == 0.0
+    config["minutes"]["play_prob_rotation"] = True
+    on = allocate_team_minutes(raw, config=config, depth_ranks=list(range(12)))
+    assert on[-1].mean > 1.0
+    assert on[-1].play_prob == pytest.approx(0.30)
+    expected = sum(p.mean * p.play_prob for p in on if not p.out)
+    assert expected == pytest.approx(240.0, abs=8.0)
+
+
+def test_fringe_sit_draw_still_normalizes_to_240():
+    rng = np.random.default_rng(1)
+    players = [
+        MinutesProjection(34, 3, 0, 42, False, play_prob=0.98),
+        MinutesProjection(32, 3, 0, 42, False, play_prob=0.98),
+        MinutesProjection(30, 3, 0, 42, False, play_prob=0.97),
+        MinutesProjection(28, 3, 0, 42, False, play_prob=0.96),
+        MinutesProjection(24, 3, 0, 42, False, play_prob=0.95),
+        MinutesProjection(18, 3, 0, 42, False, play_prob=0.85),
+        MinutesProjection(14, 3, 0, 42, False, play_prob=0.72),
+        MinutesProjection(10, 2, 0, 42, False, play_prob=0.45),
+        MinutesProjection(8, 2, 0, 42, False, play_prob=0.30),
+    ]
+    draws = np.vstack([player.sample(rng, size=200) for player in players])
+    normed = normalize_team_minute_draws(
+        draws,
+        out_mask=np.zeros(len(players), dtype=bool),
+        caps=np.full(len(players), 42.0),
+        target=240.0,
+        min_minutes=0.0,
+    )
+    assert normed.sum(axis=0) == pytest.approx(240.0, abs=0.05)
+    # The 12th man sits in some runs and plays in others.
+    assert float(np.mean(draws[-1] == 0.0)) > 0.4
+    assert float(np.mean(draws[-1] > 0.0)) > 0.1

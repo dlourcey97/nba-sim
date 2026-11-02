@@ -83,6 +83,7 @@ def evaluate_seasons(
     act_total: list[float] = []
     games = 0
     projected_zero_played = 0
+    projected_eight_dnp = 0
     game_rows: list[dict] = []
 
     # Cache season bundles once across the whole evaluation so walk-forward does
@@ -224,7 +225,9 @@ def evaluate_seasons(
                 if home_n < 5 or away_n < 5:
                     continue
                 game_logs = logs_by_game.get(row["game_id"], {})
-                projected_zero_played += _projected_zero_played(projection, game_logs)
+                zero_played, eight_dnp = _minute_miss_counts(projection, game_logs)
+                projected_zero_played += zero_played
+                projected_eight_dnp += eight_dnp
                 game_seed = seed + games + len(pending)
                 pending.append(
                     {
@@ -279,25 +282,40 @@ def evaluate_seasons(
         mae_total=mean_abs_error(np.asarray(pred_total), np.asarray(act_total)),
         winner_accuracy=winner_accuracy,
         projected_zero_played=projected_zero_played,
+        projected_eight_dnp=projected_eight_dnp,
         game_rows=game_rows,
     )
 
 
-def _projected_zero_played(projection, logs: dict) -> int:
-    """Count players under 0.5 projected minutes who played 8 or more.
+def _minute_miss_counts(projection, logs: dict) -> tuple[int, int]:
+    """(projected 0 and played 8+, projected 8+ and did not play).
 
-    A player in the box score and missing from the projection counts as 0.
+    The projection is expected minutes: conditional mean times P(plays).
+    A box-score player missing from the projection counts as 0. A player we
+    expect to play 8 or more who has no log row counts as a DNP.
     """
-    projected: dict[int, float] = {}
+    expected_by_id: dict[int, float] = {}
     for player in projection.players:
-        mean = 0.0 if player.minutes.out else float(player.minutes.mean)
-        projected[int(player.player_id)] = mean
-    count = 0
+        if player.minutes.out or float(player.minutes.play_prob) <= 0.0:
+            expected = 0.0
+        else:
+            expected = float(player.minutes.mean) * float(player.minutes.play_prob)
+        expected_by_id[int(player.player_id)] = expected
+    zero = 0
+    dnp = 0
+    seen: set[int] = set()
     for pid, row in logs.items():
         actual = float(row.get("minutes") or 0.0)
-        if actual >= 8.0 and projected.get(int(pid), 0.0) < 0.5:
-            count += 1
-    return count
+        seen.add(int(pid))
+        expected = expected_by_id.get(int(pid), 0.0)
+        if expected < 0.5 and actual >= 8.0:
+            zero += 1
+        if expected >= 8.0 and actual < 0.5:
+            dnp += 1
+    for pid, expected in expected_by_id.items():
+        if pid not in seen and expected >= 8.0:
+            dnp += 1
+    return zero, dnp
 
 
 def _write_game_rows(path: Path, rows: list[dict]) -> None:

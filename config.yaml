@@ -269,6 +269,13 @@ minutes:
   # It applies to the live roster. The next seven days grade it.
   role_prior_enabled: true
   role_depth_minutes: [36, 34, 32, 30, 28, 22, 16, 12, 10, 8, 6]
+  # Rank by pre-tip expected minutes (same-team, previous team, EPM, preseason,
+  # rookie status, recent DNPs). There is no draft-slot table. Every healthy
+  # player gets P(plays) and minutes-if-he-plays; rank 11 is about 30% and 8
+  # minutes. The sim still draws the sit, then forces the team to 240.
+  # Players with 3+ same-team games keep their minute base. The 11-man zero
+  # in allocate is off while this flag is on.
+  play_prob_rotation: true
   # Step F: share of an OUT player's minutes that go to historical replacements
   # first; the remainder is split by current minute share among active players.
   replacement_share: 0.85

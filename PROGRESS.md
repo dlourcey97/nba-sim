@@ -1,24 +1,93 @@
 # Progress
 
-Last updated 2026-11-01 — Rotation minute prior is on for the live roster. Walk-forward cannot see it. Dunks zero-minute fallback is logged separately. RotoWire is not fetched.
+Last updated 2026-11-01 — The 23 zero-minute misses were Philadelphia players the roster guard had deleted. They are back on the live roster. Play probability stays on: 2025-26 and the 2024-25 holdout are both inside noise. Dunks zero-minute fallback is logged separately. RotoWire is not fetched.
 
-## Rotation minute prior (2026-11-01)
+## Rotation selection (2026-11-01)
 
-A healthy player with no game yet for this team gets a minute prior, and only then: previous-team minutes scaled to his depth-chart slot (70% slot, 30% previous load), then EPM minutes per game, then the slot. Ranks past the 11-man rotation are unchanged. Tonight's box score is not an input. OUT and doubtful stay at 0. `minutes.role_prior_enabled: true`.
+The 23 cases of "projected 0, played 8+" on the October 21–31 regrade were not the 12th man. All 23 were Philadelphia player-games missing from the projection. The live CommonTeamRoster for PHI overlapped last year's open stints on 7 players, and the guard required `max(5, 0.4 × 20) = 8`, so it threw the live list away and kept only the 2025-26 open stints. Jaylen Brown, LeBron James, Kentavious Caldwell-Pope, Anfernee Simons, Dean Wade, and Labaron Philon Jr. are on the current PHI roster and in this season's logs. That is the stored roster, not a join bug. The old rank for every one of the 23 is "not on the roster."
 
-The 2025-26 and 2024-25 walk-forwards do not contain this case. A historical stint starts on the first played game, and the as-of rule is `from_date < tip`, so a player is never both on the pre-tip roster and without a same-team minute. Count of those roster rows: 0 of 1,316 games in 2025-26, 0 of 1,315 in 2024-25. A 21-game projection sample, including trade debuts, changed 0 players. The paired difference versus the same code with the flag off is 0, so a 1,000-sim bootstrap would be exactly zero on both seasons. Those jobs were not run. The flag is not a backtest adoption. It is on because the live CommonTeamRoster lists players before their first box score, which is the only place the prior exists, and the next seven days (November 1–7) are the grade.
+`merge_live_roster` keeps the live ids that are not listed on another club, and adds a prior-year player only when he already played for this team before tip and is not claimed elsewhere. The cap is `max(18, len(live))`, so a 17-man live roster is not cut. Historical seasons still use `team_rosters` stints. Only the current season reads `current_rosters`.
 
-Reference regrade of the 79 finals from October 21–31 (opening night is skipped; 1,000 sims, seed 1, Dunks blend on both sides, not used for the call):
+Once those names are on the roster, last-10 minutes and the role prior already give the veterans a minute line. There is no draft-slot table in this repo or in `nba_data`. A rookie is someone with no regular-season minute before tip. Rank uses, in order, same-team minutes (weight 0.80 once he has 3 games, else 0.45), previous-team minutes scaled and capped at 36 (0.40 with no same-team game, else 0.12), EPM minutes (0.30 / 0.08), preseason minutes (0.35 / 0.05), and a 6-minute prior only when he has none of those. EPM files start 2026-10-20 and preseason logs exist only for 2026-27, so the 2024-25 and 2025-26 walk-forwards have neither. Games before he joined are not DNPs. A sit shrinks the rank score only after three team games since his first minute here, and only by `0.85 + 0.15 × appear`.
 
-| | Prior off | Prior on |
+The hard 11-man zero in early-season allocation (`gap_close > 0`) is skipped while `minutes.play_prob_rotation` is true. The mid-season trim, which zeros a mean at or under 1 minute and cuts the fringe only when the book is more than 40 minutes over 240, stays on. Every healthy player is ranked. OUT and doubtful stay at rank 99 and 0 minutes. A player keeps the minute base he already has when he has 3 or more same-team games or that base is already above 1 minute. The curve fills only a healthy player still at about 0: rank 11 (the 12th man) is about 8 minutes if he plays and a 0.30 play probability; deeper ranks step down to a floor of 5 minutes and 0.12. Each sim draws whether he plays, then his minutes, and the team draw is forced to 240. Expected minutes are conditional minutes times play probability. Replacing bases that were already above 1 minute dropped starter share about 5% and failed the guardrail, so that path is not in the tree.
+
+After the roster fix, on the same six Philadelphia games, with the flag on:
+
+| Date | Player | Actual | New rank | P(plays) | Min if he plays | Expected |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| 2026-10-22 | Jaylen Brown | 37.7 | 2 | 0.96 | 31.6 | 30.3 |
+| 2026-10-22 | LeBron James | 33.4 | 3 | 0.96 | 31.5 | 30.2 |
+| 2026-10-22 | Kentavious Caldwell-Pope | 24.9 | 7 | 0.96 | 22.5 | 21.6 |
+| 2026-10-22 | Anfernee Simons | 16.7 | 6 | 0.88 | 22.0 | 19.3 |
+| 2026-10-24 | Jaylen Brown | 34.7 | 1 | 0.96 | 32.8 | 31.4 |
+| 2026-10-24 | Dean Wade | 28.1 | 8 | 0.88 | 18.1 | 15.9 |
+| 2026-10-24 | Kentavious Caldwell-Pope | 28.3 | 6 | 0.96 | 23.0 | 22.0 |
+| 2026-10-24 | Anfernee Simons | 20.3 | 7 | 0.88 | 20.4 | 18.0 |
+| 2026-10-25 | Jaylen Brown | 40.0 | 1 | 0.96 | 32.3 | 31.0 |
+| 2026-10-25 | Dean Wade | 37.1 | 6 | 0.88 | 22.7 | 19.9 |
+| 2026-10-25 | LeBron James | 33.2 | 4 | 0.96 | 31.3 | 30.0 |
+| 2026-10-25 | Kentavious Caldwell-Pope | 31.0 | 7 | 0.96 | 24.7 | 23.7 |
+| 2026-10-25 | Anfernee Simons | 26.8 | 8 | 0.88 | 21.0 | 18.5 |
+| 2026-10-25 | Labaron Philon Jr. | 13.0 | 15 | 0.85 | 1.9 | 1.6 |
+| 2026-10-28 | Jaylen Brown | 34.3 | 1 | 0.96 | 34.2 | 32.8 |
+| 2026-10-28 | LeBron James | 32.9 | 4 | 0.96 | 31.2 | 30.0 |
+| 2026-10-28 | Kentavious Caldwell-Pope | 20.9 | 7 | 0.96 | 24.9 | 23.9 |
+| 2026-10-28 | Dean Wade | 16.6 | 6 | 0.96 | 26.7 | 25.6 |
+| 2026-10-28 | Anfernee Simons | 26.8 | 8 | 0.88 | 20.6 | 18.1 |
+| 2026-10-30 | LeBron James | 34.2 | 4 | 0.96 | 30.2 | 29.0 |
+| 2026-10-30 | Dean Wade | 26.8 | 6 | 0.88 | 22.2 | 19.5 |
+| 2026-10-30 | Kentavious Caldwell-Pope | 20.8 | 7 | 0.96 | 23.2 | 22.2 |
+| 2026-10-30 | Anfernee Simons | 31.5 | 8 | 0.88 | 23.0 | 20.2 |
+
+Previous-team minutes and EPM put the veterans in the top 8. Philon is the one still thin: almost no pre-tip minutes, EPM about 6, no previous team, and a base just above 1 minute, so the curve does not replace it.
+
+The role prior stays on. It still only scales a player with no same-team game inside the old 11. The 2025-26 and 2024-25 walk-forwards still have 0 roster rows that are both on the pre-tip roster and without a same-team minute, because a historical stint starts on the first played game. The play-probability flag can still move early-season games, where the 11-man zero used to run, and any healthy player whose base is still about 0. November 1–7 remains the live grade for the role prior and the Dunks fallback.
+
+Reconcile on the mid-season 2025-26 guardrail (80 games, 80 runs, skip 400, seed 1) passed after the keep-base rule and the restored mid-season trim: team minutes −0.39%, points −0.08%, rebounds +0.30%, assists −1.14%, turnovers +2.47%, steals −0.99%, blocks +2.11%. Starter minutes +1.81%, points −2.41%, rebounds +0.29%, assists −0.89%, steals −2.73%, blocks +2.49%, turnovers 0. The November 1 slate printed the same pass (rebounds +0.3%, starter rebounds +0.3%). Threshold is ±3%.
+
+The 1,000-sim decision is `scripts/rotation_decision.py`: 2025-26 then 2024-25, flag off then on, same seed, four workers, Dunks fallback log forced off. Difference is on minus off. A Brier, spread MAE, or total MAE change counts only when the paired 95% interval excludes zero. The 2026-27 regrade is reference only and is not the keep/revert. The roster-guard fix stays either way.
+
+2025-26, 1,314 games, 1,000 sims, seed 1, four workers. The off side took 87.5 minutes; the on side took 61.4 minutes.
+
+| | Off | On | On − off (95% interval) |
+| --- | ---: | ---: | --- |
+| MIN MAE | 6.870 | 6.871 | |
+| PTS MAE | 5.233 | 5.233 | |
+| Projected under 0.5, played 8+ | 3,987 | 3,982 | |
+| Projected 8+, DNP | 6,563 | 6,564 | |
+| Total bias (pred − actual) | −2.28 | −2.28 | |
+| Spread MAE | 12.005 | 12.018 | +0.013 (−0.005 to +0.030), inside noise |
+| Total MAE | 15.915 | 15.909 | −0.005 (−0.020 to +0.009), inside noise |
+| Brier | 0.2135 | 0.2135 | −0.0000 (−0.0004 to +0.0004), inside noise |
+
+2024-25 holdout, 1,313 games, same protocol. The off side took 91.4 minutes; the on side took 114.6 minutes. This season is reported only.
+
+| | Off | On | On − off (95% interval) |
+| --- | ---: | ---: | --- |
+| MIN MAE | 7.010 | 7.008 | |
+| PTS MAE | 5.341 | 5.341 | |
+| Projected under 0.5, played 8+ | 4,040 | 4,035 | |
+| Projected 8+, DNP | 6,405 | 6,403 | |
+| Total bias (pred − actual) | −10.45 | −10.46 | |
+| Spread MAE | 11.743 | 11.751 | +0.009 (−0.006 to +0.023), inside noise |
+| Total MAE | 17.309 | 17.321 | +0.011 (−0.001 to +0.024), inside noise |
+| Brier | 0.2158 | 0.2159 | +0.0001 (−0.0003 to +0.0004), inside noise |
+
+Every decision interval includes zero on both seasons. Call: noise, keep for the fringe fix. `minutes.play_prob_rotation` stays true.
+
+Reference regrade of the 85 finals now stored for 2026-27 (1,000 sims, seed 1, not used for the call):
+
+| | Off | On |
 | --- | ---: | ---: |
-| Projected under 0.5 min, played 8+ | 23 | 23 |
-| MIN / PTS / REB / AST MAE | 6.717 / 4.942 / 1.998 / 1.345 | 6.636 / 4.935 / 1.998 / 1.343 |
-| Total MAE (bias, pred − actual per team) | 15.97 (−1.28) | 15.86 (−1.24) |
-| Spread MAE | 12.10 | 12.05 |
-| Brier / winner | 0.2094 / 60.8% | 0.2097 / 63.3% |
+| MIN / PTS MAE | 6.707 / 4.972 | 6.700 / 4.962 |
+| Projected under 0.5, played 8+ | 0 | 1 |
+| Projected 8+, DNP | 450 | 453 |
+| Total MAE (bias, pred − actual) | 15.46 (−2.96) | 15.48 (−3.11) |
+| Spread MAE | 11.92 | 11.89 |
+| Brier / winner | 0.2003 / 68.2% | 0.2007 / 69.4% |
 
-The zero-minute count did not move. The players at 0 are outside the pre-tip rotation, not inside it with an empty base. Home and road are short by the same amount (about 1.25 points per team on both sides). There is no road-only miss in this regrade, so away pace and away shooting were left alone.
+Home and road were short by the same amount on the earlier October regrade (about 1.25 points per team on both sides). Away pace and away shooting were left alone.
 
 ## Dunks minute fallback (2026-11-01)
 
@@ -28,6 +97,7 @@ Lineup draws for both minute models now use the same minute-weighted sample. A r
 
 | Phase | Status | Notes |
 | --- | --- | --- |
+| Play-probability rotation | kept | Roster guard was dropping PHI. 2025-26 and 2024-25 holdout both inside noise. Flag stays on. |
 | Slate 2026-10-28 | done | 12 games. Guardrail PASS. Fixed a fallback that listed Kelly Oubre on both PHI and IND. 8 stat lines + 8 double-doubles logged. |
 | Post-game through 10-27 | done | +4 finals. Winners 2/4. Picks 4/8 vs 58.5%. Double-doubles 3/8 vs 41.0%. Roster +1 (Enrique Freeman, MIN). |
 | Slate 2026-10-27 | done | 4 games. Guardrail PASS. 8 stat lines + 8 double-doubles in `prediction_history`. Graded in the row above. |

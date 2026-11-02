@@ -52,6 +52,7 @@ from projections.context import (
 from projections.minutes import (
     MinutesProjection,
     allocate_team_minutes,
+    apply_play_rotation,
     depth_prior_minutes,
     effective_minutes_gap_close,
     minute_history,
@@ -60,6 +61,8 @@ from projections.minutes import (
     recent_minutes_detail,
     role_prior_bases,
     rotation_base_minutes,
+    appearance_since_arrival,
+    rotation_inputs,
 )
 from projections.rates import RateVector
 from projections.game_state import GameStateModel, load_game_state_model
@@ -163,6 +166,10 @@ class ProjectionCache:
     referee_index_ready: bool = False
     schedule_by_season: dict[str, list] = field(default_factory=dict)
     tracking_rows: list | None = None
+    # Preseason box scores, by season then player. Regular-season logs never include them.
+    preseason_by_season: dict[str, dict[int, list]] = field(default_factory=dict)
+    season_appeared_as_of: date | None = None
+    season_appeared_by_team: dict[int, set[int]] | None = None
 
     def reset_if_needed(self, as_of: date) -> None:
         if self.as_of != as_of:
@@ -175,6 +182,8 @@ class ProjectionCache:
             self.pos_by_team.clear()
             self.appearances_by_team = None
             self.last_team_by_player = None
+            self.season_appeared_as_of = None
+            self.season_appeared_by_team = None
             # Keep rotation / game_state across as_of dates: priors are fit from
             # prior-season stints and re-fitting every slate date is too slow.
 
@@ -187,6 +196,14 @@ class ProjectionCache:
         if self.current_roster_rows is None:
             self.current_roster_rows = read_rows(settings, "current_rosters", season)
         return self.current_roster_rows
+
+    def preseason_index(self, settings: Settings, season: str) -> dict[int, list]:
+        if season not in self.preseason_by_season:
+            by_player: dict[int, list] = {}
+            for row in read_rows(settings, "player_game_logs", season, season_type="Preseason"):
+                by_player.setdefault(int(row["player_id"]), []).append(row)
+            self.preseason_by_season[season] = by_player
+        return self.preseason_by_season[season]
 
     def assist_edges(self, settings: Settings, season: str) -> list:
         if season not in self.assist_edge_rows_by_season:
@@ -231,6 +248,30 @@ class ProjectionCache:
                         last[player_id] = (game_date, team_id)
         self.appearances_by_team = appearances
         self.last_team_by_player = {pid: tid for pid, (_when, tid) in last.items()}
+
+    def players_appeared_for_team(
+        self,
+        bundles: list,
+        season: str,
+        team_id: int,
+        as_of: date,
+    ) -> set[int]:
+        """Players with a positive-minute game for this team this season, before tip."""
+        if self.season_appeared_as_of != as_of or self.season_appeared_by_team is None:
+            by_team: dict[int, set[int]] = {}
+            for bundle in bundles:
+                if getattr(bundle, "season", None) != season:
+                    continue
+                for player_id, rows in bundle.logs_by_player.items():
+                    for row in rows:
+                        if row["game_date"] >= as_of:
+                            continue
+                        if float(row.get("minutes") or 0.0) <= 0.0:
+                            continue
+                        by_team.setdefault(int(row["team_id"]), set()).add(int(player_id))
+            self.season_appeared_as_of = as_of
+            self.season_appeared_by_team = by_team
+        return set((self.season_appeared_by_team or {}).get(team_id, ()))
 
 
 def build_game_projections(
@@ -306,6 +347,32 @@ def build_slate_projections(
         )
         for row in sorted(games, key=lambda item: item["game_id"])
     ]
+
+
+def _preseason_mpg(
+    index: dict[int, list],
+    *,
+    player_id: int,
+    team_id: int,
+    as_of: date,
+) -> tuple[float, int]:
+    """Mean of the last preseason games before tip. Same team wins; any team is the fallback."""
+    same: list[tuple[date, float]] = []
+    other: list[tuple[date, float]] = []
+    for row in index.get(player_id) or []:
+        if row["game_date"] >= as_of:
+            continue
+        minutes = float(row.get("minutes") or 0.0)
+        if minutes <= 0.0:
+            continue
+        bucket = same if int(row["team_id"]) == team_id else other
+        bucket.append((row["game_date"], minutes))
+    chosen = same or other
+    if not chosen:
+        return 0.0, 0
+    chosen.sort(key=lambda item: item[0])
+    recent = [minutes for _when, minutes in chosen[-8:]]
+    return float(sum(recent) / len(recent)), len(recent)
 
 
 def _build(
@@ -586,7 +653,9 @@ def _build(
         expected_abs_margin = 8.0
 
     epm_by_id: dict = {}
-    if bool(config["minutes"].get("role_prior_enabled", False)):
+    if bool(config["minutes"].get("role_prior_enabled", False)) or bool(
+        config["minutes"].get("play_prob_rotation", False)
+    ):
         from pathlib import Path
 
         from projections.dunks import _epm_map
@@ -607,11 +676,26 @@ def _build(
         opp_pos: dict[str, dict[str, float]],
     ) -> tuple[float, dict[int, PlayerProjection], object]:
         raw_rates: dict[int, RateVector] = {}
-        # depth_rank follows as-of roster order (minutes history / appearances).
+        # depth_rank follows as-of roster order until the play-probability ranker
+        # replaces it. That ranker uses every pre-tip minute source, not this order.
         minute_bases: dict[int, tuple[float, float, bool, str | None, int, float]] = {}
         role_rows: list[dict[str, Any]] = []
+        signal_rows: list[dict[str, Any]] = []
+        play_overrides: dict[int, tuple[float, float]] = {}
         role_prior = bool(config["minutes"].get("role_prior_enabled", False))
+        play_rotation = bool(config["minutes"].get("play_prob_rotation", False))
         team_dates_for_minutes = _team_game_dates(minute_source, team_id, as_of)
+        preseason_index: dict[int, list] = {}
+        if play_rotation:
+            if cache is not None:
+                preseason_index = cache.preseason_index(settings, season)
+            else:
+                grouped: dict[int, list] = {}
+                for row in read_rows(
+                    settings, "player_game_logs", season, season_type="Preseason"
+                ):
+                    grouped.setdefault(int(row["player_id"]), []).append(row)
+                preseason_index = grouped
         for depth_rank, player_id in enumerate(roster):
             info = meta.get(player_id, {})
             position = info.get("position")
@@ -734,31 +818,81 @@ def _build(
                 depth_rank,
                 float(appear_rate),
             )
-            if role_prior:
+            if play_rotation or role_prior:
                 entry = injury_by_id.get(player_id)
                 status_name = (entry.status if entry is not None else "Available").lower()
-                same_n, previous = minute_history(
-                    minute_source,
-                    player_id=player_id,
-                    team_id=team_id,
-                    as_of=as_of,
-                    window=recent_window,
-                )
                 epm_row = epm_by_id.get(player_id)
                 epm_mpg = 0.0
                 if epm_row is not None and epm_row.team == team_abbr:
                     epm_mpg = float(epm_row.mpg)
-                role_rows.append(
-                    {
-                        "player_id": player_id,
-                        "base": float(base),
-                        "depth_rank": depth_rank,
-                        "previous": previous,
-                        "epm_mpg": epm_mpg,
-                        "out": status_name in {"out", "doubtful"},
-                        "same_team_n": same_n,
-                    }
-                )
+                if play_rotation:
+                    same_n, same_mean, previous = rotation_inputs(
+                        minute_source,
+                        player_id=player_id,
+                        team_id=team_id,
+                        as_of=as_of,
+                        window=recent_window,
+                    )
+                    preseason_mean, preseason_n = _preseason_mpg(
+                        preseason_index,
+                        player_id=player_id,
+                        team_id=team_id,
+                        as_of=as_of,
+                    )
+                    joined_rate, joined_window = appearance_since_arrival(
+                        minute_source,
+                        player_id=player_id,
+                        team_id=team_id,
+                        as_of=as_of,
+                        team_dates=team_dates_for_minutes,
+                    )
+                    signal_rows.append(
+                        {
+                            "player_id": player_id,
+                            "base": float(base),
+                            "same_n": same_n,
+                            "same_mean": same_mean,
+                            "previous": previous,
+                            "epm_mpg": epm_mpg,
+                            "preseason_mean": preseason_mean,
+                            "preseason_n": preseason_n,
+                            "appear_rate": float(joined_rate),
+                            "dnp_window": joined_window,
+                            "out": status_name in {"out", "doubtful"},
+                            "status": status_name,
+                        }
+                    )
+                    if role_prior:
+                        role_rows.append(
+                            {
+                                "player_id": player_id,
+                                "base": float(base),
+                                "depth_rank": depth_rank,
+                                "previous": previous,
+                                "epm_mpg": epm_mpg,
+                                "out": status_name in {"out", "doubtful"},
+                                "same_team_n": same_n,
+                            }
+                        )
+                else:
+                    same_n, previous = minute_history(
+                        minute_source,
+                        player_id=player_id,
+                        team_id=team_id,
+                        as_of=as_of,
+                        window=recent_window,
+                    )
+                    role_rows.append(
+                        {
+                            "player_id": player_id,
+                            "base": float(base),
+                            "depth_rank": depth_rank,
+                            "previous": previous,
+                            "epm_mpg": epm_mpg,
+                            "out": status_name in {"out", "doubtful"},
+                            "same_team_n": same_n,
+                        }
+                    )
         if role_rows:
             for pid, new_base in role_prior_bases(role_rows, config).items():
                 old_base, sd_min, started, position, depth_rank, appear_rate = minute_bases[pid]
@@ -771,6 +905,26 @@ def _build(
                     depth_rank,
                     float(appear_rate),
                 )
+            for row in signal_rows:
+                row["base"] = float(minute_bases[int(row["player_id"])][0])
+        if play_rotation and signal_rows:
+            # Role prior already scaled newcomers inside the old 11. This pass
+            # only fills players still at ~0, at their new rank, with a play
+            # probability. It does not replace a minute line that already exists.
+            for pid, info in apply_play_rotation(signal_rows, config).items():
+                old_base, sd_min, started, position, _old_rank, appear_rate = minute_bases[pid]
+                new_base = old_base if info["mean"] is None else float(info["mean"])
+                new_sd = sd_min if info["mean"] is None else max(float(sd_min), 4.0)
+                minute_bases[pid] = (
+                    float(new_base),
+                    float(new_sd),
+                    started,
+                    position,
+                    int(info["rank"]),
+                    float(appear_rate),
+                )
+                if info["mean"] is not None and info["play_prob"] is not None:
+                    play_overrides[pid] = (float(info["mean"]), float(info["play_prob"]))
 
         adjusted = redistribute_for_absences(
             raw_rates,
@@ -819,18 +973,28 @@ def _build(
             ]
             entry = injury_by_id.get(player_id)
             status = entry.status if entry is not None else "Available"
-            raw_minutes.append(
-                project_minutes(
-                    base_mean=base_mean,
-                    base_sd=sd_min,
-                    config=config,
-                    status=status,
-                    minutes_cap=caps.get(player_id),
-                    started=started,
-                    appear_rate=appear_rate,
-                    depth_rank=depth_rank,
-                )
+            projected_minutes = project_minutes(
+                base_mean=base_mean,
+                base_sd=sd_min,
+                config=config,
+                status=status,
+                minutes_cap=caps.get(player_id),
+                started=started,
+                appear_rate=appear_rate,
+                depth_rank=depth_rank,
             )
+            override = play_overrides.get(player_id)
+            if override is not None and not projected_minutes.out:
+                cond, prob = override
+                projected_minutes = MinutesProjection(
+                    mean=float(cond),
+                    sd=max(float(projected_minutes.sd), 3.0),
+                    min_minutes=projected_minutes.min_minutes,
+                    max_minutes=max(float(projected_minutes.max_minutes), float(cond)),
+                    out=False,
+                    play_prob=float(prob),
+                )
+            raw_minutes.append(projected_minutes)
             depth_ranks.append(depth_rank)
         # Step F: give OUT minutes to who historically replaces them, not evenly.
         # Pure naive_last10 skips replacement graph + margin adjust (injuries/caps only).
@@ -1537,6 +1701,28 @@ def _defender_factors_prior_seasons(
     return fg_factors, fg3_factors
 
 
+def merge_live_roster(
+    live_ids: list[int],
+    prior_open: list[int],
+    claimed_elsewhere: set[int],
+    appeared_here: set[int],
+) -> list[int]:
+    """Keep the live roster when it overlaps last year poorly.
+
+    A low overlap is a turnover. It is not a reason to delete the live list.
+    Live players listed on another club are dropped. Prior-year players who
+    already played here before tip stay, even if the current snapshot moved on.
+    """
+    kept_live = [pid for pid in live_ids if pid not in claimed_elsewhere]
+    have = set(kept_live)
+    kept_prior = [
+        pid
+        for pid in prior_open
+        if pid not in claimed_elsewhere and pid in appeared_here and pid not in have
+    ]
+    return kept_live + kept_prior
+
+
 def _roster_for_team(
     settings: Settings,
     season: str,
@@ -1595,21 +1781,43 @@ def _roster_for_team(
         if live_ids and prior_open:
             overlap = len(set(live_ids) & set(prior_open))
             if overlap < max(5, int(0.4 * len(prior_open))):
-                # Live CommonTeamRoster is untrustworthy — use prior-season open
-                # stints only (opening-week safeguard against feed corruption).
-                # Drop anyone already on another team's live roster so a trade
-                # cannot put the same player on both sides of a game.
+                # Low overlap with last year's roster. Keep this year's list.
+                # Replacing it with last year deleted the players who had
+                # already played (PHI, October 2026: overlap 7 vs a cutoff of 8).
                 claimed_elsewhere = {
                     int(row["player_id"])
                     for row in live
                     if int(row["team_id"]) != team_id
                 }
-                live_ids = [
-                    pid for pid in prior_open if pid not in claimed_elsewhere
-                ]
+                if cache is not None:
+                    appeared_here = cache.players_appeared_for_team(
+                        bundles, season, team_id, as_of
+                    )
+                else:
+                    appeared_here = set()
+                    for bundle in bundles:
+                        if getattr(bundle, "season", None) != season:
+                            continue
+                        for player_id, rows in bundle.logs_by_player.items():
+                            for row in rows:
+                                if row["game_date"] >= as_of:
+                                    continue
+                                if int(row["team_id"]) != team_id:
+                                    continue
+                                if float(row.get("minutes") or 0.0) <= 0.0:
+                                    continue
+                                appeared_here.add(int(player_id))
+                                break
+                live_ids = merge_live_roster(
+                    list(live_ids),
+                    prior_open,
+                    claimed_elsewhere,
+                    appeared_here,
+                )
         if live_ids:
             # Keep the full live roster; minutes allocation / outs shrink the rotation.
-            return sorted(live_ids, key=_depth_key)[:18]
+            cap = max(18, len(live_ids))
+            return sorted(live_ids, key=_depth_key)[:cap]
 
     roster_ids = active_roster_player_ids(
         season_rows,

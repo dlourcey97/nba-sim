@@ -412,6 +412,263 @@ def role_prior_bases(rows: Sequence[dict[str, Any]], config: dict[str, Any]) -> 
     return updates
 
 
+# Conditional minutes and P(plays) by rank. Rank 11 is the 12th man:
+# about 8 minutes when he plays, and a 30% chance he plays.
+_PLAY_CURVE = (
+    (34.0, 0.98),
+    (32.0, 0.97),
+    (30.0, 0.97),
+    (28.0, 0.96),
+    (26.0, 0.95),
+    (22.0, 0.90),
+    (18.0, 0.85),
+    (14.0, 0.72),
+    (12.0, 0.58),
+    (10.0, 0.45),
+    (8.0, 0.36),
+    (8.0, 0.30),
+    (6.0, 0.22),
+    (5.0, 0.16),
+    (4.0, 0.12),
+)
+
+
+def play_curve_for_rank(rank: int) -> tuple[float, float]:
+    """Minutes if he plays, and P(plays), for a pre-tip rank."""
+    if rank < 0:
+        rank = 0
+    if rank >= len(_PLAY_CURVE):
+        return _PLAY_CURVE[-1]
+    return _PLAY_CURVE[rank]
+
+
+def rotation_rank_score(
+    *,
+    same_mean: float,
+    same_n: int,
+    previous: float,
+    epm_mpg: float,
+    preseason_mean: float,
+    preseason_n: int,
+    rookie: bool,
+    appear_rate: float,
+    dnp_window: bool,
+) -> float:
+    """Expected minutes used only to order the roster.
+
+    Same-team minutes lead once there is a sample. With no sample, previous-team
+    minutes, EPM minutes, preseason minutes, and a small rookie prior compete.
+    There is no draft-slot table, so a rookie with no preseason stays at the
+    bottom of that prior. Recent DNPs shrink the score. They do not delete him.
+    """
+    parts: list[tuple[float, float]] = []
+    if same_n >= 3 and same_mean > 0.0:
+        parts.append((0.80, same_mean))
+    elif same_n > 0 and same_mean > 0.0:
+        parts.append((0.45, same_mean))
+    if previous > 0.0:
+        weight = 0.40 if same_n == 0 else 0.12
+        parts.append((weight, min(previous, 36.0)))
+    if epm_mpg >= 1.0:
+        weight = 0.30 if same_n == 0 else 0.08
+        parts.append((weight, min(epm_mpg, 36.0)))
+    if preseason_n > 0 and preseason_mean > 0.0:
+        weight = 0.35 if same_n == 0 else 0.05
+        parts.append((weight, preseason_mean))
+    if rookie and same_n == 0 and previous <= 0.0 and preseason_n <= 0 and epm_mpg < 1.0:
+        parts.append((0.25, 6.0))
+    if not parts:
+        return 0.0
+    weight = sum(item[0] for item in parts)
+    score = sum(item[0] * item[1] for item in parts) / weight
+    if dnp_window:
+        # Rank is mostly the minute sources. A recent sit is a small penalty,
+        # not enough to drop a 20-minute player behind the end of the bench.
+        appear = min(max(float(appear_rate), 0.0), 1.0)
+        score *= 0.85 + 0.15 * appear
+    return float(score)
+
+
+def rotation_inputs(
+    bundles: Sequence[SeasonBundle],
+    *,
+    player_id: int,
+    team_id: int,
+    as_of: date,
+    window: int = 10,
+) -> tuple[int, float, float]:
+    """Same-team games, same-team minute mean, and previous-team minute mean.
+
+    Dates on or after ``as_of`` are ignored.
+    """
+    same: list[tuple[date, float]] = []
+    previous: list[tuple[date, float]] = []
+    for bundle in bundles:
+        for row in bundle.logs_by_player.get(player_id, []):
+            if row["game_date"] >= as_of:
+                continue
+            minutes = float(row.get("minutes") or 0.0)
+            if minutes <= 0.0:
+                continue
+            if int(row["team_id"]) == team_id:
+                same.append((row["game_date"], minutes))
+            else:
+                previous.append((row["game_date"], minutes))
+    same.sort(key=lambda item: item[0])
+    previous.sort(key=lambda item: item[0])
+    same_recent = [minutes for _when, minutes in same[-window:]]
+    prev_recent = [minutes for _when, minutes in previous[-window:]]
+    same_mean = float(sum(same_recent) / len(same_recent)) if same_recent else 0.0
+    prev_mean = float(sum(prev_recent) / len(prev_recent)) if prev_recent else 0.0
+    return len(same), same_mean, prev_mean
+
+
+def appearance_since_arrival(
+    bundles: Sequence[SeasonBundle],
+    *,
+    player_id: int,
+    team_id: int,
+    as_of: date,
+    team_dates: Sequence[date],
+) -> tuple[float, bool]:
+    """Appear rate after he actually joined, and whether that sample is real.
+
+    Team games before his first minute are not DNPs. A player with no game yet
+    has no DNP history. The boolean is true only when at least three team games
+    have been played since he arrived.
+    """
+    played: list[date] = []
+    for bundle in bundles:
+        for row in bundle.logs_by_player.get(player_id, []):
+            if row["game_date"] >= as_of:
+                continue
+            if int(row["team_id"]) != team_id:
+                continue
+            if float(row.get("minutes") or 0.0) <= 0.0:
+                continue
+            played.append(row["game_date"])
+    if not played:
+        return 1.0, False
+    first = min(played)
+    window = [when for when in team_dates if first <= when < as_of]
+    if len(window) < 3:
+        return 1.0, False
+    played_set = set(played)
+    rate = len(played_set & set(window)) / len(window)
+    return float(rate), True
+
+
+def _conditional_for_rank(rank: int, row: dict[str, Any]) -> tuple[float, float]:
+    slot, prob = play_curve_for_rank(rank)
+    previous = float(row.get("previous") or 0.0)
+    epm_mpg = float(row.get("epm_mpg") or 0.0)
+    preseason_mean = float(row.get("preseason_mean") or 0.0)
+    preseason_n = int(row.get("preseason_n") or 0)
+    if previous > 0.0:
+        evidence = scale_previous_to_role(previous, slot)
+    elif epm_mpg >= 1.0:
+        evidence = scale_previous_to_role(min(epm_mpg, 36.0), slot)
+    elif preseason_n > 0 and preseason_mean > 0.0:
+        evidence = scale_previous_to_role(preseason_mean, slot)
+    else:
+        evidence = slot
+    if rank < 5:
+        cond = 0.35 * slot + 0.65 * max(evidence, slot)
+    else:
+        cond = 0.55 * slot + 0.45 * evidence
+    cond = float(min(max(cond, 2.0), 36.0))
+    if bool(row.get("dnp_window")):
+        appear = min(max(float(row.get("appear_rate") or 0.0), 0.0), 1.0)
+        prob *= 0.50 + 0.50 * appear
+    # A healthy player at the end of the roster still has a real, small chance.
+    # 0.12 * 5 minutes is under one expected minute and does not count as a zero.
+    cond = max(cond, 5.0)
+    prob = max(prob, 0.12)
+    status = str(row.get("status") or "available").lower()
+    if status == "questionable":
+        prob = min(prob, 0.62) * 0.90
+    elif status == "probable":
+        prob = max(prob, 0.85) * 0.97
+    prob = float(min(max(prob, 0.02), 0.995))
+    return cond, prob
+
+
+def apply_play_rotation(
+    rows: Sequence[dict[str, Any]],
+    config: dict[str, Any],
+) -> dict[int, dict[str, Any]]:
+    """Rank every rostered player and assign fringe play probabilities.
+
+    A player with three or more same-team games keeps the minute base he already
+    has. Everyone else, if healthy, gets minutes-if-he-plays and P(plays) from
+    his new rank. OUT and doubtful stay empty. ``mean`` and ``play_prob`` are
+    None when the existing base should be kept.
+    """
+    play_threshold = float((config.get("minutes") or {}).get("play_threshold", 1.0))
+    scored: list[tuple[float, int, dict[str, Any]]] = []
+    for row in rows:
+        same_n = int(row.get("same_n") or 0)
+        previous = float(row.get("previous") or 0.0)
+        preseason_n = int(row.get("preseason_n") or 0)
+        epm_mpg = float(row.get("epm_mpg") or 0.0)
+        rookie = same_n == 0 and previous <= 0.0
+        score = rotation_rank_score(
+            same_mean=float(row.get("same_mean") or 0.0),
+            same_n=same_n,
+            previous=previous,
+            epm_mpg=epm_mpg,
+            preseason_mean=float(row.get("preseason_mean") or 0.0),
+            preseason_n=preseason_n,
+            rookie=rookie,
+            appear_rate=float(row.get("appear_rate") if row.get("appear_rate") is not None else 1.0),
+            dnp_window=bool(row.get("dnp_window")),
+        )
+        scored.append((score, int(row["player_id"]), row))
+    scored.sort(key=lambda item: (-item[0], item[1]))
+    assigned: dict[int, dict[str, Any]] = {}
+    # OUT players do not take a rotation slot. The curve rank is among healthy
+    # players, so an injured starter does not push the 12th man further out.
+    healthy_rank = 0
+    for score, player_id, row in scored:
+        status = str(row.get("status") or "available").lower()
+        is_out = bool(row.get("out")) or status in {"out", "doubtful"}
+        if is_out:
+            assigned[player_id] = {
+                "rank": 99,
+                "mean": None,
+                "play_prob": None,
+                "score": score,
+                "trusted": False,
+            }
+            continue
+        rank = healthy_rank
+        healthy_rank += 1
+        same_n = int(row.get("same_n") or 0)
+        same_mean = float(row.get("same_mean") or 0.0)
+        existing = float(row.get("base") or 0.0)
+        # Keep a real minute line. The curve only fills a healthy player the
+        # prior left at ~0, including ranks past the old 11-man cutoff.
+        trusted = (same_n >= 3 and same_mean > 0.0) or existing > play_threshold
+        if trusted:
+            assigned[player_id] = {
+                "rank": rank,
+                "mean": None,
+                "play_prob": None,
+                "score": score,
+                "trusted": True,
+            }
+            continue
+        cond, prob = _conditional_for_rank(rank, row)
+        assigned[player_id] = {
+            "rank": rank,
+            "mean": cond,
+            "play_prob": prob,
+            "score": score,
+            "trusted": False,
+        }
+    return assigned
+
+
 def rotation_base_minutes(
     *,
     recent_mean: float,
@@ -532,6 +789,9 @@ def allocate_team_minutes(
     # When over target, zero players below this before proportional scale.
     fringe_cut = float(minutes_cfg.get("fringe_cut_minutes", 8.0))
     gap_close = float(minutes_cfg.get("normalize_gap_close", 0.55))
+    # Ranked play probabilities replace the hard 11-man zero. Fringe means stay,
+    # and the expected-minute scale below keeps sum(mean * P(plays)) at target.
+    play_prob_rotation = bool(minutes_cfg.get("play_prob_rotation", False))
 
     n = len(projections)
     if n == 0:
@@ -571,7 +831,7 @@ def allocate_team_minutes(
             (i for i in active_idx if means[i] > play_threshold),
             key=lambda i: (-means[i], ranks[i] if i < len(ranks) else 99),
         )
-        if len(ranked) > max_rotation:
+        if len(ranked) > max_rotation and not play_prob_rotation:
             for i in ranked[max_rotation:]:
                 if means[i] < keep_threshold:
                     means[i] = 0.0
@@ -622,6 +882,8 @@ def allocate_team_minutes(
                 means[i] = 0.0
         total = float(means[~out].sum()) if np.any(~out) else 0.0
         # Only cut clear ghosts when the book is absurdly over regulation.
+        # This mid-season trim stays on. The play-probability path only removes
+        # the early-season 11-man zero above.
         if total > target + 40.0:
             means = _trim_from_bottom(
                 means,
