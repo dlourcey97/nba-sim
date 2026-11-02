@@ -1,6 +1,44 @@
 # Progress
 
-Last updated 2026-11-01 — The 23 zero-minute misses were Philadelphia players the roster guard had deleted. They are back on the live roster. Play probability stays on: 2025-26 and the 2024-25 holdout are both inside noise. Dunks zero-minute fallback is logged separately. RotoWire is not fetched.
+Last updated 2026-11-02 — Backtest scoring now includes every player who played. Unprojected players count as 0. The sim did not change. The 15-man historical cap is still on.
+
+## Honest scoring (2026-11-02)
+
+`score_projected_game` used to skip anyone who was not in the projection summary. Causes (a) and (b), the players not on the backtest roster and the players outside the 15-man cap, were invisible to MAE. Every player with actual minutes above 0 is now scored. If he was not projected, the prediction is 0 minutes and 0 stats. A log row with 0 minutes still does not count. Coverage and CRPS stay on projected players only, because an unprojected player has no sim distribution.
+
+The published rotation-on numbers below are the old intersection. The new row is the same engine, same seed, same 1,000 sims, with the wider player set. Spread, total, and Brier match to the paired bootstrap (difference 0.0000, interval collapsed on 0) because scoring does not touch the sim. Reconcile was not re-run. It does not use this scorer.
+
+2025-26, 1,314 games. Old scorer 26,410 players, 46.8 minutes for the new run.
+
+| | Old scoring | Honest scoring |
+| --- | ---: | ---: |
+| Players scored | 26,410 | 28,554 |
+| MIN MAE | 6.871 | 7.360 |
+| PTS MAE | 5.233 | 5.224 |
+| REB MAE | 2.091 | 2.122 |
+| AST MAE | 1.404 | 1.396 |
+| Causes a / b / c / d / e | | 260 / 1,007 / 3 / 564 / 2,148 |
+| Total bias (pred − actual) | −2.28 | −2.28 |
+| Spread MAE | 12.018 | 12.018 |
+| Brier | 0.2135 | 0.2135 |
+
+2024-25 holdout, 1,313 games, 39.2 minutes.
+
+| | Old scoring | Honest scoring |
+| --- | ---: | ---: |
+| Players scored | 26,071 | 28,076 |
+| MIN MAE | 7.008 | 7.403 |
+| PTS MAE | 5.341 | 5.299 |
+| REB MAE | 2.185 | 2.197 |
+| AST MAE | 1.413 | 1.389 |
+| Causes a / b / c / d / e | | 217 / 904 / 4 / 624 / 2,286 |
+| Total bias (pred − actual) | −10.46 | −10.46 |
+| Spread MAE | 11.751 | 11.751 |
+| Brier | 0.2159 | 0.2159 |
+
+Minute error rose because the added players were projected at 0 and played. Point and assist error fell slightly: those same players' box-score misses are smaller than the average of the players who were already scored. The cause counts match the rotation-on "projected under 0.5, played 8+" totals (3,982 and 4,035). (a) is not on the roster, (b) is on the roster but outside the 15, (c) is a low play probability, (d) missed the previous team game, (e) is the rest. (b) and (e) are the two big buckets.
+
+The next four switches are in the tree and off, so this baseline is the current engine. `historical_roster_cap` is 15. `fringe_minute_floor`, `return_minute_blend`, and `pre_debut_stint` are false. The stored mean of 0 on a player like Andre Drummond (2026-03-15, last-10 mean 15.9, play probability 0.96) is the mid-season trim, which zeros from the bottom once the book is more than 40 minutes over 240. It is not a sub-1-minute base. The fringe floor, when turned on, seats that player on the end of the curve instead of wiping him, and the team still scales to 240.
 
 ## Rotation selection (2026-11-01)
 
@@ -98,6 +136,7 @@ Lineup draws for both minute models now use the same minute-weighted sample. A r
 | Phase | Status | Notes |
 | --- | --- | --- |
 | Play-probability rotation | kept | Roster guard was dropping PHI. 2025-26 and 2024-25 holdout both inside noise. Flag stays on. |
+| Honest player scoring | kept | Every player who played is scored. Unprojected counts as 0. 2025-26 MIN MAE 6.871 → 7.360. Sim metrics unchanged. |
 | Slate 2026-10-28 | done | 12 games. Guardrail PASS. Fixed a fallback that listed Kelly Oubre on both PHI and IND. 8 stat lines + 8 double-doubles logged. |
 | Post-game through 10-27 | done | +4 finals. Winners 2/4. Picks 4/8 vs 58.5%. Double-doubles 3/8 vs 41.0%. Roster +1 (Enrique Freeman, MIN). |
 | Slate 2026-10-27 | done | 4 games. Guardrail PASS. 8 stat lines + 8 double-doubles in `prediction_history`. Graded in the row above. |

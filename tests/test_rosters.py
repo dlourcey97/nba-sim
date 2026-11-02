@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import copy
+from dataclasses import replace
 from datetime import date
 
 from ingest.rosters import (
@@ -207,6 +209,42 @@ def test_rebuild_and_roster_for_team_uses_stored_stints(settings):
     bbb_after = _roster_for_team(settings, season, [bundle], team_b, after)
     assert player_id not in aaa_after
     assert player_id in bbb_after
+
+
+def test_pre_debut_stint_keeps_history_and_leaves_debuts_off(settings):
+    season = "2024-25"
+    veteran, debut = 42, 8
+    team_b = 200
+    logs = [
+        _log(player_id=veteran, team_id=100, team_abbr="AAA", game_date=date(2024, 12, 1), game_id="1"),
+        _log(player_id=veteran, team_id=team_b, team_abbr="BBB", game_date=date(2025, 1, 15), game_id="2"),
+        _log(player_id=debut, team_id=team_b, team_abbr="BBB", game_date=date(2025, 1, 15), game_id="2", player_name="Debut"),
+    ]
+    store_rows(settings, "player_game_logs", season, logs, allow_historical=True)
+    rebuild_team_rosters(settings, season, refresh_common=False, log=lambda *_: None)
+    bundle = SeasonBundle(
+        season,
+        rates_by_player={},
+        logs_by_player={
+            veteran: [row for row in logs if int(row["player_id"]) == veteran],
+            debut: [row for row in logs if int(row["player_id"]) == debut],
+        },
+    )
+    tip = date(2025, 1, 15)
+    off = _roster_for_team(settings, season, [bundle], team_b, tip)
+    assert veteran not in off
+    assert debut not in off
+    config = copy.deepcopy(settings.config)
+    config["minutes"]["pre_debut_stint"] = True
+    config["minutes"]["historical_roster_cap"] = 0
+    opened = replace(settings, config=config)
+    on = _roster_for_team(opened, season, [bundle], team_b, tip)
+    assert veteran in on
+    assert debut not in on
+    capped = copy.deepcopy(config)
+    capped["minutes"]["historical_roster_cap"] = 1
+    one = _roster_for_team(replace(settings, config=capped), season, [bundle], team_b, date(2025, 1, 16))
+    assert len(one) == 1
 
 
 def test_prior_season_label():

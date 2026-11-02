@@ -256,6 +256,78 @@ def naive_last10_minutes(
     return mean, sd, n
 
 
+def blend_return_base(
+    base: float,
+    bundles: Sequence[SeasonBundle],
+    *,
+    player_id: int,
+    team_id: int,
+    as_of: date,
+    team_dates: Sequence[date],
+    window: int = 10,
+    rotation_minutes: float = 10.0,
+) -> tuple[float, float]:
+    """On a return game, blend the pre-sit line with the recent zeros.
+
+    Returns ``(base_to_keep, floor)``. ``base_to_keep`` is never below the
+    incoming base, so a line naive_last10 already held is not cut. ``floor``
+    is the blend itself (0 when this is not a return). The allocator uses the
+    floor when a later trim would otherwise wipe him to 0. A player who was
+    out of the rotation decays faster (0.45 per missed game) than one who was
+    in it (0.85). One missed game does not fully restore either.
+    """
+    dates = sorted(when for when in team_dates if when < as_of)
+    if not dates:
+        return float(base), 0.0
+    by_date: dict[date, float] = {}
+    any_played: list[tuple[date, float]] = []
+    for bundle in bundles:
+        for row in bundle.logs_by_player.get(player_id, []):
+            when = row["game_date"]
+            if when >= as_of:
+                continue
+            minutes = float(row.get("minutes") or 0.0)
+            if int(row["team_id"]) == int(team_id):
+                by_date[when] = minutes
+            if minutes > 0.0:
+                any_played.append((when, minutes))
+    misses = 0
+    for when in reversed(dates):
+        if by_date.get(when, 0.0) > 0.0:
+            break
+        misses += 1
+    if misses < 1:
+        return float(base), 0.0
+    cutoff = dates[-misses]
+    pre_same = [
+        by_date[when]
+        for when in dates
+        if when < cutoff and by_date.get(when, 0.0) > 0.0
+    ][-window:]
+    if not pre_same:
+        pre_same = [minutes for when, minutes in sorted(any_played) if when < cutoff][-window:]
+    if not pre_same:
+        return float(base), 0.0
+    pre = _weighted_mean(pre_same)
+    recent_vals = [by_date.get(when, 0.0) for when in dates[-window:]]
+    recent = float(sum(recent_vals) / len(recent_vals)) if recent_vals else 0.0
+    decay = (0.85 if pre >= rotation_minutes else 0.45) ** misses
+    blended = float(decay * pre + (1.0 - decay) * recent)
+    return float(max(base, blended)), blended
+
+
+def _weighted_mean(values: Sequence[float], recent_decay: float = 0.45) -> float:
+    if not values:
+        return 0.0
+    if recent_decay > 0 and len(values) > 1:
+        weights = [
+            float(np.exp(-recent_decay * (len(values) - 1 - index)))
+            for index in range(len(values))
+        ]
+        return float(sum(value * weight for value, weight in zip(values, weights)) / sum(weights))
+    return float(sum(values) / len(values))
+
+
 def _summarize_recent(
     recent: Sequence[float],
     recent_decay: float,
@@ -648,7 +720,13 @@ def apply_play_rotation(
         existing = float(row.get("base") or 0.0)
         # Keep a real minute line. The curve only fills a healthy player the
         # prior left at ~0, including ranks past the old 11-man cutoff.
-        trusted = (same_n >= 3 and same_mean > 0.0) or existing > play_threshold
+        # The fringe floor stops trusting a sub-threshold base even when he has
+        # a few games: that line was being wiped to 0 after it was "kept".
+        fringe_floor = bool((config.get("minutes") or {}).get("fringe_minute_floor", False))
+        if fringe_floor:
+            trusted = existing > play_threshold
+        else:
+            trusted = (same_n >= 3 and same_mean > 0.0) or existing > play_threshold
         if trusted:
             assigned[player_id] = {
                 "rank": rank,
@@ -765,11 +843,87 @@ def project_minutes(
     return MinutesProjection(mean, sd, min_minutes, max_minutes, False, play_prob=play_prob)
 
 
+def _fringe_line(rank: int) -> tuple[float, float]:
+    """Minutes if he plays, and P(plays), for someone outside the rotation.
+
+    Anyone being seated in place of a hard zero is at least a 12th man. Deeper
+    ranks step down to the curve floor (5 minutes, 0.12). That is under one
+    expected minute and does not pull starter share through the 240 scale.
+    """
+    cond, prob = play_curve_for_rank(max(int(rank), 11))
+    return max(float(cond), 5.0), max(float(prob), 0.12)
+
+
+def _seat_fringe(
+    means: np.ndarray,
+    play_probs: np.ndarray,
+    caps: np.ndarray,
+    out: np.ndarray,
+    *,
+    target: float,
+    play_threshold: float,
+    keep_threshold: float,
+    min_rotation: int,
+) -> None:
+    """Give a wiped player a fringe line instead of 0 minutes.
+
+    Healthy players already at or under the play threshold get that line
+    immediately. If expected minutes are still far over the team target, the
+    lowest non-protected players move onto the same line. The top of the
+    rotation is left alone, and the caller's scale still lands expected
+    minutes on the team target.
+    """
+    healthy = [i for i in range(len(means)) if not out[i]]
+    if not healthy:
+        return
+    order = sorted(healthy, key=lambda i: (-float(means[i]), i))
+    for rank, i in enumerate(order):
+        if float(means[i]) <= play_threshold:
+            cond, prob = _fringe_line(rank)
+            means[i] = cond
+            play_probs[i] = prob
+            if caps[i] < cond:
+                caps[i] = cond
+
+    def expected() -> float:
+        total = 0.0
+        for i in healthy:
+            if means[i] > 0.0 and play_probs[i] > 0.0:
+                total += float(means[i]) * float(play_probs[i])
+        return total
+
+    for _ in range(len(means)):
+        if expected() <= target + 8.0:
+            return
+        playing = [i for i in healthy if float(means[i]) > play_threshold]
+        if len(playing) <= min_rotation:
+            return
+        ranked = sorted(playing, key=lambda i: -float(means[i]))
+        protected = set(ranked[:5])
+        candidates = [i for i in playing if i not in protected]
+        if not candidates:
+            return
+        victim = min(candidates, key=lambda i: (float(means[i]), -i))
+        if float(means[victim]) >= keep_threshold and expected() < target + 25.0:
+            return
+        # The trim used to delete this player. Put him on the end of the curve
+        # (5 minutes if he plays, 0.12) rather than his old rotation line, so
+        # the 240 scale does not take those minutes back off the starters.
+        cond, prob = _fringe_line(len(means))
+        if float(means[victim]) <= cond + 0.05 and abs(float(play_probs[victim]) - prob) < 1e-9:
+            return
+        means[victim] = cond
+        play_probs[victim] = prob
+        if caps[victim] < cond:
+            caps[victim] = cond
+
+
 def allocate_team_minutes(
     projections: Sequence[MinutesProjection],
     *,
     config: dict[str, Any],
     depth_ranks: Sequence[int] | None = None,
+    return_floors: Sequence[float] | None = None,
 ) -> list[MinutesProjection]:
     """Scale available players so projected means sum to team_minutes_target.
 
@@ -804,6 +958,17 @@ def allocate_team_minutes(
     )
     out = np.array([p.out for p in projections], dtype=bool)
     sds = np.array([float(p.sd) for p in projections], dtype=float)
+    play_probs = np.array(
+        [0.0 if p.out else float(p.play_prob) for p in projections],
+        dtype=float,
+    )
+    original_play = play_probs.copy()
+    fringe_floor = bool(minutes_cfg.get("fringe_minute_floor", False))
+    floors = np.zeros(n, dtype=float)
+    if return_floors is not None:
+        for i, value in enumerate(return_floors):
+            if i < n and not out[i]:
+                floors[i] = float(value)
 
     active_idx = np.where(~out)[0]
     ranks = list(depth_ranks) if depth_ranks is not None else list(range(n))
@@ -836,10 +1001,22 @@ def allocate_team_minutes(
                 if means[i] < keep_threshold:
                     means[i] = 0.0
 
-        for i in active_idx:
-            if means[i] <= play_threshold:
-                caps[i] = 0.0
-                means[i] = 0.0
+        if fringe_floor:
+            _seat_fringe(
+                means,
+                play_probs,
+                caps,
+                out,
+                target=target,
+                play_threshold=play_threshold,
+                keep_threshold=keep_threshold,
+                min_rotation=min_rotation,
+            )
+        else:
+            for i in active_idx:
+                if means[i] <= play_threshold:
+                    caps[i] = 0.0
+                    means[i] = 0.0
 
         total = float(means[~out].sum()) if np.any(~out) else 0.0
         if total > 1e-9:
@@ -876,25 +1053,54 @@ def allocate_team_minutes(
                 else:
                     means[i] = 0.0
     elif active_idx.size:
-        for i in active_idx:
-            if means[i] <= play_threshold:
-                caps[i] = 0.0
-                means[i] = 0.0
-        total = float(means[~out].sum()) if np.any(~out) else 0.0
-        # Only cut clear ghosts when the book is absurdly over regulation.
-        # This mid-season trim stays on. The play-probability path only removes
-        # the early-season 11-man zero above.
-        if total > target + 40.0:
-            means = _trim_from_bottom(
+        if fringe_floor:
+            # The mid-season trim was zeroing real bases once the book was more
+            # than 40 over 240 (a 16-minute man at the bottom of 15 landed at
+            # mean 0 with his old play probability still near 1). Seat him on
+            # the fringe curve instead. The trim itself stays on when this flag
+            # is off.
+            _seat_fringe(
                 means,
-                caps=caps,
-                out=out,
-                target=target + 20.0,
+                play_probs,
+                caps,
+                out,
+                target=target,
                 play_threshold=play_threshold,
-                fringe_cut=fringe_cut,
                 keep_threshold=keep_threshold,
                 min_rotation=min_rotation,
             )
+        else:
+            for i in active_idx:
+                if means[i] <= play_threshold:
+                    caps[i] = 0.0
+                    means[i] = 0.0
+            total = float(means[~out].sum()) if np.any(~out) else 0.0
+            # Only cut clear ghosts when the book is absurdly over regulation.
+            # This mid-season trim stays on. The play-probability path only removes
+            # the early-season 11-man zero above.
+            if total > target + 40.0:
+                means = _trim_from_bottom(
+                    means,
+                    caps=caps,
+                    out=out,
+                    target=target + 20.0,
+                    play_threshold=play_threshold,
+                    fringe_cut=fringe_cut,
+                    keep_threshold=keep_threshold,
+                    min_rotation=min_rotation,
+                )
+
+    # A return game keeps the blended pre-sit line when the trim or the fringe
+    # seat would have left him under it. Play probability comes back with the
+    # line so a rotation returner is not stuck at the 12th-man sit rate.
+    if return_floors is not None:
+        for i in range(n):
+            if out[i] or floors[i] <= 0.0 or means[i] >= floors[i]:
+                continue
+            means[i] = float(floors[i])
+            play_probs[i] = max(float(play_probs[i]), float(original_play[i]))
+            if caps[i] < means[i]:
+                caps[i] = means[i]
 
     # Means are conditional-on-playing. The sim draws sit/play via play_prob then
     # hard-normalizes each run to ``target``. If sum(conditional)≈target but
@@ -902,10 +1108,10 @@ def allocate_team_minutes(
     # shortfall onto high-play_prob players (starters) → starter MIN share drift.
     # Scale conditionals so expected pre-normalize sum equals target.
     expected = 0.0
-    for i, prev in enumerate(projections):
+    for i in range(n):
         if out[i] or means[i] <= 0:
             continue
-        expected += float(means[i]) * float(prev.play_prob)
+        expected += float(means[i]) * float(play_probs[i])
     if expected > 1e-9:
         factor = target / expected
         for i in np.where(~out)[0]:
@@ -920,7 +1126,9 @@ def allocate_team_minutes(
     playing = [
         i
         for i in np.where(~out)[0]
-        if means[i] > play_threshold and caps[i] > 0
+        if means[i] > play_threshold
+        and caps[i] > 0
+        and (not fringe_floor or float(play_probs[i]) >= 0.50)
     ]
     if len(playing) >= 7:
         if gap_close <= 0:
@@ -937,7 +1145,7 @@ def allocate_team_minutes(
                     means[i] = float(means[i]) ** power
                     means[i] = min(means[i], float(caps[i]))
         expected = sum(
-            float(means[i]) * float(projections[i].play_prob)
+            float(means[i]) * float(play_probs[i])
             for i in np.where(~out)[0]
             if means[i] > 0
         )
@@ -973,7 +1181,7 @@ def allocate_team_minutes(
                 min_minutes=min_minutes,
                 max_minutes=cap if cap > 0 else max_minutes,
                 out=False,
-                play_prob=float(prev.play_prob),
+                play_prob=float(play_probs[i]),
             )
         )
     return out_proj

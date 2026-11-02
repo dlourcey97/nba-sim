@@ -18,6 +18,19 @@ from outputs.summarize import summarize_game
 from sim.engine import simulate_game
 
 
+def iter_played(players, logs: dict):
+    """Players who actually played, paired with the projection when one exists.
+
+    A log row with 0 minutes did not play. A player the projection left off is
+    returned with ``player`` None so the scorer counts him as 0.
+    """
+    by_player = {int(player.player_id): player for player in players}
+    for pid, actual in logs.items():
+        if float(actual.get("minutes") or 0.0) <= 0.0:
+            continue
+        yield int(pid), by_player.get(int(pid)), actual
+
+
 def score_projected_game(payload: dict) -> dict:
     """Simulate ``payload["projection"]`` and return the scalars the report needs."""
     projection = payload["projection"]
@@ -53,32 +66,41 @@ def score_projected_game(payload: dict) -> dict:
     crps_pts_vals: list[float] = []
     pit_pts_vals: list[float] = []
     id_to_idx = {int(pid): index for index, pid in enumerate(sim.player_ids)}
-    for player in summary.players:
-        actual = logs.get(int(player.player_id))
-        if actual is None:
+    # Every player who played is scored. Someone the projection left off
+    # counts as 0 minutes and 0 stats.
+    for pid, player, actual in iter_played(summary.players, logs):
+        act_pts.append(float(actual["pts"]))
+        act_reb.append(float(actual["reb"]))
+        act_ast.append(float(actual["ast"]))
+        act_stl.append(float(actual["stl"]))
+        act_blk.append(float(actual["blk"]))
+        act_tov.append(float(actual["tov"]))
+        act_fg3m.append(float(actual["fg3m"]))
+        act_min.append(float(actual["minutes"]))
+        if player is None:
+            pred_pts.append(0.0)
+            pred_reb.append(0.0)
+            pred_ast.append(0.0)
+            pred_stl.append(0.0)
+            pred_blk.append(0.0)
+            pred_tov.append(0.0)
+            pred_fg3m.append(0.0)
+            pred_min.append(0.0)
             continue
         pred_pts.append(player.stats["pts"].mean)
-        act_pts.append(float(actual["pts"]))
         pred_reb.append(player.stats["reb"].mean)
-        act_reb.append(float(actual["reb"]))
         pred_ast.append(player.stats["ast"].mean)
-        act_ast.append(float(actual["ast"]))
         pred_stl.append(player.stats["stl"].mean)
-        act_stl.append(float(actual["stl"]))
         pred_blk.append(player.stats["blk"].mean)
-        act_blk.append(float(actual["blk"]))
         pred_tov.append(player.stats["tov"].mean)
-        act_tov.append(float(actual["tov"]))
         pred_fg3m.append(player.stats["fg3m"].mean)
-        act_fg3m.append(float(actual["fg3m"]))
         pred_min.append(player.stats["min"].mean)
-        act_min.append(float(actual["minutes"]))
         inside = (
             float(actual["pts"]) >= player.stats["pts"].p10
             and float(actual["pts"]) <= player.stats["pts"].p90
         )
         cover_hits.append(1.0 if inside else 0.0)
-        idx = id_to_idx.get(int(player.player_id))
+        idx = id_to_idx.get(int(pid))
         if idx is not None:
             samples = sim.pts[idx]
             y_pts = float(actual["pts"])

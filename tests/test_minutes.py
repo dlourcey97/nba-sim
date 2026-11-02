@@ -455,3 +455,146 @@ def test_fringe_sit_draw_still_normalizes_to_240():
     # The 12th man sits in some runs and plays in others.
     assert float(np.mean(draws[-1] == 0.0)) > 0.4
     assert float(np.mean(draws[-1] > 0.0)) > 0.1
+
+
+def test_fringe_floor_keeps_a_line_the_trim_would_zero():
+    import copy
+
+    settings = load_settings()
+    config = copy.deepcopy(settings.config)
+    config["minutes"]["normalize_gap_close"] = 0.0
+    config["minutes"]["fringe_minute_floor"] = False
+    means = [36, 34, 32, 30, 28, 24, 20, 16, 14, 12, 10, 8, 6, 4, 0.4]
+    raw = [
+        MinutesProjection(float(mean), 3.0, 0.0, 42.0, False, play_prob=0.96)
+        for mean in means
+    ]
+    off = allocate_team_minutes(raw, config=config, depth_ranks=list(range(len(means))))
+    assert off[-1].mean == 0.0
+    config["minutes"]["fringe_minute_floor"] = True
+    on = allocate_team_minutes(raw, config=config, depth_ranks=list(range(len(means))))
+    # The 240 scale trims the 5-minute curve line a little. It does not wipe it.
+    assert on[-1].mean > 4.0
+    assert on[-1].play_prob == pytest.approx(0.12, abs=0.02)
+    assert on[0].mean > 30.0
+    expected = sum(player.mean * player.play_prob for player in on if not player.out)
+    assert expected == pytest.approx(240.0, abs=8.0)
+    assert all(player.mean > 0.0 for player in on)
+
+
+def test_return_floor_survives_the_trim():
+    import copy
+
+    settings = load_settings()
+    config = copy.deepcopy(settings.config)
+    config["minutes"]["normalize_gap_close"] = 0.0
+    config["minutes"]["fringe_minute_floor"] = False
+    means = [36, 34, 32, 30, 28, 24, 20, 16, 14, 12, 10, 8, 6, 4, 2]
+    raw = [
+        MinutesProjection(float(mean), 3.0, 0.0, 42.0, False, play_prob=0.96)
+        for mean in means
+    ]
+    floors = [0.0] * len(means)
+    floors[-1] = 14.0
+    allocated = allocate_team_minutes(
+        raw,
+        config=config,
+        depth_ranks=list(range(len(means))),
+        return_floors=floors,
+    )
+    assert allocated[-1].mean > 8.0
+    assert allocated[-1].play_prob > 0.9
+
+
+def test_return_blend_does_not_fully_restore_or_cut_a_kept_line():
+    from projections.minutes import blend_return_base
+
+    class _Bundle:
+        def __init__(self, rows):
+            self.logs_by_player = {7: rows}
+
+    played = [
+        {"game_date": date(2026, 3, 1), "team_id": 1, "minutes": 22.0},
+        {"game_date": date(2026, 3, 3), "team_id": 1, "minutes": 20.0},
+        {"game_date": date(2026, 3, 5), "team_id": 1, "minutes": 18.0},
+    ]
+    sits = [
+        {"game_date": date(2026, 3, 7), "team_id": 1, "minutes": 0.0},
+        {"game_date": date(2026, 3, 9), "team_id": 1, "minutes": 0.0},
+        {"game_date": date(2026, 3, 11), "team_id": 1, "minutes": 0.0},
+    ]
+    dates = [row["game_date"] for row in played + sits]
+    kept, floor = blend_return_base(
+        19.0,
+        [_Bundle(played + sits)],
+        player_id=7,
+        team_id=1,
+        as_of=date(2026, 3, 13),
+        team_dates=dates,
+    )
+    assert kept == pytest.approx(19.0)
+    assert 0.0 < floor < 19.0
+    raised, raised_floor = blend_return_base(
+        0.0,
+        [_Bundle(played + sits)],
+        player_id=7,
+        team_id=1,
+        as_of=date(2026, 3, 13),
+        team_dates=dates,
+    )
+    assert raised == pytest.approx(raised_floor)
+    assert 0.0 < raised < 18.0
+    no_sit, no_floor = blend_return_base(
+        19.0,
+        [_Bundle(played)],
+        player_id=7,
+        team_id=1,
+        as_of=date(2026, 3, 6),
+        team_dates=[row["game_date"] for row in played],
+    )
+    assert no_sit == pytest.approx(19.0)
+    assert no_floor == 0.0
+    fringe = [
+        {"game_date": date(2026, 3, 1), "team_id": 1, "minutes": 4.0},
+        {"game_date": date(2026, 3, 3), "team_id": 1, "minutes": 3.0},
+        {"game_date": date(2026, 3, 5), "team_id": 1, "minutes": 0.0},
+        {"game_date": date(2026, 3, 7), "team_id": 1, "minutes": 0.0},
+        {"game_date": date(2026, 3, 9), "team_id": 1, "minutes": 0.0},
+    ]
+    fringe_base, _fringe_floor = blend_return_base(
+        0.0,
+        [_Bundle(fringe)],
+        player_id=7,
+        team_id=1,
+        as_of=date(2026, 3, 11),
+        team_dates=[row["game_date"] for row in fringe],
+    )
+    assert fringe_base < raised
+
+
+def test_sub_minute_base_is_not_trusted_when_fringe_floor_is_on():
+    from projections.minutes import apply_play_rotation
+
+    row = {
+        "player_id": 7,
+        "base": 0.4,
+        "same_n": 5,
+        "same_mean": 0.4,
+        "previous": 0.0,
+        "epm_mpg": 0.0,
+        "preseason_mean": 0.0,
+        "preseason_n": 0,
+        "appear_rate": 0.4,
+        "dnp_window": True,
+        "out": False,
+        "status": "available",
+    }
+    off = apply_play_rotation([row], {"minutes": {"play_prob_rotation": True}})
+    assert off[7]["mean"] is None
+    on = apply_play_rotation(
+        [row],
+        {"minutes": {"play_prob_rotation": True, "fringe_minute_floor": True}},
+    )
+    assert on[7]["mean"] is not None
+    assert on[7]["mean"] >= 5.0
+    assert on[7]["play_prob"] >= 0.12

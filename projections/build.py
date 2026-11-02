@@ -53,6 +53,7 @@ from projections.minutes import (
     MinutesProjection,
     allocate_team_minutes,
     apply_play_rotation,
+    blend_return_base,
     depth_prior_minutes,
     effective_minutes_gap_close,
     minute_history,
@@ -170,6 +171,29 @@ class ProjectionCache:
     preseason_by_season: dict[str, dict[int, list]] = field(default_factory=dict)
     season_appeared_as_of: date | None = None
     season_appeared_by_team: dict[int, set[int]] | None = None
+    # Earliest positive-minute date per player. Not cleared on as_of: the
+    # loaded bundles do not change during a slate.
+    first_minute_by_player: dict[int, date] | None = None
+
+    def players_with_prior_minutes(self, bundles: list, as_of: date) -> set[int]:
+        """Players with a positive minute strictly before ``as_of``."""
+        if self.first_minute_by_player is None:
+            first: dict[int, date] = {}
+            for bundle in bundles:
+                for pid, rows in bundle.logs_by_player.items():
+                    for row in rows:
+                        if float(row.get("minutes") or 0.0) <= 0.0:
+                            continue
+                        when = row["game_date"]
+                        if not isinstance(when, date):
+                            when = date.fromisoformat(str(when)[:10])
+                        prev = first.get(int(pid))
+                        if prev is None or when < prev:
+                            first[int(pid)] = when
+            self.first_minute_by_player = first
+        return {
+            pid for pid, when in self.first_minute_by_player.items() if when < as_of
+        }
 
     def reset_if_needed(self, as_of: date) -> None:
         if self.as_of != as_of:
@@ -682,7 +706,9 @@ def _build(
         role_rows: list[dict[str, Any]] = []
         signal_rows: list[dict[str, Any]] = []
         play_overrides: dict[int, tuple[float, float]] = {}
+        return_floors: dict[int, float] = {}
         role_prior = bool(config["minutes"].get("role_prior_enabled", False))
+        return_blend = bool(config["minutes"].get("return_minute_blend", False))
         play_rotation = bool(config["minutes"].get("play_prob_rotation", False))
         team_dates_for_minutes = _team_game_dates(minute_source, team_id, as_of)
         preseason_index: dict[int, list] = {}
@@ -792,6 +818,18 @@ def _build(
                     base = float(naive_mean)
                     sd_min = float(naive_sd) if naive_n > 0 else float(sd_min)
                     recent_n = naive_n
+            if return_blend:
+                base, floor = blend_return_base(
+                    float(base),
+                    minute_source,
+                    player_id=player_id,
+                    team_id=team_id,
+                    as_of=as_of,
+                    team_dates=team_dates_for_minutes,
+                    window=recent_window,
+                )
+                if floor > 0.0:
+                    return_floors[player_id] = float(floor)
             # Appear rate over the aligned team window (DNPs count as misses).
             appear_rate = 1.0
             if team_dates_for_minutes:
@@ -1049,6 +1087,11 @@ def _build(
             raw_minutes,
             config=config,
             depth_ranks=depth_ranks,
+            return_floors=(
+                [return_floors.get(pid, 0.0) for pid in ordered_ids]
+                if return_blend
+                else None
+            ),
         )
         # Margin-conditioned rotation: close games shorten the rotation;
         # blowouts push minutes to the bench. Preserve team minute total.
@@ -1723,6 +1766,21 @@ def merge_live_roster(
     return kept_live + kept_prior
 
 
+def _players_with_prior_minutes(bundles: list, as_of: date) -> set[int]:
+    """Players with a positive minute strictly before ``as_of``."""
+    found: set[int] = set()
+    for bundle in bundles:
+        for pid, rows in bundle.logs_by_player.items():
+            for row in rows:
+                if row["game_date"] >= as_of:
+                    continue
+                if float(row.get("minutes") or 0.0) <= 0.0:
+                    continue
+                found.add(int(pid))
+                break
+    return found
+
+
 def _roster_for_team(
     settings: Settings,
     season: str,
@@ -1845,9 +1903,42 @@ def _roster_for_team(
                     else date.fromisoformat(str(row["from_date"])) < as_of
                 )
             ]
+    if bool(settings.config.get("minutes", {}).get("pre_debut_stint", False)):
+        # A stint that starts on game day is the first played game. Include him
+        # tonight only when he already has minutes before tip (this team last
+        # season, or another team). A true debut stays off.
+        already = set(roster_ids)
+        prior_ids = (
+            cache.players_with_prior_minutes(bundles, as_of)
+            if cache is not None
+            else _players_with_prior_minutes(bundles, as_of)
+        )
+        for row in season_rows:
+            if int(row["team_id"]) != team_id:
+                continue
+            from_date = row["from_date"]
+            if not isinstance(from_date, date):
+                from_date = date.fromisoformat(str(from_date)[:10])
+            if from_date != as_of:
+                continue
+            to_date = row.get("to_date")
+            if to_date is not None:
+                if not isinstance(to_date, date):
+                    to_date = date.fromisoformat(str(to_date)[:10])
+                if not as_of < to_date:
+                    continue
+            pid = int(row["player_id"])
+            if pid in already or pid not in prior_ids:
+                continue
+            roster_ids.append(pid)
+            already.add(pid)
     if not roster_ids:
         return []
-    return sorted(roster_ids, key=_depth_key)[:15]
+    ranked = sorted(roster_ids, key=_depth_key)
+    cap = int(settings.config.get("minutes", {}).get("historical_roster_cap", 15) or 0)
+    if cap <= 0:
+        return ranked
+    return ranked[:cap]
 
 
 def _merge_preseason_sitouts(

@@ -276,6 +276,22 @@ minutes:
   # Players with 3+ same-team games keep their minute base. The 11-man zero
   # in allocate is off while this flag is on.
   play_prob_rotation: true
+  # Historical team_rosters stints are cut to this many players before the
+  # minute model sees them. 0 keeps the full active list, the way the live
+  # roster already does. The minute model ranks the fringe.
+  historical_roster_cap: 15
+  # Off: a sub-1-minute base, and anyone the mid-season trim cuts, is set to
+  # 0. On: those healthy players keep a fringe P(plays) and minutes-if-he-plays.
+  # Team expected minutes stay at 240. Bases already above play_threshold are
+  # not replaced by the curve.
+  fringe_minute_floor: false
+  # On a return game, blend the pre-sit minute level with recent zeros. A
+  # player who had fallen out of the rotation decays faster. The blend never
+  # cuts a line the minute model already kept.
+  return_minute_blend: false
+  # Open a stint on its first game date when the player already has minutes
+  # before tip (this team last season, or another team). True debuts stay off.
+  pre_debut_stint: false
   # Step F: share of an OUT player's minutes that go to historical replacements
   # first; the remainder is split by current minute share among active players.
   replacement_share: 0.85

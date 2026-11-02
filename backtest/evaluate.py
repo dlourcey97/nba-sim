@@ -30,6 +30,7 @@ from backtest.metrics import (
     write_calibration_svg,
 )
 from backtest.sim_job import score_projected_game
+from backtest.zero_causes import CauseIndex, count_causes
 from ingest.injury_archive import load_injury_index
 from ingest.parse import parse_seasons
 from nba_sim.errors import NbaSimError
@@ -84,6 +85,7 @@ def evaluate_seasons(
     games = 0
     projected_zero_played = 0
     projected_eight_dnp = 0
+    cause_a = cause_b = cause_c = cause_d = cause_e = 0
     game_rows: list[dict] = []
 
     # Cache season bundles once across the whole evaluation so walk-forward does
@@ -117,10 +119,12 @@ def evaluate_seasons(
             (row["game_id"], int(row["team_id"])): row
             for row in read_rows(local, "team_game_results", season)
         }
+        roster_rows = read_rows(local, "team_rosters", season)
         window = available_season_window(local, season, seasons_back)
         if season not in window:
             window = [season] + window
         bundles = [bundle_cache[label] for label in window if label in bundle_cache]
+        cause_index = CauseIndex(schedule, bundles, season)
         proj_cache = ProjectionCache()
         pending: list[dict] = []
         batch_size = max(int(workers), 1)
@@ -228,6 +232,18 @@ def evaluate_seasons(
                 zero_played, eight_dnp = _minute_miss_counts(projection, game_logs)
                 projected_zero_played += zero_played
                 projected_eight_dnp += eight_dnp
+                a, b, c, d, e = count_causes(
+                    projection,
+                    game_logs,
+                    logs_by_game,
+                    roster_rows,
+                    cause_index,
+                )
+                cause_a += a
+                cause_b += b
+                cause_c += c
+                cause_d += d
+                cause_e += e
                 game_seed = seed + games + len(pending)
                 pending.append(
                     {
@@ -283,6 +299,11 @@ def evaluate_seasons(
         winner_accuracy=winner_accuracy,
         projected_zero_played=projected_zero_played,
         projected_eight_dnp=projected_eight_dnp,
+        cause_a=cause_a,
+        cause_b=cause_b,
+        cause_c=cause_c,
+        cause_d=cause_d,
+        cause_e=cause_e,
         game_rows=game_rows,
     )
 

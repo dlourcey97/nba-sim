@@ -36,6 +36,12 @@ class MetricReport:
     projected_zero_played: int = 0
     # Expected minutes 8 or more who did not play.
     projected_eight_dnp: int = 0
+    # Those zero-minute misses, split by what the pre-tip roster could see.
+    cause_a: int = 0
+    cause_b: int = 0
+    cause_c: int = 0
+    cause_d: int = 0
+    cause_e: int = 0
     # Per-game rows for the bootstrap. Not part of the JSON metrics summary.
     game_rows: list | None = None
 
@@ -56,6 +62,11 @@ class MetricReport:
             "mae_min": _json_float(self.mae_min),
             "projected_zero_played": int(self.projected_zero_played),
             "projected_eight_dnp": int(self.projected_eight_dnp),
+            "cause_a": int(self.cause_a),
+            "cause_b": int(self.cause_b),
+            "cause_c": int(self.cause_c),
+            "cause_d": int(self.cause_d),
+            "cause_e": int(self.cause_e),
             "mae_margin": _json_float(self.mae_margin),
             "mae_total": _json_float(self.mae_total),
             "crps_pts": _json_float(self.crps_pts),
