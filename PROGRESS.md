@@ -1,6 +1,6 @@
 # Progress
 
-Last updated 2026-11-02 — Backtest scoring now includes every player who played. Dropping the 15-man historical cap failed the guardrail (starter minutes +3.83%). The cap stays 15.
+Last updated 2026-11-02 — Honest scoring is the baseline. The 15-man cap stays. The fringe minute floor failed the guardrail and stays off.
 
 ## Honest scoring (2026-11-02)
 
@@ -40,7 +40,9 @@ Minute error rose because the added players were projected at 0 and played. Poin
 
 The 15-man cap stays. Dropping it (`historical_roster_cap` 0) failed the mid-season guardrail before any full-season sim: starter minute share +3.83% and starter block share +3.53%, both past ±3%. Team totals were inside the band (minutes −0.39%, points +0.12%, rebounds +0.20%, assists −1.78%, turnovers +2.78%, steals −0.76%, blocks +2.29%). The extra names were trimmed back toward zero and the 240 scale put those minutes on the starters. Call: revert. The cap remains 15.
 
-The next switches are in the tree and off. `fringe_minute_floor`, `return_minute_blend`, and `pre_debut_stint` are false. The stored mean of 0 on a player like Andre Drummond (2026-03-15, last-10 mean 15.9, play probability 0.96) is the mid-season trim, which zeros from the bottom once the book is more than 40 minutes over 240. It is not a sub-1-minute base. The fringe floor, when turned on, seats that player on the end of the curve instead of wiping him, and the team still scales to 240.
+The fringe floor stays off. Seating trimmed players on a 5-minute, 12% line, and giving sub-1-minute bases the rank curve, failed the same guardrail before a full-season sim. Team assists −4.11% and turnovers +3.32%. Starter shares fell together: minutes −4.46%, points −8.95%, rebounds −6.78%, assists −5.34%, steals −9.10%, blocks −5.00%. The extra expected minutes came off the starters when the team was scaled to 240. Call: revert. `fringe_minute_floor` remains false.
+
+`return_minute_blend` and `pre_debut_stint` are still false. The stored mean of 0 on a player like Andre Drummond (2026-03-15, last-10 mean 15.9, play probability 0.96) is the mid-season trim, which zeros from the bottom once the book is more than 40 minutes over 240. It is not a sub-1-minute base. The fringe floor, when turned on, seats that player on the end of the curve instead of wiping him, and the team still scales to 240.
 
 ## Rotation selection (2026-11-01)
 
@@ -140,6 +142,7 @@ Lineup draws for both minute models now use the same minute-weighted sample. A r
 | Play-probability rotation | kept | Roster guard was dropping PHI. 2025-26 and 2024-25 holdout both inside noise. Flag stays on. |
 | Honest player scoring | kept | Every player who played is scored. Unprojected counts as 0. 2025-26 MIN MAE 6.871 → 7.360. Sim metrics unchanged. |
 | Historical roster cap off | reverted | Guardrail failed. Starter minutes +3.83%, starter blocks +3.53%. Cap stays 15. |
+| Fringe minute floor | reverted | Guardrail failed. Starter points −8.95%, starter minutes −4.46%. Team assists −4.11%. Flag stays off. |
 | Slate 2026-10-28 | done | 12 games. Guardrail PASS. Fixed a fallback that listed Kelly Oubre on both PHI and IND. 8 stat lines + 8 double-doubles logged. |
 | Post-game through 10-27 | done | +4 finals. Winners 2/4. Picks 4/8 vs 58.5%. Double-doubles 3/8 vs 41.0%. Roster +1 (Enrique Freeman, MIN). |
 | Slate 2026-10-27 | done | 4 games. Guardrail PASS. 8 stat lines + 8 double-doubles in `prediction_history`. Graded in the row above. |

@@ -192,6 +192,34 @@ def step1() -> None:
     print("STEP 1 DONE", flush=True)
 
 
+def step2() -> None:
+    """Stop wiping fringe players to 0. The 15-man cap stays on."""
+    settings = load_settings()
+    config = _base_config(settings)
+    config["minutes"]["fringe_minute_floor"] = True
+    local = replace(settings, config=config)
+    _guardrail(settings, config)
+    for season in SEASONS:
+        out = _out(season, "fringe")
+        _run(local, config, season, out)
+        _paired(season, "fringe", "honest")
+    print("STEP 2 DONE", flush=True)
+
+
+def step3() -> None:
+    """Blend a returner's pre-sit minutes with his recent zeros. Cap stays at 15."""
+    settings = load_settings()
+    config = _base_config(settings)
+    config["minutes"]["return_minute_blend"] = True
+    local = replace(settings, config=config)
+    _guardrail(settings, config)
+    for season in SEASONS:
+        out = _out(season, "return")
+        _run(local, config, season, out)
+        _paired(season, "return", "honest")
+    print("STEP 3 DONE", flush=True)
+
+
 def step0() -> None:
     settings = load_settings()
     config = _base_config(settings)
@@ -210,6 +238,12 @@ def main() -> None:
         return
     if step in {"1", "step1", "cap"}:
         step1()
+        return
+    if step in {"2", "step2", "fringe"}:
+        step2()
+        return
+    if step in {"3", "step3", "return"}:
+        step3()
         return
     raise SystemExit(f"unknown step {step}")
 
