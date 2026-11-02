@@ -1,6 +1,6 @@
 # Progress
 
-Last updated 2026-11-02 — Honest scoring is the baseline. The 15-man cap, the fringe floor, and the return-game blend all failed the guardrail and stay off.
+Last updated 2026-11-02 — Honest scoring is the baseline. Pre-debut stints stay on. The 15-man cap, the fringe floor, and the return-game blend stay off.
 
 ## Honest scoring (2026-11-02)
 
@@ -44,7 +44,31 @@ The fringe floor stays off. Seating trimmed players on a 5-minute, 12% line, and
 
 The return blend stays off. Restoring a wiped returner toward his pre-sit minutes failed the same guardrail, by less than the fringe floor did. Team turnovers +3.15%. Starter points −3.26% and starter steals −3.27%. Starter minutes were only +0.80%. Call: revert. `return_minute_blend` remains false.
 
-`pre_debut_stint` is still false. The stored mean of 0 on a player like Andre Drummond (2026-03-15, last-10 mean 15.9, play probability 0.96) is the mid-season trim, which zeros from the bottom once the book is more than 40 minutes over 240. It is not a sub-1-minute base. The fringe floor, when turned on, seats that player on the end of the curve instead of wiping him, and the team still scales to 240.
+Pre-debut stints stay on. The guardrail passed (team minutes −0.40%, starter minutes +1.82%, nothing outside ±3%). Both seasons' Brier, spread, and total are inside noise against the honest baseline, and every player MAE moved down. Cause (a) fell from 260 to 86 in 2025-26 and from 217 to 74 in 2024-25. Some of those players landed in (b), outside the 15, which is why (b) rose. Call: noise, keep. `pre_debut_stint` is true.
+
+2025-26, 1,314 games, 39.6 minutes. Difference is stint minus honest.
+
+| | Honest | Pre-debut stint | Paired difference |
+| --- | ---: | ---: | --- |
+| MIN / PTS / REB / AST MAE | 7.360 / 5.224 / 2.122 / 1.396 | 7.335 / 5.218 / 2.118 / 1.394 | |
+| Causes a / b / c / d / e | 260 / 1,007 / 3 / 564 / 2,148 | 86 / 1,036 / 2 / 616 / 2,191 | |
+| Total bias | −2.28 | −2.26 | |
+| Spread MAE | 12.018 | 12.042 | +0.025 (−0.012 to +0.063), inside noise |
+| Total MAE | 15.909 | 15.914 | +0.005 (−0.026 to +0.036), inside noise |
+| Brier | 0.2135 | 0.2136 | +0.0001 (−0.0005 to +0.0007), inside noise |
+
+2024-25 holdout, 1,313 games, 39.6 minutes.
+
+| | Honest | Pre-debut stint | Paired difference |
+| --- | ---: | ---: | --- |
+| MIN / PTS / REB / AST MAE | 7.403 / 5.299 / 2.197 / 1.389 | 7.380 / 5.288 / 2.193 / 1.386 | |
+| Causes a / b / c / d / e | 217 / 904 / 4 / 624 / 2,286 | 74 / 933 / 3 / 653 / 2,321 | |
+| Total bias | −10.46 | −10.46 | |
+| Spread MAE | 11.751 | 11.746 | −0.005 (−0.042 to +0.035), inside noise |
+| Total MAE | 17.321 | 17.317 | −0.004 (−0.032 to +0.024), inside noise |
+| Brier | 0.2159 | 0.2159 | +0.0000 (−0.0006 to +0.0007), inside noise |
+
+The stored mean of 0 on a player like Andre Drummond (2026-03-15, last-10 mean 15.9, play probability 0.96) is the mid-season trim, which zeros from the bottom once the book is more than 40 minutes over 240. It is not a sub-1-minute base.
 
 ## Rotation selection (2026-11-01)
 
@@ -146,6 +170,7 @@ Lineup draws for both minute models now use the same minute-weighted sample. A r
 | Historical roster cap off | reverted | Guardrail failed. Starter minutes +3.83%, starter blocks +3.53%. Cap stays 15. |
 | Fringe minute floor | reverted | Guardrail failed. Starter points −8.95%, starter minutes −4.46%. Team assists −4.11%. Flag stays off. |
 | Return-game minute blend | reverted | Guardrail failed. Starter points −3.26%, starter steals −3.27%, team turnovers +3.15%. Flag stays off. |
+| Pre-debut stint | kept | Guardrail passed. Cause (a) 260 → 86 in 2025-26. Player MAE down on both seasons. Game metrics inside noise. |
 | Slate 2026-10-28 | done | 12 games. Guardrail PASS. Fixed a fallback that listed Kelly Oubre on both PHI and IND. 8 stat lines + 8 double-doubles logged. |
 | Post-game through 10-27 | done | +4 finals. Winners 2/4. Picks 4/8 vs 58.5%. Double-doubles 3/8 vs 41.0%. Roster +1 (Enrique Freeman, MIN). |
 | Slate 2026-10-27 | done | 4 games. Guardrail PASS. 8 stat lines + 8 double-doubles in `prediction_history`. Graded in the row above. |

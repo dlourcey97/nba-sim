@@ -291,7 +291,7 @@ minutes:
   return_minute_blend: false
   # Open a stint on its first game date when the player already has minutes
   # before tip (this team last season, or another team). True debuts stay off.
-  pre_debut_stint: false
+  pre_debut_stint: true
   # Step F: share of an OUT player's minutes that go to historical replacements
   # first; the remainder is split by current minute share among active players.
   replacement_share: 0.85
