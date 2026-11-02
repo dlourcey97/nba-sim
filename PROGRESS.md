@@ -1,6 +1,6 @@
 # Progress
 
-Last updated 2026-11-02 — Honest scoring is the baseline. The 15-man cap stays. The fringe minute floor failed the guardrail and stays off.
+Last updated 2026-11-02 — Honest scoring is the baseline. The 15-man cap, the fringe floor, and the return-game blend all failed the guardrail and stay off.
 
 ## Honest scoring (2026-11-02)
 
@@ -42,7 +42,9 @@ The 15-man cap stays. Dropping it (`historical_roster_cap` 0) failed the mid-sea
 
 The fringe floor stays off. Seating trimmed players on a 5-minute, 12% line, and giving sub-1-minute bases the rank curve, failed the same guardrail before a full-season sim. Team assists −4.11% and turnovers +3.32%. Starter shares fell together: minutes −4.46%, points −8.95%, rebounds −6.78%, assists −5.34%, steals −9.10%, blocks −5.00%. The extra expected minutes came off the starters when the team was scaled to 240. Call: revert. `fringe_minute_floor` remains false.
 
-`return_minute_blend` and `pre_debut_stint` are still false. The stored mean of 0 on a player like Andre Drummond (2026-03-15, last-10 mean 15.9, play probability 0.96) is the mid-season trim, which zeros from the bottom once the book is more than 40 minutes over 240. It is not a sub-1-minute base. The fringe floor, when turned on, seats that player on the end of the curve instead of wiping him, and the team still scales to 240.
+The return blend stays off. Restoring a wiped returner toward his pre-sit minutes failed the same guardrail, by less than the fringe floor did. Team turnovers +3.15%. Starter points −3.26% and starter steals −3.27%. Starter minutes were only +0.80%. Call: revert. `return_minute_blend` remains false.
+
+`pre_debut_stint` is still false. The stored mean of 0 on a player like Andre Drummond (2026-03-15, last-10 mean 15.9, play probability 0.96) is the mid-season trim, which zeros from the bottom once the book is more than 40 minutes over 240. It is not a sub-1-minute base. The fringe floor, when turned on, seats that player on the end of the curve instead of wiping him, and the team still scales to 240.
 
 ## Rotation selection (2026-11-01)
 
@@ -143,6 +145,7 @@ Lineup draws for both minute models now use the same minute-weighted sample. A r
 | Honest player scoring | kept | Every player who played is scored. Unprojected counts as 0. 2025-26 MIN MAE 6.871 → 7.360. Sim metrics unchanged. |
 | Historical roster cap off | reverted | Guardrail failed. Starter minutes +3.83%, starter blocks +3.53%. Cap stays 15. |
 | Fringe minute floor | reverted | Guardrail failed. Starter points −8.95%, starter minutes −4.46%. Team assists −4.11%. Flag stays off. |
+| Return-game minute blend | reverted | Guardrail failed. Starter points −3.26%, starter steals −3.27%, team turnovers +3.15%. Flag stays off. |
 | Slate 2026-10-28 | done | 12 games. Guardrail PASS. Fixed a fallback that listed Kelly Oubre on both PHI and IND. 8 stat lines + 8 double-doubles logged. |
 | Post-game through 10-27 | done | +4 finals. Winners 2/4. Picks 4/8 vs 58.5%. Double-doubles 3/8 vs 41.0%. Roster +1 (Enrique Freeman, MIN). |
 | Slate 2026-10-27 | done | 4 games. Guardrail PASS. 8 stat lines + 8 double-doubles in `prediction_history`. Graded in the row above. |

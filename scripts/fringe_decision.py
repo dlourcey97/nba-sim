@@ -220,6 +220,20 @@ def step3() -> None:
     print("STEP 3 DONE", flush=True)
 
 
+def step4() -> None:
+    """Open a same-day stint when the player already has minutes before tip. True debuts stay off."""
+    settings = load_settings()
+    config = _base_config(settings)
+    config["minutes"]["pre_debut_stint"] = True
+    local = replace(settings, config=config)
+    _guardrail(settings, config)
+    for season in SEASONS:
+        out = _out(season, "stint")
+        _run(local, config, season, out)
+        _paired(season, "stint", "honest")
+    print("STEP 4 DONE", flush=True)
+
+
 def step0() -> None:
     settings = load_settings()
     config = _base_config(settings)
@@ -244,6 +258,9 @@ def main() -> None:
         return
     if step in {"3", "step3", "return"}:
         step3()
+        return
+    if step in {"4", "step4", "stint"}:
+        step4()
         return
     raise SystemExit(f"unknown step {step}")
 
