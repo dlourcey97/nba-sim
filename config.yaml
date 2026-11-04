@@ -287,8 +287,11 @@ minutes:
   fringe_minute_floor: false
   # On a return game, blend the pre-sit minute level with recent zeros. A
   # player who had fallen out of the rotation decays faster. The blend never
-  # cuts a line the minute model already kept.
-  return_minute_blend: false
+  # cuts a line the minute model already kept. Scale 1 is the full blend,
+  # which failed the guardrail. 0.20 passed it and improved CRPS on both
+  # seasons with game error inside noise (2026-11-04).
+  return_minute_blend: true
+  return_blend_scale: 0.20
   # Open a stint on its first game date when the player already has minutes
   # before tip (this team last season, or another team). True debuts stay off.
   pre_debut_stint: true

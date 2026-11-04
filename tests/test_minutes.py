@@ -628,3 +628,133 @@ def test_sub_minute_base_is_not_trusted_when_fringe_floor_is_on():
     assert on[7]["mean"] is not None
     assert on[7]["mean"] >= 5.0
     assert on[7]["play_prob"] >= 0.12
+
+
+def _fringe_roster(config: dict):
+    means = [36, 34, 32, 30, 28, 24, 20, 16, 14, 12, 10, 8, 6, 4, 0.4]
+    raw = [
+        MinutesProjection(float(mean), 3.0, 0.0, 42.0, False, play_prob=0.96)
+        for mean in means
+    ]
+    return allocate_team_minutes(raw, config=config, depth_ranks=list(range(len(means))))
+
+
+def test_default_fringe_keys_match_the_full_seat():
+    import copy
+
+    settings = load_settings()
+    bare = copy.deepcopy(settings.config)
+    bare["minutes"]["normalize_gap_close"] = 0.0
+    bare["minutes"]["fringe_minute_floor"] = True
+    explicit = copy.deepcopy(bare)
+    explicit["minutes"]["fringe_floor_minutes"] = 5.0
+    explicit["minutes"]["fringe_floor_play_prob"] = 0.12
+    explicit["minutes"]["fringe_demote"] = True
+    left = _fringe_roster(bare)
+    right = _fringe_roster(explicit)
+    assert [player.mean for player in left] == [player.mean for player in right]
+    assert [player.play_prob for player in left] == [player.play_prob for player in right]
+
+
+def test_mild_fringe_seats_a_short_line_and_does_not_demote():
+    import copy
+
+    settings = load_settings()
+    full = copy.deepcopy(settings.config)
+    full["minutes"]["normalize_gap_close"] = 0.0
+    full["minutes"]["fringe_minute_floor"] = True
+    mild = copy.deepcopy(full)
+    mild["minutes"]["fringe_floor_minutes"] = 2.0
+    mild["minutes"]["fringe_floor_play_prob"] = 0.10
+    mild["minutes"]["fringe_demote"] = False
+    full_rows = _fringe_roster(full)
+    mild_rows = _fringe_roster(mild)
+    assert mild_rows[-1].play_prob == pytest.approx(0.10)
+    assert mild_rows[-1].mean * mild_rows[-1].play_prob < 1.0
+    # Index 13 is the 4-minute man. The full seat demotes him onto the fringe
+    # line. The mild seat leaves that rotation probability alone.
+    assert full_rows[13].play_prob < 0.2
+    assert mild_rows[13].play_prob > 0.9
+    assert mild_rows[13].mean > 3.0
+
+
+def test_mild_fringe_line_replaces_the_curve_for_a_sub_minute_base():
+    from projections.minutes import apply_play_rotation
+
+    row = {
+        "player_id": 7,
+        "base": 0.4,
+        "same_n": 5,
+        "same_mean": 0.4,
+        "previous": 0.0,
+        "epm_mpg": 0.0,
+        "preseason_mean": 0.0,
+        "preseason_n": 0,
+        "appear_rate": 0.4,
+        "dnp_window": True,
+        "out": False,
+        "status": "available",
+    }
+    kept = {
+        "player_id": 8,
+        "base": 18.0,
+        "same_n": 5,
+        "same_mean": 18.0,
+        "previous": 0.0,
+        "epm_mpg": 0.0,
+        "preseason_mean": 0.0,
+        "preseason_n": 0,
+        "appear_rate": 1.0,
+        "dnp_window": False,
+        "out": False,
+        "status": "available",
+    }
+    assigned = apply_play_rotation(
+        [row, kept],
+        {
+            "minutes": {
+                "play_prob_rotation": True,
+                "fringe_minute_floor": True,
+                "fringe_floor_minutes": 2.0,
+                "fringe_floor_play_prob": 0.10,
+            }
+        },
+    )
+    assert assigned[7]["mean"] == pytest.approx(2.0)
+    assert assigned[7]["play_prob"] == pytest.approx(0.10)
+    assert assigned[8]["mean"] is None
+
+
+def test_return_blend_scale_matches_full_blend_at_one():
+    from projections.minutes import blend_return_base
+
+    class _Bundle:
+        def __init__(self, rows):
+            self.logs_by_player = {7: rows}
+
+    played = [
+        {"game_date": date(2026, 3, 1), "team_id": 1, "minutes": 22.0},
+        {"game_date": date(2026, 3, 3), "team_id": 1, "minutes": 20.0},
+        {"game_date": date(2026, 3, 5), "team_id": 1, "minutes": 18.0},
+    ]
+    sits = [
+        {"game_date": date(2026, 3, 7), "team_id": 1, "minutes": 0.0},
+        {"game_date": date(2026, 3, 9), "team_id": 1, "minutes": 0.0},
+        {"game_date": date(2026, 3, 11), "team_id": 1, "minutes": 0.0},
+    ]
+    dates = [row["game_date"] for row in played + sits]
+    kwargs = dict(
+        player_id=7,
+        team_id=1,
+        as_of=date(2026, 3, 13),
+        team_dates=dates,
+    )
+    plain = blend_return_base(0.0, [_Bundle(played + sits)], **kwargs)
+    full = blend_return_base(0.0, [_Bundle(played + sits)], scale=1.0, **kwargs)
+    assert full == plain
+    mild = blend_return_base(0.0, [_Bundle(played + sits)], scale=0.35, **kwargs)
+    assert mild[0] == pytest.approx(0.35 * plain[0])
+    assert mild[1] == pytest.approx(0.35 * plain[1])
+    held, held_floor = blend_return_base(19.0, [_Bundle(played + sits)], scale=0.35, **kwargs)
+    assert held == pytest.approx(19.0)
+    assert held_floor == pytest.approx(0.35 * plain[1])

@@ -834,6 +834,7 @@ def _build(
                     as_of=as_of,
                     team_dates=team_dates_for_minutes,
                     window=recent_window,
+                    scale=float(config["minutes"].get("return_blend_scale", 1.0)),
                 )
                 if floor > 0.0:
                     return_floors[player_id] = float(floor)

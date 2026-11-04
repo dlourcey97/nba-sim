@@ -1,6 +1,14 @@
 # Progress
 
-Last updated 2026-11-04 — Honest scoring is the baseline. Pre-debut stints stay on. March-April bench seating is on. The 15-man cap, the fringe floor, and the return blend stay off. Assist picks stay. Lineup defense stays off until its decision run.
+Last updated 2026-11-04 — Honest scoring is the baseline. Pre-debut stints stay on. March-April bench seating is on. A partial return blend is on (20% of the full blend). The 15-man cap and the fringe floor stay off. Assist picks stay. Lineup defense stays off until its decision run.
+
+## Milder minute seats (2026-11-04)
+
+The full fringe floor and the full return blend had improved CRPS and failed the ±3% check, so both were tried again at a smaller dose. The comparison is the current engine with March-April seating off, so this result is not stacked on that seat.
+
+The fringe seat did not get a season run. A wiped player at 2 minutes and a 10% play chance, then 1 minute at 8%, then 1 minute at 5%, all failed the same mid-season check. Team assists were about −4.7% and turnovers about +3.5%. Starter minutes were about −5.2%, and starter points, rebounds, assists, steals, and blocks were past ±3%. Turning the fringe flag on still gives a sub-1-minute base the rank curve instead of trusting it, and that is enough to move starter share even when the replacement line is tiny. The flag stays off.
+
+The full return blend's smaller cousin at 35% still failed: starter steals −3.17%. At 20% the check passed. Team rates stayed inside ±3% (turnovers +2.22%, the largest). Starter steals were −2.56%. Both seasons then improved minute CRPS by about 0.02 and points CRPS by about 0.016, both decisive. Play probability did not move. Winner, spread, and total error stayed inside noise. Minute 10–90 coverage got a little worse and points coverage got a little better. `return_minute_blend` is true and `return_blend_scale` is 0.20. March and April now have this blend and the bench seat together. That pair was not in the measurement. October through February are the blend alone, which is what was measured.
 
 ## CRPS re-judge (2026-11-04)
 
@@ -73,7 +81,7 @@ The 15-man cap stays. Dropping it (`historical_roster_cap` 0) failed the mid-sea
 
 The fringe floor stays off. Seating trimmed players on a 5-minute, 12% line, and giving sub-1-minute bases the rank curve, failed the same guardrail before a full-season sim. Team assists −4.11% and turnovers +3.32%. Starter shares fell together: minutes −4.46%, points −8.95%, rebounds −6.78%, assists −5.34%, steals −9.10%, blocks −5.00%. The extra expected minutes came off the starters when the team was scaled to 240. Call: revert. `fringe_minute_floor` remains false.
 
-The return blend stays off. Restoring a wiped returner toward his pre-sit minutes failed the same guardrail, by less than the fringe floor did. Team turnovers +3.15%. Starter points −3.26% and starter steals −3.27%. Starter minutes were only +0.80%. Call: revert. `return_minute_blend` remains false.
+The full return blend stayed off at the time. Restoring a wiped returner toward his pre-sit minutes failed the same guardrail, by less than the fringe floor did. Team turnovers +3.15%. Starter points −3.26% and starter steals −3.27%. Starter minutes were only +0.80%. Call at the time: revert. A 20% scale of that blend was turned on later. See the section above.
 
 Pre-debut stints stay on. The guardrail passed (team minutes −0.40%, starter minutes +1.82%, nothing outside ±3%). Both seasons' Brier, spread, and total are inside noise against the honest baseline, and every player MAE moved down. Cause (a) fell from 260 to 86 in 2025-26 and from 217 to 74 in 2024-25. Some of those players landed in (b), outside the 15, which is why (b) rose. Call: noise, keep. `pre_debut_stint` is true.
 

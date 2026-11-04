@@ -266,6 +266,7 @@ def blend_return_base(
     team_dates: Sequence[date],
     window: int = 10,
     rotation_minutes: float = 10.0,
+    scale: float = 1.0,
 ) -> tuple[float, float]:
     """On a return game, blend the pre-sit line with the recent zeros.
 
@@ -313,6 +314,11 @@ def blend_return_base(
     recent = float(sum(recent_vals) / len(recent_vals)) if recent_vals else 0.0
     decay = (0.85 if pre >= rotation_minutes else 0.45) ** misses
     blended = float(decay * pre + (1.0 - decay) * recent)
+    # scale 1 is the blend above. A smaller scale keeps a fraction of it, so
+    # one miss restores only part of the pre-sit line. The naive base is still
+    # never cut.
+    if float(scale) != 1.0:
+        blended = float(scale) * blended
     return float(max(base, blended)), blended
 
 
@@ -737,6 +743,17 @@ def apply_play_rotation(
             }
             continue
         cond, prob = _conditional_for_rank(rank, row)
+        # A milder fringe line replaces the curve only for the sub-threshold
+        # player this flag refused to trust. Absent keys leave the curve.
+        minutes_cfg = config.get("minutes") or {}
+        mild_minutes = float(minutes_cfg.get("fringe_floor_minutes", 5.0))
+        mild_prob = float(minutes_cfg.get("fringe_floor_play_prob", 0.12))
+        if (
+            fringe_floor
+            and existing <= play_threshold
+            and (mild_minutes != 5.0 or mild_prob != 0.12)
+        ):
+            cond, prob = mild_minutes, mild_prob
         assigned[player_id] = {
             "rank": rank,
             "mean": cond,
@@ -855,15 +872,23 @@ def late_season_game(game_date: date, config: dict[str, Any]) -> bool:
     return int(game_date.month) in (3, 4)
 
 
-def _fringe_line(rank: int) -> tuple[float, float]:
+def _fringe_line(
+    rank: int,
+    *,
+    floor_minutes: float = 5.0,
+    floor_prob: float = 0.12,
+) -> tuple[float, float]:
     """Minutes if he plays, and P(plays), for someone outside the rotation.
 
-    Anyone being seated in place of a hard zero is at least a 12th man. Deeper
-    ranks step down to the curve floor (5 minutes, 0.12). That is under one
-    expected minute and does not pull starter share through the 240 scale.
+    The default pair is a floor under the curve: anyone being seated in place
+    of a hard zero is at least a 12th man, and deeper ranks step down to 5
+    minutes at 0.12. A lower configured pair replaces that curve, so a mild
+    seat can actually be 2 minutes. ``max(curve, 2)`` would still be the curve.
     """
     cond, prob = play_curve_for_rank(max(int(rank), 11))
-    return max(float(cond), 5.0), max(float(prob), 0.12)
+    if float(floor_minutes) == 5.0 and float(floor_prob) == 0.12:
+        return max(float(cond), 5.0), max(float(prob), 0.12)
+    return float(floor_minutes), float(floor_prob)
 
 
 def _seat_fringe(
@@ -876,6 +901,9 @@ def _seat_fringe(
     play_threshold: float,
     keep_threshold: float,
     min_rotation: int,
+    floor_minutes: float = 5.0,
+    floor_prob: float = 0.12,
+    demote: bool = True,
 ) -> None:
     """Give a wiped player a fringe line instead of 0 minutes.
 
@@ -883,7 +911,8 @@ def _seat_fringe(
     immediately. If expected minutes are still far over the team target, the
     lowest non-protected players move onto the same line. The top of the
     rotation is left alone, and the caller's scale still lands expected
-    minutes on the team target.
+    minutes on the team target. ``demote`` stays on unless a trial turns it
+    off, so the default call is the full fringe seat.
     """
     healthy = [i for i in range(len(means)) if not out[i]]
     if not healthy:
@@ -891,7 +920,9 @@ def _seat_fringe(
     order = sorted(healthy, key=lambda i: (-float(means[i]), i))
     for rank, i in enumerate(order):
         if float(means[i]) <= play_threshold:
-            cond, prob = _fringe_line(rank)
+            cond, prob = _fringe_line(
+                rank, floor_minutes=floor_minutes, floor_prob=floor_prob
+            )
             means[i] = cond
             play_probs[i] = prob
             if caps[i] < cond:
@@ -903,6 +934,9 @@ def _seat_fringe(
             if means[i] > 0.0 and play_probs[i] > 0.0:
                 total += float(means[i]) * float(play_probs[i])
         return total
+
+    if not demote:
+        return
 
     for _ in range(len(means)):
         if expected() <= target + 8.0:
@@ -921,7 +955,9 @@ def _seat_fringe(
         # The trim used to delete this player. Put him on the end of the curve
         # (5 minutes if he plays, 0.12) rather than his old rotation line, so
         # the 240 scale does not take those minutes back off the starters.
-        cond, prob = _fringe_line(len(means))
+        cond, prob = _fringe_line(
+            len(means), floor_minutes=floor_minutes, floor_prob=floor_prob
+        )
         if float(means[victim]) <= cond + 0.05 and abs(float(play_probs[victim]) - prob) < 1e-9:
             return
         means[victim] = cond
@@ -976,6 +1012,11 @@ def allocate_team_minutes(
     )
     original_play = play_probs.copy()
     fringe_floor = bool(minutes_cfg.get("fringe_minute_floor", False))
+    fringe_floor_minutes = float(minutes_cfg.get("fringe_floor_minutes", 5.0))
+    fringe_floor_prob = float(minutes_cfg.get("fringe_floor_play_prob", 0.12))
+    # The second pass, which pulls a real rotation player onto the fringe
+    # line, is what moved starter share. It stays on unless a trial turns it off.
+    fringe_demote = bool(minutes_cfg.get("fringe_demote", True))
     # March and April only. The flag is set per game in the projection build.
     # U8 had no behavior before this; the all-season fringe floor already
     # failed the guardrail, so this seat does not run in October–February.
@@ -1027,6 +1068,9 @@ def allocate_team_minutes(
                 play_threshold=play_threshold,
                 keep_threshold=keep_threshold,
                 min_rotation=min_rotation,
+                floor_minutes=fringe_floor_minutes,
+                floor_prob=fringe_floor_prob,
+                demote=fringe_demote,
             )
         else:
             for i in active_idx:
@@ -1084,6 +1128,9 @@ def allocate_team_minutes(
                 play_threshold=play_threshold,
                 keep_threshold=keep_threshold,
                 min_rotation=min_rotation,
+                floor_minutes=fringe_floor_minutes,
+                floor_prob=fringe_floor_prob,
+                demote=fringe_demote,
             )
         else:
             for i in active_idx:
