@@ -82,7 +82,7 @@ def test_env_and_config_load():
     assert settings.max_bytes == 2_147_483_648
     assert settings.current_season == "2026-27"
     assert settings.config["simulation"]["runs"] == 10000
-    assert settings.config["features"]["late_season_incentives"] is False
+    assert settings.config["features"]["late_season_incentives"] is True
     weights = settings.config["blending"]["season_weights"]["weights"]
     assert abs(sum(weights) - 1) < 1e-9
 

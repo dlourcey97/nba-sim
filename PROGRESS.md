@@ -1,6 +1,23 @@
 # Progress
 
-Last updated 2026-11-03 — Honest scoring is the baseline. Pre-debut stints stay on. The 15-man cap, the fringe floor, the return blend, and March-April bench seating stay off. Assist picks stay. Lineup defense stays off until its decision run.
+Last updated 2026-11-04 — Honest scoring is the baseline. Pre-debut stints stay on. March-April bench seating is on. The 15-man cap, the fringe floor, and the return blend stay off. Assist picks stay. Lineup defense stays off until its decision run.
+
+## CRPS re-judge (2026-11-04)
+
+The four minute changes were re-scored against the current engine (pre-debut on, cap 15, the other three off). 1,000 sims, seed 1, both seasons. A player who played and was not projected is a point mass at 0. The decision CRPS is the 1,000-draw sample. The scorecard CRPS is the published percentile curve, not those draws. Lower CRPS and play Brier are better. A change counts only when the 95% interval on variant minus baseline excludes zero.
+
+| Change | Call | Why |
+| --- | --- | --- |
+| Fringe floor | Stays off | Minute CRPS −0.23 / −0.28 and points CRPS −0.14 / −0.16, both seasons, both decisive. Play probability did not move. It already failed the ±3% guardrail. |
+| Return blend | Stays off | Minute CRPS −0.031 / −0.021 and points CRPS −0.014 / −0.014, both decisive. Play probability was flat. Game margins and totals were inside noise. It already failed the guardrail. |
+| Cap removal | Stays off | 2025-26 points CRPS got worse (+0.015) and total error got worse (+0.09). 2024-25 minute and points CRPS were inside noise. Play probability improved on both seasons. The seasons do not agree, and the guardrail already failed. |
+| March-April seat | On | Minute CRPS −0.047 / −0.097, points CRPS −0.041 / −0.063, play Brier −0.0010 / −0.0007, all decisive on both seasons. Winner Brier, spread, and total stayed inside noise. Minute MAE ticked up, 7.335 → 7.369 in 2025-26 and 7.380 → 7.384 in 2024-25. Minute 10–90 coverage got worse; points coverage got better. |
+
+`features.late_season_incentives` is true. The mid-season guardrail does not measure this. Its earlier pass (team minutes −0.40%, starter minutes +1.82%) is October-to-February basketball, and March and April never enter that window. `daily.py` will not see the seat on a November slate.
+
+The scorecard now leads with player minute CRPS and points CRPS, with MAE beside them. Unprojected players who played are scored as a point mass at 0.
+
+## November 2 grade (2026-11-03)
 
 ## November 2 grade (2026-11-03)
 
@@ -12,13 +29,9 @@ Sacramento at Dallas was the worst miss: median Dallas 120, Sacramento 104 (home
 
 ## Queue (2026-11-03)
 
-The CRPS re-score was stopped so the November 2 slate could run. Saved and comparable: both baselines, both fringe runs, and the 2025-26 return run. The 2024-25 return run was stopped before it wrote a result. Cap removal and the March-April seat have not been re-scored. No keep call is in yet, and no flag has moved.
+The CRPS re-score was paused for the November 2 slate and finished on 2026-11-04. The calls are in the section above.
 
-Fringe, both seasons, variant minus base: minute CRPS −0.23 and −0.28, points CRPS −0.14 and −0.16, both decisive. Play Brier is inside noise on both seasons (+0.000 on 2025-26 is a zero difference). Spread MAE improved on both seasons. The keep rule needs a clear play-calibration gain, and this floor already failed the ±3% guardrail, so it stays off.
-
-Return blend, 2025-26 only: minute CRPS −0.031 and points CRPS −0.014, both decisive, play Brier unchanged, game metrics inside noise. The holdout was not finished, and the blend already failed the guardrail, so it stays off.
-
-On-court six-factor lineup defense is in the tree behind `lineup_defense_enabled: false`. Reconcile and the two-season decision run have not been started. Matchup assignment and help defense have not been built.
+On-court six-factor lineup defense is in the tree behind `lineup_defense_enabled: false`. Reconcile and the two-season decision run have not been started. Matchup assignment and help defense have not been built. A smaller fringe seat and a partial return blend are next, because the full versions improved CRPS and failed the guardrail.
 
 ## Honest scoring (2026-11-02)
 
@@ -90,7 +103,7 @@ The stored mean of 0 on a player like Andre Drummond (2026-03-15, last-10 mean 1
 
 March-April bench seating stays off. `features.late_season_incentives` had no code. The test gave a wiped player a short bench line on March and April games only, and left October through February alone. The mid-season guardrail passed because those months are outside its window (team minutes −0.40%, starter minutes +1.82%). That pass does not measure March or April.
 
-Against the pre-debut baseline, Brier, spread, and total are inside noise on both seasons. Minute error got worse where the seat ran hardest: 2025-26 MIN MAE 7.335 → 7.369. The "played 8+" bucket fell (3,931 → 3,245 in 2025-26, 3,984 → 3,001 in 2024-25) because those players moved from 0 expected minutes to about 0.6, and some of them reclassified into cause (c). The rotation lost more minute accuracy, when the team scaled back to 240, than the bench gained. Call: revert. The flag stays false. The March-April path remains in the tree and does not run.
+Against the pre-debut baseline, Brier, spread, and total are inside noise on both seasons. Minute error got worse where the seat ran hardest: 2025-26 MIN MAE 7.335 → 7.369. The "played 8+" bucket fell (3,931 → 3,245 in 2025-26, 3,984 → 3,001 in 2024-25) because those players moved from 0 expected minutes to about 0.6, and some of them reclassified into cause (c). The rotation lost more minute accuracy, when the team scaled back to 240, than the bench gained. Call at the time: revert. The CRPS re-judge on 2026-11-04 turned the flag on. See the section above.
 
 2025-26, 1,314 games, 39.6 minutes. Difference is late minus pre-debut.
 

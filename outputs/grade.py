@@ -9,8 +9,12 @@ from datetime import date
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
+from backtest.metrics import crps_from_quantiles
 from nba_sim.settings import Settings
 from nba_sim.storage import read_rows
+
+_QUANTILE_LEVELS = (0.10, 0.25, 0.50, 0.75, 0.90)
+_QUANTILE_KEYS = ("p10", "p25", "p50", "p75", "p90")
 
 PLAYER_GRADE_STATS = ("min", "pts", "reb", "ast", "stl", "blk")
 _STAT_ALIASES = {
@@ -48,6 +52,7 @@ class NightGrade:
     total_abs: list[float] = field(default_factory=list)
     score_abs: list[float] = field(default_factory=list)
     player_mae: dict[str, list[float]] = field(default_factory=dict)
+    player_crps: dict[str, list[float]] = field(default_factory=dict)
     coverage_hits: list[float] = field(default_factory=list)
     pick_grades: list[ConfidentPickGrade] = field(default_factory=list)
     dd_grades: list[ConfidentPickGrade] = field(default_factory=list)
@@ -86,6 +91,8 @@ class NightGrade:
             "spread_mae": _mae(self.spread_abs),
             "total_mae": _mae(self.total_abs),
             "score_mae": _mae(self.score_abs),
+            "player_min_crps": _mae(self.player_crps.get("min", [])),
+            "player_pts_crps": _mae(self.player_crps.get("pts", [])),
             "player_min_mae": _mae(self.player_mae.get("min", [])),
             "player_pts_mae": _mae(self.player_mae.get("pts", [])),
             "player_reb_mae": _mae(self.player_mae.get("reb", [])),
@@ -105,6 +112,83 @@ class NightGrade:
             "dd_hit_rate": dd["rate"],
             "dd_avg_claimed": dd["claimed"],
         }
+
+
+def _published_crps(row: dict[str, Any], stat: str) -> float | None:
+    """CRPS of the five stored percentiles. All zeros is a point mass at 0."""
+    actual = row.get(f"actual_{stat}")
+    if actual is None:
+        return None
+    quantiles = [row.get(f"pred_{stat}_{key}") for key in _QUANTILE_KEYS]
+    if any(value is None for value in quantiles):
+        return None
+    return crps_from_quantiles(
+        _QUANTILE_LEVELS, [float(value) for value in quantiles], float(actual)
+    )
+
+
+_LOG_CACHE: dict[str, list[dict[str, Any]]] = {}
+
+
+def _score_unprojected(
+    night: NightGrade, settings: Settings, season: str, game_date: str
+) -> None:
+    """A player who played and was not projected is a point mass at 0."""
+    if not night.player_rows:
+        return
+    game_ids = {str(row["game_id"]) for row in night.player_rows}
+    graded = {(str(row["game_id"]), int(row["player_id"])) for row in night.player_rows}
+    if season not in _LOG_CACHE:
+        try:
+            _LOG_CACHE[season] = list(read_rows(settings, "player_game_logs", season))
+        except FileNotFoundError:
+            _LOG_CACHE[season] = []
+    logs = _LOG_CACHE[season]
+    for log in logs:
+        if str(log.get("game_date"))[:10] != game_date[:10]:
+            continue
+        if str(log.get("game_id")) not in game_ids:
+            continue
+        if float(log.get("minutes") or 0.0) <= 0.0:
+            continue
+        key = (str(log.get("game_id")), int(log.get("player_id") or 0))
+        if key in graded:
+            continue
+        graded.add(key)
+        minutes = float(log.get("minutes") or 0.0)
+        points = float(log.get("pts") or 0.0)
+        night.player_rows.append(
+            {
+                "game_id": key[0],
+                "player_id": key[1],
+                "player_name": log.get("player_name") or f"player:{key[1]}",
+                "team_abbr": log.get("team_abbr"),
+                "unprojected": True,
+                "stats": {
+                    "min": {
+                        "pred": 0.0,
+                        "actual": minutes,
+                        "abs_err": minutes,
+                        "p10": 0.0,
+                        "p90": 0.0,
+                        "inside_10_90": False,
+                    },
+                    "pts": {
+                        "pred": 0.0,
+                        "actual": points,
+                        "abs_err": points,
+                        "p10": 0.0,
+                        "p90": 0.0,
+                        "inside_10_90": points == 0.0,
+                    },
+                },
+            }
+        )
+        night.player_mae.setdefault("min", []).append(minutes)
+        night.player_mae.setdefault("pts", []).append(points)
+        night.player_crps.setdefault("min", []).append(minutes)
+        night.player_crps.setdefault("pts", []).append(points)
+        night.coverage_hits.append(0.0)
 
 
 def grade_night(
@@ -193,6 +277,10 @@ def grade_night(
             any_stat = True
             err = abs(float(pred) - float(actual))
             night.player_mae.setdefault(stat, []).append(err)
+            if stat in {"min", "pts"}:
+                score = _published_crps(p, stat)
+                if score is not None:
+                    night.player_crps.setdefault(stat, []).append(score)
             inside = float(p10) <= float(actual) <= float(p90) if p10 is not None and p90 is not None else None
             if inside is not None:
                 night.coverage_hits.append(1.0 if inside else 0.0)
@@ -206,6 +294,8 @@ def grade_night(
             }
         if any_stat:
             night.player_rows.append(row)
+
+    _score_unprojected(night, settings, season, game_date)
 
     # Prefer logged pick rows from prediction_history (claimed confidence).
     hist_picks = [
@@ -545,7 +635,10 @@ def write_season_scorecard(
     lines.append(f"# NBA Sim Season Scorecard — {season}")
     lines.append("")
     lines.append(
-        "Graded from `prediction_history` after finals. No sportsbook lines or odds."
+        "Graded from `prediction_history` after finals. No sportsbook lines or odds. "
+        "Player CRPS is the score of the published p10/p25/p50/p75/p90 curve "
+        "(a player who played and was not projected is a point mass at 0). "
+        "MAE is the absolute error of the median, shown beside CRPS."
     )
     lines.append("")
     lines.append("## Season to date")
@@ -556,6 +649,8 @@ def write_season_scorecard(
     lines.append(_pct_row("Winner accuracy", season_tot.get("winner_accuracy")))
     lines.append(_num_row("Spread MAE (margin)", season_tot.get("spread_mae")))
     lines.append(_num_row("Total MAE", season_tot.get("total_mae")))
+    lines.append(_num_row("Player MIN CRPS", season_tot.get("player_min_crps")))
+    lines.append(_num_row("Player PTS CRPS", season_tot.get("player_pts_crps")))
     lines.append(_num_row("Player MIN MAE", season_tot.get("player_min_mae")))
     lines.append(_num_row("Player PTS MAE", season_tot.get("player_pts_mae")))
     lines.append(_pct_row("10–90 coverage (player stats)", season_tot.get("coverage_10_90")))
@@ -599,11 +694,12 @@ def write_season_scorecard(
     lines.append("")
     lines.append(
         "| Date | Games | Winner | Spread MAE | Total MAE | Total bias | "
-        "MIN | PTS | REB | AST | STL | BLK | 10–90 | Picks | Claimed | DD | DD claimed |"
+        "MIN CRPS | PTS CRPS | MIN MAE | PTS MAE | REB | AST | STL | BLK | "
+        "10–90 | Picks | Claimed | DD | DD claimed |"
     )
     lines.append(
         "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | "
-        "---: | ---: | ---: | ---: | ---: | ---: | ---: |"
+        "---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |"
     )
     for night in nights:
         s = night.summary()
@@ -637,7 +733,8 @@ def write_season_scorecard(
         lines.append(
             f"| {night.game_date} | {s['games_graded']} | "
             f"{_pct(s.get('winner_accuracy'))} | {_n(s.get('spread_mae'))} | "
-            f"{_n(s.get('total_mae'))} | {_n(bias)} | {_n(s.get('player_min_mae'))} | "
+            f"{_n(s.get('total_mae'))} | {_n(bias)} | {_n(s.get('player_min_crps'))} | "
+            f"{_n(s.get('player_pts_crps'))} | {_n(s.get('player_min_mae'))} | "
             f"{_n(s.get('player_pts_mae'))} | {_n(s.get('player_reb_mae'))} | "
             f"{_n(s.get('player_ast_mae'))} | {_n(s.get('player_stl_mae'))} | "
             f"{_n(s.get('player_blk_mae'))} | {_pct(s.get('coverage_10_90'))} | "
@@ -648,6 +745,7 @@ def write_season_scorecard(
             f"| Season | {season_tot['games_graded']} | "
             f"{_pct(season_tot.get('winner_accuracy'))} | {_n(season_tot.get('spread_mae'))} | "
             f"{_n(season_tot.get('total_mae'))} | {_n(season_bias)} | "
+            f"{_n(season_tot.get('player_min_crps'))} | {_n(season_tot.get('player_pts_crps'))} | "
             f"{_n(season_tot.get('player_min_mae'))} | {_n(season_tot.get('player_pts_mae'))} | "
             f"{_n(season_tot.get('player_reb_mae'))} | {_n(season_tot.get('player_ast_mae'))} | "
             f"{_n(season_tot.get('player_stl_mae'))} | {_n(season_tot.get('player_blk_mae'))} | "
@@ -871,6 +969,8 @@ def _aggregate(summaries: Iterable[dict[str, Any]]) -> dict[str, Any]:
             "winner_accuracy": None,
             "spread_mae": None,
             "total_mae": None,
+            "player_min_crps": None,
+            "player_pts_crps": None,
             "player_min_mae": None,
             "player_pts_mae": None,
             "coverage_10_90": None,
@@ -912,6 +1012,8 @@ def _aggregate(summaries: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "winner_accuracy": winner_num / games if games else None,
         "spread_mae": wavg("spread_mae", "games_graded"),
         "total_mae": wavg("total_mae", "games_graded"),
+        "player_min_crps": wavg("player_min_crps", "player_rows"),
+        "player_pts_crps": wavg("player_pts_crps", "player_rows"),
         "player_min_mae": wavg("player_min_mae", "player_rows"),
         "player_pts_mae": wavg("player_pts_mae", "player_rows"),
         "player_reb_mae": wavg("player_reb_mae", "player_rows"),

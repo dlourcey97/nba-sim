@@ -19,7 +19,7 @@ python -c "from nba_sim.settings import load_settings; s=load_settings(); print(
 # expect: 2026-27 /Users/deanlourcey/nba_data
 ```
 
-`features.late_season_incentives` stays `false` in `config.yaml` (U8 not shipped).
+`features.late_season_incentives` is `true` in `config.yaml`. It only changes March and April games.
 
 ## Game-day steps
 

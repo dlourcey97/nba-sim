@@ -21,7 +21,12 @@ class MetricReport:
     crps_pts: float
     pit_pts_mean: float
     coverage_10_90: float
-    calibration_bins: list[dict[str, float]]
+    crps_min: float = float("nan")
+    coverage_min_10_90: float = float("nan")
+    coverage_pts_10_90: float = float("nan")
+    play_brier: float = float("nan")
+    play_bins: list | None = None
+    calibration_bins: list[dict[str, float]] | None = None
     sim_ppg: float = float("nan")
     actual_ppg: float = float("nan")
     sim_possessions: float = float("nan")
@@ -69,16 +74,24 @@ class MetricReport:
             "cause_e": int(self.cause_e),
             "mae_margin": _json_float(self.mae_margin),
             "mae_total": _json_float(self.mae_total),
+            "crps_min": _json_float(self.crps_min),
             "crps_pts": _json_float(self.crps_pts),
             "pit_pts_mean": _json_float(self.pit_pts_mean),
             "coverage_10_90": _json_float(self.coverage_10_90),
+            "coverage_min_10_90": _json_float(self.coverage_min_10_90),
+            "coverage_pts_10_90": _json_float(self.coverage_pts_10_90),
+            "play_brier": _json_float(self.play_brier),
+            "play_bins": [
+                {key: _json_float(value) if isinstance(value, float) else value for key, value in row.items()}
+                for row in (self.play_bins or [])
+            ],
             "sim_ppg": _json_float(self.sim_ppg),
             "actual_ppg": _json_float(self.actual_ppg),
             "sim_possessions": _json_float(self.sim_possessions),
             "actual_possessions": _json_float(self.actual_possessions),
             "calibration_bins": [
                 {key: _json_float(value) for key, value in row.items()}
-                for row in self.calibration_bins
+                for row in (self.calibration_bins or [])
             ],
         }
 
@@ -125,6 +138,25 @@ def crps_from_samples(samples: np.ndarray, actual: float) -> float:
     ranks = np.arange(1, n + 1, dtype=float)
     pairwise = (2.0 / (n * n)) * float(np.sum((2.0 * ranks - n - 1.0) * ordered))
     return mae - 0.5 * pairwise
+
+
+def crps_from_quantiles(
+    levels: tuple[float, ...] | list[float],
+    quantiles: tuple[float, ...] | list[float],
+    actual: float,
+) -> float:
+    """CRPS of the published percentile curve.
+
+    The quantile function is linear between the stored percentiles and flat
+    outside them. A curve that is 0 everywhere is a point mass at 0, so the
+    score is the absolute error. Lower is better.
+    """
+    taus = np.linspace(0.0, 1.0, 401)
+    taus = taus[:-1] + 0.5 / 400.0
+    q = np.interp(taus, np.asarray(levels, dtype=float), np.asarray(quantiles, dtype=float))
+    err = float(actual) - q
+    rho = np.where(err >= 0.0, taus * err, (taus - 1.0) * err)
+    return float(2.0 * np.mean(rho))
 
 
 def pit_from_samples(samples: np.ndarray, actual: float) -> float:

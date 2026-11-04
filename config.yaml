@@ -298,17 +298,18 @@ minutes:
   # Recency half-life (days) when learning stint/absence rotation patterns.
   stint_recency_half_life_days: 60.0
 
-# U8 late-season incentives. The flag was a stub. When it is on, March and
-# April games seat players the minute trim would zero instead of wiping them.
-# October through February are unchanged. Tested 2026-11-02 against the
-# pre-debut baseline: game metrics inside noise, 2025-26 MIN MAE worse
-# (7.335 → 7.369). Stays off.
+# U8 late-season incentives. March and April games seat players the minute
+# trim would zero instead of wiping them. October through February are
+# unchanged. The mid-season ±3% check does not include those months. The
+# 2026-11-04 CRPS re-judge kept it: minute and points CRPS and play-probability
+# calibration improved on both seasons, and winner, spread, and total error
+# stayed inside noise. Minute MAE ticked up (2025-26 7.335 → 7.369).
 # Step F stint rotations: substitution edges + absence minute redistribution.
 # minutes_model: engine | naive_last10 | blend
 #   engine = depth/rotation/Step F path; naive_last10 = last N games played;
 #   blend = naive_blend * naive + (1-naive_blend) * engine.
 features:
-  late_season_incentives: false
+  late_season_incentives: true
   stint_rotations_step_f: true
   # Bakeoff 2025-26 full season (1314g/1000r): pure naive_last10 beat engine
   # and blend on MIN/PTS/REB/AST MAE and coverage. Keep Step F for engine path.

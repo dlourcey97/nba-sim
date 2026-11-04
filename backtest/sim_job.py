@@ -65,19 +65,28 @@ def score_projected_game(payload: dict) -> dict:
     cover_hits: list[float] = []
     crps_pts_vals: list[float] = []
     pit_pts_vals: list[float] = []
+    crps_min_sum = 0.0
+    crps_pts_sum = 0.0
+    cover_min_hits = 0.0
+    cover_pts_hits = 0.0
+    played_n = 0
     id_to_idx = {int(pid): index for index, pid in enumerate(sim.player_ids)}
-    # Every player who played is scored. Someone the projection left off
-    # counts as 0 minutes and 0 stats.
+    # Every player who played is scored. Someone the projection left off is a
+    # point mass at 0: CRPS is the absolute error, and the 10–90 band is {0}.
     for pid, player, actual in iter_played(summary.players, logs):
-        act_pts.append(float(actual["pts"]))
+        y_pts = float(actual["pts"])
+        y_min = float(actual["minutes"])
+        act_pts.append(y_pts)
         act_reb.append(float(actual["reb"]))
         act_ast.append(float(actual["ast"]))
         act_stl.append(float(actual["stl"]))
         act_blk.append(float(actual["blk"]))
         act_tov.append(float(actual["tov"]))
         act_fg3m.append(float(actual["fg3m"]))
-        act_min.append(float(actual["minutes"]))
-        if player is None:
+        act_min.append(y_min)
+        played_n += 1
+        idx = None if player is None else id_to_idx.get(int(pid))
+        if player is None or idx is None:
             pred_pts.append(0.0)
             pred_reb.append(0.0)
             pred_ast.append(0.0)
@@ -86,6 +95,10 @@ def score_projected_game(payload: dict) -> dict:
             pred_tov.append(0.0)
             pred_fg3m.append(0.0)
             pred_min.append(0.0)
+            crps_min_sum += abs(y_min)
+            crps_pts_sum += abs(y_pts)
+            crps_pts_vals.append(abs(y_pts))
+            cover_pts_hits += 1.0 if y_pts == 0.0 else 0.0
             continue
         pred_pts.append(player.stats["pts"].mean)
         pred_reb.append(player.stats["reb"].mean)
@@ -95,17 +108,20 @@ def score_projected_game(payload: dict) -> dict:
         pred_tov.append(player.stats["tov"].mean)
         pred_fg3m.append(player.stats["fg3m"].mean)
         pred_min.append(player.stats["min"].mean)
-        inside = (
-            float(actual["pts"]) >= player.stats["pts"].p10
-            and float(actual["pts"]) <= player.stats["pts"].p90
-        )
-        cover_hits.append(1.0 if inside else 0.0)
-        idx = id_to_idx.get(int(pid))
-        if idx is not None:
-            samples = sim.pts[idx]
-            y_pts = float(actual["pts"])
-            crps_pts_vals.append(crps_from_samples(samples, y_pts))
-            pit_pts_vals.append(pit_from_samples(samples, y_pts))
+        pts_crps = crps_from_samples(sim.pts[idx], y_pts)
+        min_crps = crps_from_samples(sim.minutes[idx], y_min)
+        crps_pts_sum += pts_crps
+        crps_min_sum += min_crps
+        crps_pts_vals.append(pts_crps)
+        pit_pts_vals.append(pit_from_samples(sim.pts[idx], y_pts))
+        pts_band = player.stats["pts"]
+        min_band = player.stats["min"]
+        pts_inside = float(pts_band.p10) <= y_pts <= float(pts_band.p90)
+        min_inside = float(min_band.p10) <= y_min <= float(min_band.p90)
+        cover_hits.append(1.0 if pts_inside else 0.0)
+        cover_pts_hits += 1.0 if pts_inside else 0.0
+        cover_min_hits += 1.0 if min_inside else 0.0
+    play_brier_sum, play_n, play_bins = _play_calibration(projection, logs)
     sim_poss = [float(sim.home_possessions), float(sim.away_possessions)]
     del sim
     return {
@@ -140,11 +156,60 @@ def score_projected_game(payload: dict) -> dict:
         "cover_hits": cover_hits,
         "crps_pts": crps_pts_vals,
         "pit_pts": pit_pts_vals,
+        "crps_min_sum": crps_min_sum,
+        "crps_pts_sum": crps_pts_sum,
+        "played_n": played_n,
+        "cover_min_hits": cover_min_hits,
+        "cover_pts_hits": cover_pts_hits,
+        "play_brier_sum": play_brier_sum,
+        "play_n": play_n,
+        "play_bins": play_bins,
         "pred_home_pts": float(summary.home_pts.mean),
         "pred_away_pts": float(summary.away_pts.mean),
         "act_home_pts": home_pts,
         "act_away_pts": away_pts,
     }
+
+
+def _play_calibration(projection, logs: dict) -> tuple[float, int, list[dict]]:
+    """P(plays) against whether he actually played.
+
+    Projected players are included even when they sat. A player who played and
+    was left off the projection is a predicted probability of 0.
+    """
+    played = {
+        int(pid)
+        for pid, actual in logs.items()
+        if float(actual.get("minutes") or 0.0) > 0.0
+    }
+    bins = [
+        {"count": 0, "pred_sum": 0.0, "played": 0}
+        for _ in range(10)
+    ]
+    brier = 0.0
+    n = 0
+    seen: set[int] = set()
+
+    def _add(prob: float, did_play: bool) -> None:
+        nonlocal brier, n
+        p = min(max(float(prob), 0.0), 1.0)
+        y = 1.0 if did_play else 0.0
+        brier += (p - y) ** 2
+        slot = min(int(p * 10.0), 9)
+        bins[slot]["count"] += 1
+        bins[slot]["pred_sum"] += p
+        bins[slot]["played"] += int(y)
+        n += 1
+
+    for player in projection.players:
+        pid = int(player.player_id)
+        seen.add(pid)
+        prob = 0.0 if player.minutes.out else float(player.minutes.play_prob)
+        _add(prob, pid in played)
+    for pid in played:
+        if pid not in seen:
+            _add(0.0, True)
+    return brier, n, bins
 
 
 def _actual_poss(sim_poss: list[float], home_tr: dict | None, away_tr: dict | None) -> list[float]:

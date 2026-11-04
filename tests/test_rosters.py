@@ -180,6 +180,9 @@ def test_rebuild_and_roster_for_team_uses_stored_stints(settings):
         ),
     ]
     store_rows(settings, "player_game_logs", season, logs, allow_historical=True)
+    config = copy.deepcopy(settings.config)
+    config["minutes"]["pre_debut_stint"] = False
+    settings = replace(settings, config=config)
     n = rebuild_team_rosters(settings, season, refresh_common=False, log=lambda *_: None)
     assert n >= 3
     stored = read_rows(settings, "team_rosters", season)
@@ -231,7 +234,9 @@ def test_pre_debut_stint_keeps_history_and_leaves_debuts_off(settings):
         },
     )
     tip = date(2025, 1, 15)
-    off = _roster_for_team(settings, season, [bundle], team_b, tip)
+    closed = copy.deepcopy(settings.config)
+    closed["minutes"]["pre_debut_stint"] = False
+    off = _roster_for_team(replace(settings, config=closed), season, [bundle], team_b, tip)
     assert veteran not in off
     assert debut not in off
     config = copy.deepcopy(settings.config)

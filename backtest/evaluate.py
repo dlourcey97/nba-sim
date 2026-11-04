@@ -86,6 +86,16 @@ def evaluate_seasons(
     projected_zero_played = 0
     projected_eight_dnp = 0
     cause_a = cause_b = cause_c = cause_d = cause_e = 0
+    crps_min_sum = 0.0
+    crps_pts_sum = 0.0
+    played_for_crps = 0
+    cover_min_hits = 0.0
+    cover_pts_hits = 0.0
+    play_brier_sum = 0.0
+    play_n = 0
+    play_bin_count = [0] * 10
+    play_bin_pred = [0.0] * 10
+    play_bin_played = [0] * 10
     game_rows: list[dict] = []
 
     # Cache season bundles once across the whole evaluation so walk-forward does
@@ -150,6 +160,8 @@ def evaluate_seasons(
                     print(f"evaluated {games} games...", flush=True)
 
         def _absorb(item: dict) -> None:
+            nonlocal crps_min_sum, crps_pts_sum, played_for_crps
+            nonlocal cover_min_hits, cover_pts_hits, play_brier_sum, play_n
             game_rows.append(
                 {
                     "game_id": item["game_id"],
@@ -164,8 +176,29 @@ def evaluate_seasons(
                     "pred_away_pts": item.get("pred_away_pts"),
                     "act_home_pts": item.get("act_home_pts"),
                     "act_away_pts": item.get("act_away_pts"),
+                    "crps_min_sum": item.get("crps_min_sum", 0.0),
+                    "crps_pts_sum": item.get("crps_pts_sum", 0.0),
+                    "played_n": item.get("played_n", 0),
+                    "cover_min_hits": item.get("cover_min_hits", 0.0),
+                    "cover_pts_hits": item.get("cover_pts_hits", 0.0),
+                    "play_brier_sum": item.get("play_brier_sum", 0.0),
+                    "play_n": item.get("play_n", 0),
+                    "play_bins": item.get("play_bins") or [],
                 }
             )
+            crps_min_sum += float(item.get("crps_min_sum") or 0.0)
+            crps_pts_sum += float(item.get("crps_pts_sum") or 0.0)
+            played_for_crps += int(item.get("played_n") or 0)
+            cover_min_hits += float(item.get("cover_min_hits") or 0.0)
+            cover_pts_hits += float(item.get("cover_pts_hits") or 0.0)
+            play_brier_sum += float(item.get("play_brier_sum") or 0.0)
+            play_n += int(item.get("play_n") or 0)
+            for slot, row in enumerate(item.get("play_bins") or []):
+                if slot >= 10:
+                    break
+                play_bin_count[slot] += int(row.get("count") or 0)
+                play_bin_pred[slot] += float(row.get("pred_sum") or 0.0)
+                play_bin_played[slot] += int(row.get("played") or 0)
             home_probs.append(item["home_win_prob"])
             home_wins.append(item["home_win"])
             pred_margin.append(item["pred_margin"])
@@ -286,9 +319,31 @@ def evaluate_seasons(
         mae_tov=mean_abs_error(np.asarray(pred_tov), np.asarray(act_tov)),
         mae_fg3m=mean_abs_error(np.asarray(pred_fg3m), np.asarray(act_fg3m)),
         mae_min=mean_abs_error(np.asarray(pred_min), np.asarray(act_min)),
-        crps_pts=float(np.mean(crps_pts_vals)) if crps_pts_vals else float("nan"),
+        crps_pts=(crps_pts_sum / played_for_crps) if played_for_crps else float("nan"),
         pit_pts_mean=float(np.mean(pit_pts_vals)) if pit_pts_vals else float("nan"),
-        coverage_10_90=float(np.mean(cover_hits)) if cover_hits else float("nan"),
+        coverage_10_90=(cover_pts_hits / played_for_crps) if played_for_crps else float("nan"),
+        crps_min=(crps_min_sum / played_for_crps) if played_for_crps else float("nan"),
+        coverage_min_10_90=(cover_min_hits / played_for_crps) if played_for_crps else float("nan"),
+        coverage_pts_10_90=(cover_pts_hits / played_for_crps) if played_for_crps else float("nan"),
+        play_brier=(play_brier_sum / play_n) if play_n else float("nan"),
+        play_bins=[
+            {
+                "bin_left": index / 10.0,
+                "bin_right": (index + 1) / 10.0,
+                "count": float(play_bin_count[index]),
+                "pred_mean": (
+                    play_bin_pred[index] / play_bin_count[index]
+                    if play_bin_count[index]
+                    else float("nan")
+                ),
+                "actual_freq": (
+                    play_bin_played[index] / play_bin_count[index]
+                    if play_bin_count[index]
+                    else float("nan")
+                ),
+            }
+            for index in range(10)
+        ],
         calibration_bins=calibration_bins(probs, outcomes),
         sim_ppg=float(np.mean(sim_team_pts)) if sim_team_pts else float("nan"),
         actual_ppg=float(np.mean(act_team_pts)) if act_team_pts else float("nan"),
