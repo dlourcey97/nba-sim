@@ -131,6 +131,10 @@ class GameProjection:
     # Defender id → FG% multiplier vs league (regressed; 1.0 = average).
     defender_fg_factor: dict[int, float] = field(default_factory=dict)
     defender_fg3_factor: dict[int, float] = field(default_factory=dict)
+    # player_id → (dTOV, dTS, dREB), already shrunk. Empty unless the flag is on.
+    lineup_defense: dict[int, tuple[float, float, float]] = field(default_factory=dict)
+    # "H" / "A" → minutes-weighted mean of those three components.
+    lineup_defense_baseline: dict[str, tuple[float, float, float]] = field(default_factory=dict)
 
 
 @dataclass
@@ -159,6 +163,7 @@ class ProjectionCache:
     stint_rows_by_season: dict[str, list] = field(default_factory=dict)
     assist_edge_rows_by_season: dict[str, list] = field(default_factory=dict)
     defender_impact_by_season: dict[str, list] = field(default_factory=dict)
+    lineup_defense_by_season: dict[str, dict] = field(default_factory=dict)
     play_type_rows_by_season: dict[str, list] = field(default_factory=dict)
     play_type_context: object | None = None
     play_type_context_season: str | None = None
@@ -1478,6 +1483,14 @@ def _build(
         list(home_players.values()) + list(away_players.values()),
         key=lambda row: (row.home_away != "H", -row.minutes.mean, row.player_name),
     )
+    lineup_defense, lineup_baseline = _lineup_defense_for_game(
+        settings,
+        season=season,
+        home_players=home_players,
+        away_players=away_players,
+        cache=cache,
+        config=config,
+    )
     return GameProjection(
         season=season,
         game_id=game_id,
@@ -1497,7 +1510,61 @@ def _build(
         assist_network=assist_network,
         defender_fg_factor=def_fg,
         defender_fg3_factor=def_fg3,
+        lineup_defense=lineup_defense,
+        lineup_defense_baseline=lineup_baseline,
     )
+
+
+def _lineup_defense_for_game(
+    settings: Settings,
+    *,
+    season: str,
+    home_players: dict[int, PlayerProjection],
+    away_players: dict[int, PlayerProjection],
+    cache: ProjectionCache | None,
+    config: dict,
+) -> tuple[dict[int, tuple[float, float, float]], dict[str, tuple[float, float, float]]]:
+    """Shrunk six-factor defense and each side's minutes-weighted baseline.
+
+    Returns empty dicts when the flag is off, so the possession engine never
+    sees the effect.
+    """
+    context = config.get("context") or {}
+    if not context.get("lineup_defense_enabled"):
+        return {}, {}
+    from projections.lineup_defense import load_defensive_factors, minutes_weighted_mean
+
+    prior = float(context.get("lineup_defense_prior_poss", 4000.0))
+    cached = None if cache is None else cache.lineup_defense_by_season.get(season)
+    if cached is None:
+        cached = load_defensive_factors(settings, season, prior_poss=prior)
+        if cache is not None:
+            cache.lineup_defense_by_season[season] = cached
+    packed = {
+        pid: (row.tov, row.ts, row.reb) for pid, row in cached.items()
+    }
+
+    def _side(players: dict[int, PlayerProjection]) -> tuple[float, float, float]:
+        members = list(players.values())
+        weights = [
+            max(0.0, float(row.minutes.mean)) * max(0.0, float(row.minutes.play_prob))
+            for row in members
+        ]
+
+        def _value(attr: str) -> list[float]:
+            out = []
+            for row in members:
+                factor = cached.get(int(row.player_id))
+                out.append(0.0 if factor is None else float(getattr(factor, attr)))
+            return out
+
+        return (
+            minutes_weighted_mean(weights, _value("tov")),
+            minutes_weighted_mean(weights, _value("ts")),
+            minutes_weighted_mean(weights, _value("reb")),
+        )
+
+    return packed, {"H": _side(home_players), "A": _side(away_players)}
 
 
 def _apply_play_type_matchups(

@@ -13,6 +13,7 @@ import numpy as np
 
 from nba_sim.schema import ZONES
 from projections.build import GameProjection, PlayerProjection
+from projections.lineup_defense import lineup_adjustments
 from projections.minutes import add_overtime_minutes, normalize_team_minute_draws
 from sim.possession_log import (
     OUTCOME_BONUS_FT,
@@ -144,6 +145,7 @@ def simulate_game(
     packed["defender_impact_weight"] = float(
         (cfg.get("context") or {}).get("defender_impact_weight", 0.55)
     )
+    _pack_lineup_defense(packed, players, projection, cfg)
     # Period × margin-bucket lineup grid (stint substitution model).
     # close games shorten rotations late; blowouts put the bench on the floor.
     # Both minute models draw the five proportional to the minute line.
@@ -185,6 +187,7 @@ def simulate_game(
     packed["stl_credit_raw_weight"] = float(
         np.clip(sim_cfg.get("stl_credit_raw_weight", 1.0), 0.0, 1.0)
     )
+    packed["blk_credit_raw_weight"] = 0.35
     pace_sd = float(sim_cfg.get("pace_sd", 5.5))
     team_hot_sd = float(sim_cfg.get("team_hot_sd", 0.05))
     player_shoot_sd = float(sim_cfg.get("player_shoot_sd", 0.12))
@@ -962,6 +965,81 @@ def _event_from_trace(
     )
 
 
+def _pack_lineup_defense(
+    packed: dict[str, np.ndarray],
+    players: list[PlayerProjection],
+    projection: GameProjection,
+    cfg: dict,
+) -> None:
+    """Attach shrunk on-court factors only when the flag is on.
+
+    A missing key leaves possession math unchanged, including for a worker
+    whose projection was built before this field existed.
+    """
+    context = cfg.get("context") or {}
+    if not context.get("lineup_defense_enabled"):
+        return
+    rows = getattr(projection, "lineup_defense", None) or {}
+    if not rows:
+        return
+    n_players = len(players)
+    tov = np.zeros(n_players, dtype=float)
+    ts = np.zeros(n_players, dtype=float)
+    reb = np.zeros(n_players, dtype=float)
+    for index, player in enumerate(players):
+        row = rows.get(int(player.player_id))
+        if row is None:
+            continue
+        tov[index], ts[index], reb[index] = float(row[0]), float(row[1]), float(row[2])
+    base_tov = np.zeros(n_players, dtype=float)
+    base_ts = np.zeros(n_players, dtype=float)
+    base_reb = np.zeros(n_players, dtype=float)
+    baselines = getattr(projection, "lineup_defense_baseline", None) or {}
+    for index, player in enumerate(players):
+        base = baselines.get(player.home_away)
+        if base is None:
+            continue
+        base_tov[index], base_ts[index], base_reb[index] = (
+            float(base[0]),
+            float(base[1]),
+            float(base[2]),
+        )
+    packed["lineup_tov"] = tov
+    packed["lineup_ts"] = ts
+    packed["lineup_reb"] = reb
+    packed["lineup_tov_base"] = base_tov
+    packed["lineup_ts_base"] = base_ts
+    packed["lineup_reb_base"] = base_reb
+    packed["lineup_weight"] = float(context.get("lineup_defense_weight", 1.0))
+
+
+def _lineup_possession_adjustments(
+    packed: dict[str, np.ndarray],
+    def_lineups: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Steal delta, dead-ball turnover delta, FG multiplier, ORB multiplier."""
+    n_runs = def_lineups.shape[0]
+    if packed.get("lineup_tov") is None:
+        return (
+            np.zeros(n_runs),
+            np.zeros(n_runs),
+            np.ones(n_runs),
+            np.ones(n_runs),
+        )
+
+    def _residual(values_key: str, base_key: str) -> np.ndarray:
+        values = packed[values_key][def_lineups].sum(axis=1)
+        baseline = packed[base_key][def_lineups[:, 0]]
+        return values - 5.0 * baseline
+
+    return lineup_adjustments(
+        _residual("lineup_tov", "lineup_tov_base"),
+        _residual("lineup_ts", "lineup_ts_base"),
+        _residual("lineup_reb", "lineup_reb_base"),
+        float(packed.get("lineup_weight", 1.0)),
+    )
+
+
 def _vector_possession(
     rng: np.random.Generator,
     packed: dict[str, np.ndarray],
@@ -1004,6 +1082,9 @@ def _vector_possession(
 
     off_lineups = np.where(offense_home[:, None], home_lineups, away_lineups)
     def_lineups = np.where(offense_home[:, None], away_lineups, home_lineups)
+    steal_delta, tov_delta, fg_mult, orb_mult = _lineup_possession_adjustments(
+        packed, def_lineups
+    )
 
     # Late-game intentional foul: trailing defense fouls leading offense to
     # stop the clock (2 FT, then possession flips to the fouling team).
@@ -1058,7 +1139,12 @@ def _vector_possession(
     # P(steal) from raw rates; who-gets-it blends raw with on-court mean so
     # high-rate bench specialists do not soak starter STL share (team STL fixed).
     stl_w = packed["stl_rate"][def_lineups]
+    # Base steal chance is unchanged when lineup defense is off (steal_delta is 0).
+    # A negative residual lowers that chance. A positive residual is a second
+    # event, credited below by raw steal rate, so the base 30/70 blend stays.
     stl_prob = np.clip(stl_w.sum(axis=1) * 0.88, 0.0, 0.100)
+    if packed.get("lineup_tov") is not None:
+        stl_prob = np.clip(stl_prob + np.minimum(steal_delta, 0.0), 0.0, 0.100)
     is_stl = remaining_after_foul & (rng.random(n_runs) < stl_prob)
     if np.any(is_stl):
         raw_w = np.maximum(stl_w[is_stl], 1e-8)
@@ -1082,6 +1168,30 @@ def _vector_possession(
             trace["turnover"][is_stl] = users_tmp[is_stl]
             trace["stealer"][is_stl] = players
 
+    # Extra steals from a turnover-forcing lineup. Drawn only when the flag is
+    # on, so the off path does not consume an extra random number.
+    if packed.get("lineup_tov") is not None:
+        extra_p = np.clip(np.maximum(steal_delta, 0.0), 0.0, 0.04)
+        is_extra = remaining_after_foul & ~is_stl & (rng.random(n_runs) < extra_p)
+        if np.any(is_extra):
+            raw_w = np.maximum(stl_w[is_extra], 1e-8)
+            pick = _weighted_choice(rng, raw_w)
+            runners = np.flatnonzero(is_extra)
+            players = def_lineups[is_extra, pick]
+            np.add.at(stl, (players, runners), 1)
+            usage_w_tmp = _usage_weights(packed, off_lineups, player_usage, n_runs)
+            user_slot_tmp = _weighted_choice(rng, usage_w_tmp)
+            users_tmp = off_lineups[np.arange(n_runs), user_slot_tmp]
+            np.add.at(tov, (users_tmp[is_extra], runners), 1)
+            next_offense_home[is_extra] = ~offense_home[is_extra]
+            ended[is_extra] = True
+            is_stl = is_stl | is_extra
+            if trace is not None:
+                trace["kind"][is_extra] = OUTCOME_STEAL
+                trace["shooter"][is_extra] = users_tmp[is_extra]
+                trace["turnover"][is_extra] = users_tmp[is_extra]
+                trace["stealer"][is_extra] = players
+
     remaining = active & ~is_stl & ~is_int_foul
     if not np.any(remaining):
         return home_delta, away_delta, next_offense_home, ended, trace
@@ -1091,7 +1201,10 @@ def _vector_possession(
     users = off_lineups[np.arange(n_runs), user_slot]
 
     # Non-steal turnover (stl path already handled)
-    tov_prob = np.clip(packed["tov_rate"][users], 0.02, 0.30)
+    if packed.get("lineup_tov") is not None:
+        tov_prob = np.clip(packed["tov_rate"][users] + tov_delta, 0.0, 0.35)
+    else:
+        tov_prob = np.clip(packed["tov_rate"][users], 0.02, 0.30)
     is_tov = remaining & (rng.random(n_runs) < tov_prob)
     if np.any(is_tov):
         runners = np.flatnonzero(is_tov)
@@ -1159,6 +1272,7 @@ def _vector_possession(
         # Blend toward 1.0 so matchup defense is a soft overlay on team defense.
         def_factor = 1.0 + weight * (def_factor - 1.0)
         fg_pct = fg_pct * def_factor
+    fg_pct = fg_pct * fg_mult
     if home_hot is not None and away_hot is not None:
         hot = np.where(offense_home, home_hot, away_hot)
         fg_pct = fg_pct * hot
@@ -1180,7 +1294,8 @@ def _vector_possession(
         # share stays near actual (±3%) while team BLK totals stay put.
         raw_w = np.maximum(blk_w[is_blk], 1e-8)
         mean_w = raw_w.mean(axis=1, keepdims=True)
-        credit_w = 0.35 * raw_w + 0.65 * mean_w
+        blk_raw = float(packed.get("blk_credit_raw_weight", 0.35))
+        credit_w = blk_raw * raw_w + (1.0 - blk_raw) * mean_w
         pick = _weighted_choice(rng, credit_w)
         runners = np.flatnonzero(is_blk)
         players = def_lineups[is_blk, pick]
@@ -1269,6 +1384,7 @@ def _vector_possession(
             0.05,
             0.40,
         )
+        p_orb = np.clip(p_orb * orb_mult, 0.05, 0.40)
         power = float(packed.get("reb_share_power", 1.0))
         o_w = np.power(np.maximum(o_raw, 0.0), power)
         d_w = np.power(np.maximum(d_raw, 0.0), power)

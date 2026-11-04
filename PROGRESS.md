@@ -1,6 +1,14 @@
 # Progress
 
-Last updated 2026-11-04 — Honest scoring is the baseline. Pre-debut stints stay on. March-April bench seating is on. A partial return blend is on (20% of the full blend). The 15-man cap and the fringe floor stay off. Assist picks stay. Lineup defense stays off until its decision run.
+Last updated 2026-11-04 — Honest scoring is the baseline. Pre-debut stints stay on. March-April bench seating is on. A partial return blend is on (20% of the full blend). The 15-man cap, the fringe floor, and lineup defense stay off. Assist picks stay.
+
+## Lineup defense (2026-11-04)
+
+On-court six-factor defense passed the mid-season check (nothing outside ±3%; the largest moves were team turnovers +2.63% and starter points −2.30%). Both seasons were then run at 1,000 sims against the current baseline, with the return blend and the March-April seat off for the comparison.
+
+2025-26 was inside noise on minute CRPS, points CRPS, winner error, spread, and total. 2024-25 improved points CRPS by 0.0036 and total error by 0.079, both decisive, and the other watched metrics stayed inside noise. A keep needs a clear gain on both seasons. One season is not enough. Call: noise. `lineup_defense_enabled` stays false.
+
+The effect is a residual around the team's own minutes-weighted rating, so the average lineup adds nothing on top of team defense. The primary defender's shot factor is still applied separately when he is one of the five. That split is unchanged.
 
 ## Milder minute seats (2026-11-04)
 

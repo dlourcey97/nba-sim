@@ -190,6 +190,12 @@ context:
   defender_regression_fga: 80.0
   # Scale of primary-defender FG% adjustment in the possession engine.
   defender_impact_weight: 0.55
+  # On-court six-factor defense (dTOV, dTS, dREB). Off until a decision run
+  # passes reconcile and both seasons. The average lineup is removed so this
+  # does not stack on team RAPM; only who is actually on the floor moves rates.
+  lineup_defense_enabled: false
+  lineup_defense_weight: 1.0
+  lineup_defense_prior_poss: 4000.0
   # Keys are rest days. 0 is a back-to-back.
   rest_day_factors:
     0: -0.030
