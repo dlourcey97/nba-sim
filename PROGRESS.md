@@ -1,6 +1,24 @@
 # Progress
 
-Last updated 2026-11-02 — Honest scoring is the baseline. Pre-debut stints stay on. The 15-man cap, the fringe floor, the return blend, and March-April bench seating stay off.
+Last updated 2026-11-03 — Honest scoring is the baseline. Pre-debut stints stay on. The 15-man cap, the fringe floor, the return blend, and March-April bench seating stay off. Assist picks stay. Lineup defense stays off until its decision run.
+
+## November 2 grade (2026-11-03)
+
+Fifteen games, 10,000 sims. Winners 11/15 (73.3%). Spread MAE 11.7, total MAE 16.3, total bias +0.2. Minute CRPS 3.77, points CRPS 3.30, 10–90 coverage 89.5%. Confident picks 4/8, double-doubles 4/8. Season to date after this night: 101 games, winners 70.3%, spread 11.5, total 17.0.
+
+The four pick misses were all assists in a 2–6 window around a median of 4: Wendell Carter Jr. (season 1.2 assists, actual 0), Shai Gilgeous-Alexander (3.3, actual 8), Ayo Dosunmu (3.6, actual 8), Josh Hart (3.3, actual 7). The picker does favor that line. An assist median under 4 is dropped, and a median of 4 gets the minimum half-width of 2, which rounds to 2–6. Simulated confidence for that window is about 64%, higher than points or rebounds, so the top eight on a big slate are often these lines. That is not a miscalibration. Across the season, assist picks are 73/102 (71.6%) against a claimed 61.2%. The 2–6 window itself is 51/73 (69.9%) against a claimed 64.1%. Points are 6/16 (37.5%) against 27.4%, rebounds 19/38 (50.0%) against 51.7%, steals 7/13 (53.8%) against 65.8%, blocks 1/3 against 59.7%. Assists are the best-hit stat and a bit under-confident. The window and the assist minimum stay.
+
+Sacramento at Dallas was the worst miss: median Dallas 120, Sacramento 104 (home margin +17); actual Sacramento 115, Dallas 100. Dallas's six games before that night averaged +2.5 points of margin, and the current-season rating (equal weight, then blended at 6/(6+20) = 23%) was +6.9. Sacramento's six losses averaged −19, and their current rating was −19.7. Prior-season nets were Dallas −4.8 and Sacramento −9.8. Dallas was at home. Kyrie Irving was projected at 0 and did not play. Zach LaVine was projected at 22 minutes against a 34-minute season line and scored 23 in 28. The Oklahoma City game (Dallas 120, Oklahoma City 96 on Oct 28) is one of the six equal-weighted games. Dropping it moves Dallas's current net from +6.9 to +1.1, about 1.3 points after the 23% blend. The Kalman filter moves about +3.6 on that one game and is then blended at 0.13, about half a point. The blowout is worth about two points of the 17-point margin. Sacramento's 0–6 start is the larger current-season input.
+
+## Queue (2026-11-03)
+
+The CRPS re-score was stopped so the November 2 slate could run. Saved and comparable: both baselines, both fringe runs, and the 2025-26 return run. The 2024-25 return run was stopped before it wrote a result. Cap removal and the March-April seat have not been re-scored. No keep call is in yet, and no flag has moved.
+
+Fringe, both seasons, variant minus base: minute CRPS −0.23 and −0.28, points CRPS −0.14 and −0.16, both decisive. Play Brier is inside noise on both seasons (+0.000 on 2025-26 is a zero difference). Spread MAE improved on both seasons. The keep rule needs a clear play-calibration gain, and this floor already failed the ±3% guardrail, so it stays off.
+
+Return blend, 2025-26 only: minute CRPS −0.031 and points CRPS −0.014, both decisive, play Brier unchanged, game metrics inside noise. The holdout was not finished, and the blend already failed the guardrail, so it stays off.
+
+On-court six-factor lineup defense is in the tree behind `lineup_defense_enabled: false`. Reconcile and the two-season decision run have not been started. Matchup assignment and help defense have not been built.
 
 ## Honest scoring (2026-11-02)
 
