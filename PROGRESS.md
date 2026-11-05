@@ -10,7 +10,21 @@ Night reconcile, predicted mean sum versus the box score: minutes −1.3%, point
 
 The six winner misses were Philadelphia over Detroit, Brooklyn over Charlotte, Indiana over Memphis, Oklahoma City over Cleveland, Minnesota over Houston, and Denver over Toronto. Denver was the widest: median Toronto by 1, actual Denver by 19.
 
-The Dunks minute fallback now has 101 rows, 55 graded, 27 of those played 8 or more minutes, minute MAE 6.69. It stays out of the season totals.
+The Dunks minute fallback now has 101 rows, 55 graded, 27 of those played 8 or more minutes, minute MAE 6.69. It stays out of the season totals. Against leaving those players at 0, the fill is closer: 6.69 versus 8.96 overall, and 12.01 versus 16.13 when they played 8 or more. The fallback stays.
+
+## Lineup on/off check (2026-11-05)
+
+The lineup-defense decision was already noise, so this does not move the flag. It compares the prior-season shot-defense rating the 2025-26 walk-forward would have used with that season's net on/off from lineup stints. A positive rating means opponents shoot worse. Net on/off is team points per 100 possessions and includes offense.
+
+| Player | Shot defense | On net | Off net | On − off |
+| --- | ---: | ---: | ---: | ---: |
+| Amen Thompson | +0.91 | +3.1 | −4.2 | +7.3 |
+| Victor Wembanyama | +2.49 | +10.9 | +2.1 | +8.8 |
+| Zaccharie Risacher | −1.21 | +1.7 | +1.6 | +0.1 |
+| Cooper Flagg | none | −5.5 | −1.9 | −3.6 |
+| Collin Sexton | −2.51 | −1.7 | +0.4 | −2.1 |
+
+Sexton is the weakest shot-defense rating among players with 1,000 minutes. Thompson, Wembanyama, and Sexton point the same way as their on/off. Risacher's rating is negative and his on/off is flat. Flagg has no prior-season rating, so the feature adds nothing for him. `lineup_defense_enabled` stays false.
 
 ## Help defense (2026-11-05)
 
@@ -260,7 +274,7 @@ Home and road were short by the same amount on the earlier October regrade (abou
 
 ## Dunks minute fallback (2026-11-01)
 
-If our minutes are 0, the player is not out, and EPM or that night's Dunks box has a minute number, the partial blend applies and his play probability is at least 0.85. Each case is appended to `results/dunks_fallback.jsonl`. The season scorecard grades that log in its own section and does not mix it into the season totals. No rows yet. The next seven live days are the check.
+If our minutes are 0, the player is not out, and EPM or that night's Dunks box has a minute number, the partial blend applies and his play probability is at least 0.85. Each case is appended to `results/dunks_fallback.jsonl`. The season scorecard grades that log in its own section and does not mix it into the season totals. The live check through November 4 is in the section above. The fill is closer than leaving those players at 0, so the path stays.
 
 Lineup draws for both minute models now use the same minute-weighted sample. A rotation player with a minute line gets on the floor. Both sides of the reference regrade include that draw.
 
