@@ -4,9 +4,13 @@ Last updated 2026-11-05 — Honest scoring is the baseline. Pre-debut stints sta
 
 ## Help defense (2026-11-05)
 
-The other four defenders move the make rate as a residual against that team's usual defenders. The primary is unchanged and is not counted again. An average help lineup adds nothing on top of team defense. The mid-season check passed (nothing outside ±3%; the largest moves were team turnovers +2.84% and starter blocks +2.35%). Both seasons were then run at 1,000 sims against the current baseline. Lineup defense and matchup shares stayed off.
+The other four defenders move the make rate as a residual against that team's usual defenders. The primary is left out, so he is not counted again. Helpers who sit on the team mean change nothing. The weight is 0.35. Lineup defense and matchup shares stayed off. The return blend and the March-April seat were off for the comparison, same as the lineup run. The baseline is the CRPS re-score.
 
-Both seasons were inside noise on minute CRPS, points CRPS, winner error, spread, and total. 2025-26 minute CRPS was +0.0000 and points CRPS +0.0003. 2024-25 minute CRPS was −0.0000 and points CRPS +0.0003. No watched metric was decisive. Call: noise. `help_defense_enabled` stays false. The weight, had it been kept, is 0.35.
+Reconcile passed (80 games, 80 sims, skip 400, seed 1). Nothing was outside ±3%. The largest moves were team turnovers +2.84% and starter blocks +2.35%.
+
+Both seasons then ran at 1,000 sims, seed 1, four workers. 2025-26 took 71.6 minutes. 2024-25 took 180.7 minutes.
+
+Every watched metric was inside noise on both seasons. 2025-26 minute CRPS was +0.0000 and points CRPS +0.0003. Spread was −0.021 and total −0.022. Winner error was +0.0002. 2024-25 minute CRPS was −0.0000 and points CRPS +0.0003. Spread was +0.007 and total −0.019. Winner error was −0.0003. Play probability did not move. Call: noise. `help_defense_enabled` stays false.
 
 ## Matchup shares (2026-11-04)
 
