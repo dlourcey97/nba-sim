@@ -146,6 +146,11 @@ def simulate_game(
         (cfg.get("context") or {}).get("defender_impact_weight", 0.55)
     )
     _pack_lineup_defense(packed, players, projection, cfg)
+    if bool((cfg.get("context") or {}).get("matchup_shares_enabled", False)):
+        share_rows, off_bucket = _matchup_share_arrays(players)
+        if np.any(np.isfinite(share_rows)):
+            packed["matchup_share"] = share_rows
+            packed["off_bucket"] = off_bucket
     # Period × margin-bucket lineup grid (stint substitution model).
     # close games shorten rotations late; blowouts put the bench on the floor.
     # Both minute models draw the five proportional to the minute line.
@@ -609,6 +614,8 @@ def _primary_defender_slots(
     position_code: np.ndarray,
     remaining: np.ndarray,
     guard_share: np.ndarray | None = None,
+    matchup_share: np.ndarray | None = None,
+    off_bucket: np.ndarray | None = None,
 ) -> np.ndarray:
     """Pick a primary defender slot (0-4) for each active run."""
     n_runs = off_lineups.shape[0]
@@ -628,6 +635,10 @@ def _primary_defender_slots(
     weights = np.where(known & ~same & ~adj, 0.20, weights)
     if guard_share is not None:
         weights = _blend_guard_share(weights, off_pos, def_lineups, guard_share)
+    if matchup_share is not None and off_bucket is not None:
+        weights = _blend_bucket_shares(
+            weights, def_lineups, matchup_share, off_bucket, shooters
+        )
     # Only sample for remaining runs; others stay 0.
     picks = _weighted_choice(rng, weights)
     out = np.where(remaining, picks, out)
@@ -659,6 +670,45 @@ def _blend_guard_share(
     # The observed matchup is the main weight. Affinity covers players with no row.
     blended = 0.35 * aff_w + 0.65 * share_w
     return np.where(row_has[:, None], blended, affinity)
+
+
+def _matchup_share_arrays(players: list[PlayerProjection]) -> tuple[np.ndarray, np.ndarray]:
+    """(n_players, 3) shares and a bucket code per player. Missing shares are NaN."""
+    shares = np.full((len(players), 3), np.nan, dtype=float)
+    buckets = np.ones(len(players), dtype=np.int32)
+    codes = {"scorer": 0, "wing": 1, "big": 2}
+    for index, player in enumerate(players):
+        share = getattr(player, "matchup_share", None)
+        if share and len(share) == 3:
+            shares[index] = [float(value) for value in share]
+        buckets[index] = codes.get(getattr(player, "offensive_bucket", "wing"), 1)
+    return shares, buckets
+
+
+def _blend_bucket_shares(
+    affinity: np.ndarray,
+    def_lineups: np.ndarray,
+    matchup_share: np.ndarray,
+    off_bucket: np.ndarray,
+    shooters: np.ndarray,
+) -> np.ndarray:
+    """Blend position affinity with each defender's share against the shooter's bucket.
+
+    Missing shares stay on affinity. The row is renormalized. 0.65 of the
+    weight is the observed share, matching ``ingest.matchups.bucket_weights``.
+    """
+    n_runs = affinity.shape[0]
+    gathered = matchup_share[def_lineups]
+    bucket = off_bucket[shooters]
+    chosen = gathered[np.arange(n_runs)[:, None], np.arange(5)[None, :], bucket[:, None]]
+    finite = np.isfinite(chosen)
+    if not np.any(finite):
+        return affinity
+    aff_sum = affinity.sum(axis=1, keepdims=True)
+    aff = affinity / np.maximum(aff_sum, 1e-9)
+    mixed = np.where(finite, 0.65 * np.maximum(chosen, 0.0) + 0.35 * aff, aff)
+    total = mixed.sum(axis=1, keepdims=True)
+    return mixed / np.maximum(total, 1e-9)
 
 
 def _soft_normalize_minute_draws(
@@ -1260,6 +1310,8 @@ def _vector_possession(
             position_code=packed["position_code"],
             remaining=remaining,
             guard_share=packed.get("guard_share"),
+            matchup_share=packed.get("matchup_share"),
+            off_bucket=packed.get("off_bucket"),
         )
         defenders = def_lineups[np.arange(n_runs), def_slots]
         is_three = zone_i >= 3

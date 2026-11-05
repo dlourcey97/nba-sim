@@ -115,6 +115,9 @@ context:
   bball_play_type_weight: 0.10
   # Who guards the ballhandler, from prior-season time spent on each position.
   bball_matchups_enabled: false
+  # Prior-season share of matchup time on scorers, wings, and bigs. Off until
+  # its own reconcile and two-season run. Redrawn every possession.
+  matchup_shares_enabled: false
 
   # NBA referee crews. Live page: official.nba.com/referee-assignments (once
   # per day). History: stats.nba.com box score summaries. Credit NBA.com.

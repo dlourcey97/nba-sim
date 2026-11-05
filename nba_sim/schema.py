@@ -583,6 +583,26 @@ def _tables() -> dict[str, Table]:
             _col("fg3_pct", "DOUBLE", True, "Allowed 3P% (fg3m/fg3a)."),
         ),
     )
+    matchup_shares = Table(
+        name="matchup_shares",
+        policy="replace",
+        key=("defender_id",),
+        grain="one row per defender per season",
+        description=(
+            "Share of a defender's matchup seconds against scorers, wings, and "
+            "bigs. Aggregated from LeagueSeasonMatchups; raw OFF×DEF rows are "
+            "not stored. Walk-forward reads only the prior season."
+        ),
+        columns=_season_cols()
+        + (
+            _col("defender_id", "INTEGER", False, "Defending player id."),
+            _col("defender_name", "VARCHAR", False, "Defender display name."),
+            _col("matchup_sec", "DOUBLE", False, "Classified matchup seconds."),
+            _col("share_scorer", "DOUBLE", False, "Share of those seconds on top scorers."),
+            _col("share_wing", "DOUBLE", False, "Share of those seconds on wings."),
+            _col("share_big", "DOUBLE", False, "Share of those seconds on bigs."),
+        ),
+    )
     play_types = Table(
         name="play_types",
         policy="replace",
@@ -627,6 +647,7 @@ def _tables() -> dict[str, Table]:
         lineup_stints,
         assist_edges,
         defender_impact,
+        matchup_shares,
         play_types,
     )
     return {table.name: table for table in tables}

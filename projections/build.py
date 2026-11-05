@@ -105,6 +105,10 @@ class PlayerProjection:
     depth_rank: int = 99
     # Prior-season share of minutes guarding PG, SG, SF, PF, C. None = use position.
     guard_share: tuple[float, float, float, float, float] | None = None
+    # Prior-season share of matchup seconds on (scorers, wings, bigs).
+    matchup_share: tuple[float, float, float] | None = None
+    # Who he is on offense tonight: scorer, wing, or big.
+    offensive_bucket: str = "wing"
 
 
 @dataclass
@@ -163,6 +167,10 @@ class ProjectionCache:
     stint_rows_by_season: dict[str, list] = field(default_factory=dict)
     assist_edge_rows_by_season: dict[str, list] = field(default_factory=dict)
     defender_impact_by_season: dict[str, list] = field(default_factory=dict)
+    matchup_shares_by_season: dict[str, dict[int, tuple[float, float, float]]] = field(
+        default_factory=dict
+    )
+    prior_scorer_ids: dict[str, set[int]] = field(default_factory=dict)
     lineup_defense_by_season: dict[str, dict] = field(default_factory=dict)
     play_type_rows_by_season: dict[str, list] = field(default_factory=dict)
     play_type_context: object | None = None
@@ -405,6 +413,45 @@ def _preseason_mpg(
     return float(sum(recent) / len(recent)), len(recent)
 
 
+def _matchup_share_map(cache: ProjectionCache, settings: Settings, season: str) -> dict[int, tuple[float, float, float]]:
+    """Prior-season defender shares. Empty when that partition was not built."""
+    from projections.tracking import prior_season
+
+    label = prior_season(season)
+    cached = cache.matchup_shares_by_season.get(label)
+    if cached is not None:
+        return cached
+    mapping: dict[int, tuple[float, float, float]] = {}
+    for row in read_rows(settings, "matchup_shares", label):
+        mapping[int(row["defender_id"])] = (
+            float(row["share_scorer"]),
+            float(row["share_wing"]),
+            float(row["share_big"]),
+        )
+    cache.matchup_shares_by_season[label] = mapping
+    return mapping
+
+
+def _prior_scorer_ids(cache: ProjectionCache, bundles: list, season: str) -> set[int]:
+    """Who scored 18+ a game last year. Current-season form does not reclassify him."""
+    from ingest.matchups import scorer_ids_from_logs
+    from projections.tracking import prior_season
+
+    label = prior_season(season)
+    cached = cache.prior_scorer_ids.get(label)
+    if cached is not None:
+        return cached
+    rows: list = []
+    for bundle in bundles:
+        if bundle.season != label:
+            continue
+        for logs in bundle.logs_by_player.values():
+            rows.extend(logs)
+    found = scorer_ids_from_logs(rows)
+    cache.prior_scorer_ids[label] = found
+    return found
+
+
 def _build(
     settings: Settings,
     *,
@@ -585,6 +632,12 @@ def _build(
     want_bball_defense = bool(ctx_cfg.get("bball_defense_enabled", False))
     want_bball_ppp = bool(ctx_cfg.get("bball_play_types_enabled", False))
     want_bball_matchups = bool(ctx_cfg.get("bball_matchups_enabled", False))
+    want_matchup_shares = bool(ctx_cfg.get("matchup_shares_enabled", False))
+    matchup_share_map: dict[int, tuple[float, float, float]] = {}
+    prior_scorers: set[int] = set()
+    if want_matchup_shares:
+        matchup_share_map = _matchup_share_map(cache, settings, season)
+        prior_scorers = _prior_scorer_ids(cache, bundles, season)
     if want_bball_roles or want_bball_defense or want_bball_ppp or want_bball_matchups:
         if cache.bball_ctx is None or cache.bball_season != season:
             from ingest.bball_index import load_bball_context
@@ -1263,6 +1316,15 @@ def _build(
             guard_share = None
             if want_bball_matchups and bball_ctx is not None:
                 guard_share = bball_ctx.guard_share.get(int(player_id))
+            matchup_share = None
+            bucket_name = "wing"
+            if want_matchup_shares:
+                from ingest.matchups import offensive_bucket
+
+                matchup_share = matchup_share_map.get(int(player_id))
+                bucket_name = offensive_bucket(
+                    position, is_scorer=int(player_id) in prior_scorers
+                )
             players[player_id] = PlayerProjection(
                 player_id=player_id,
                 player_name=str(info.get("player_name") or f"player:{player_id}"),
@@ -1280,6 +1342,8 @@ def _build(
                 status=status,
                 depth_rank=int(_depth),
                 guard_share=guard_share,
+                matchup_share=matchup_share,
+                offensive_bucket=bucket_name,
             )
         return team_poss, players, team_str, rest
 

@@ -130,6 +130,156 @@ def _norm_pos(value: str | None) -> str | None:
     return None
 
 
+# Exclusive offensive buckets. A top scorer is a scorer even at center, because
+# the share is "time spent on the other team's scorers," not his listed position.
+_BUCKETS = ("scorer", "wing", "big")
+# Prior-season points per game. Twenty games keeps a short sample from qualifying.
+SCORER_PPG = 18.0
+SCORER_MIN_GAMES = 20
+
+
+def scorer_ids_from_logs(rows: list[dict[str, Any]]) -> set[int]:
+    """Players at or above 18 points per game over at least 20 appearances."""
+    points: dict[int, float] = defaultdict(float)
+    games: dict[int, int] = defaultdict(int)
+    for row in rows:
+        if float(row.get("minutes") or 0.0) <= 0.0:
+            continue
+        player_id = _int(row.get("player_id"))
+        if player_id is None:
+            continue
+        points[player_id] += float(row.get("pts") or 0.0)
+        games[player_id] += 1
+    return {
+        player_id
+        for player_id, played in games.items()
+        if played >= SCORER_MIN_GAMES and points[player_id] / played >= SCORER_PPG
+    }
+
+
+def offensive_bucket(position: str | None, *, is_scorer: bool) -> str:
+    """Classify who the defender was matched up with.
+
+    Top scorers are their own group. Everyone else is a big (center or power
+    forward) or a wing (guards and small forwards, including an unknown spot).
+    """
+    if is_scorer:
+        return "scorer"
+    if _norm_pos(position) in {"C", "PF"}:
+        return "big"
+    return "wing"
+
+
+def buckets_from_logs(rows: list[dict[str, Any]]) -> dict[int, str]:
+    """Bucket every player who appeared, using his most common listed position."""
+    scorers = scorer_ids_from_logs(rows)
+    counts: dict[int, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    for row in rows:
+        player_id = _int(row.get("player_id"))
+        if player_id is None:
+            continue
+        position = row.get("position")
+        if position:
+            counts[player_id][str(position)] += 1
+    buckets: dict[int, str] = {}
+    seen = set(counts) | scorers
+    for player_id in seen:
+        position = None
+        if counts[player_id]:
+            position = max(counts[player_id], key=counts[player_id].get)
+        buckets[player_id] = offensive_bucket(position, is_scorer=player_id in scorers)
+    return buckets
+
+
+def matchup_shares_from_league_matchups(
+    season: str,
+    rows: list[dict[str, Any]],
+    *,
+    buckets_by_offense_id: dict[int, str],
+) -> list[dict]:
+    """Compact share of each defender's matchup seconds by offensive bucket.
+
+    Raw OFF×DEF rows are not stored. An offensive player missing from
+    ``buckets_by_offense_id`` is skipped, so an unknown name is not dumped
+    into a bucket. Shares are zero when the defender has no classified seconds.
+    """
+    seconds: dict[int, dict[str, float]] = defaultdict(
+        lambda: {bucket: 0.0 for bucket in _BUCKETS}
+    )
+    names: dict[int, str] = {}
+    for row in rows:
+        def_id = _int(row.get("DEF_PLAYER_ID") or row.get("def_player_id"))
+        off_id = _int(row.get("OFF_PLAYER_ID") or row.get("off_player_id"))
+        if def_id is None or off_id is None:
+            continue
+        bucket = buckets_by_offense_id.get(off_id)
+        if bucket not in _BUCKETS:
+            continue
+        names[def_id] = str(
+            row.get("DEF_PLAYER_NAME") or row.get("def_player_name") or names.get(def_id, "")
+        )
+        seconds[def_id][bucket] += _matchup_seconds(row)
+    out: list[dict] = []
+    for def_id, bucket_seconds in sorted(seconds.items()):
+        total = float(sum(bucket_seconds.values()))
+        row = {
+            "season": season,
+            "defender_id": def_id,
+            "defender_name": names.get(def_id) or f"player:{def_id}",
+            "matchup_sec": total,
+        }
+        for bucket in _BUCKETS:
+            row[f"share_{bucket}"] = (
+                float(bucket_seconds[bucket]) / total if total > 0.0 else 0.0
+            )
+        out.append(row)
+    return out
+
+
+def bucket_weights(
+    shares: list[tuple[float, float, float] | None],
+    affinity: list[float],
+    bucket: str,
+    *,
+    observed_weight: float = 0.65,
+) -> list[float]:
+    """Weight the on-court defenders for one offensive bucket.
+
+    ``shares`` is (scorer, wing, big) for each defender, or None when he has
+    no history. Missing history stays on position affinity. The result sums
+    to 1. Call it again next possession; nothing here locks a matchup.
+    """
+    index = _BUCKETS.index(bucket)
+    observed = min(1.0, max(0.0, float(observed_weight)))
+    raw_aff = [max(0.0, float(value)) for value in affinity]
+    aff_total = sum(raw_aff)
+    if aff_total <= 0.0:
+        n = len(raw_aff) or 1
+        norm_aff = [1.0 / n for _ in raw_aff]
+    else:
+        norm_aff = [value / aff_total for value in raw_aff]
+    mixed: list[float] = []
+    for share, base in zip(shares, norm_aff):
+        if share is None:
+            mixed.append(base)
+            continue
+        mixed.append(observed * max(0.0, float(share[index])) + (1.0 - observed) * base)
+    total = sum(mixed)
+    if total <= 0.0:
+        n = len(mixed) or 1
+        return [1.0 / n for _ in mixed]
+    return [value / total for value in mixed]
+
+
+def _matchup_seconds(row: dict[str, Any]) -> float:
+    seconds = row.get("MATCHUP_TIME_SEC")
+    if seconds is None:
+        seconds = row.get("matchup_time_sec")
+    if seconds is None:
+        seconds = row.get("PARTIAL_POSS") or row.get("partial_poss") or 0.0
+    return max(0.0, float(seconds))
+
+
 def _int(value) -> int | None:
     if value is None or value == "" or str(value) == "0":
         return None

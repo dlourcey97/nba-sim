@@ -1,6 +1,14 @@
 # Progress
 
-Last updated 2026-11-04 — Honest scoring is the baseline. Pre-debut stints stay on. March-April bench seating is on. A partial return blend is on (20% of the full blend). The 15-man cap, the fringe floor, and lineup defense stay off. Assist picks stay.
+Last updated 2026-11-04 — Honest scoring is the baseline. Pre-debut stints stay on. March-April bench seating is on. A partial return blend is on (20% of the full blend). The 15-man cap, the fringe floor, lineup defense, and matchup shares stay off. Assist picks stay.
+
+## Matchup shares (2026-11-04)
+
+Prior-season time spent on scorers, wings, and bigs passed the mid-season check (nothing outside ±3%; the largest moves were team turnovers +2.65% and starter points −2.46%). Both seasons were then run at 1,000 sims against the current baseline. Lineup defense stayed off. The primary defender is redrawn every possession.
+
+Both seasons were inside noise on minute CRPS, points CRPS, winner error, spread, and total. 2025-26 minute CRPS was +0.0000 and points CRPS +0.0002. 2024-25 minute CRPS was +0.0000 and points CRPS −0.0002. No watched metric was decisive. Call: noise. `matchup_shares_enabled` stays false.
+
+A scorer is a player who averaged at least 18 points over 20 games last season. Wings and bigs are everyone else, split by position. The compact shares are stored. Raw OFF×DEF rows are not.
 
 ## Lineup defense (2026-11-04)
 
