@@ -2,6 +2,16 @@
 
 Last updated 2026-11-05 — Honest scoring is the baseline. Pre-debut stints stay on. March-April bench seating is on. A partial return blend is on (20% of the full blend). The 15-man cap, the fringe floor, lineup defense, matchup shares, and help defense stay off. Assist picks stay.
 
+## November 4 grade (2026-11-05)
+
+Fourteen games, 10,000 sims. November 3 had no games. Rosters were unchanged at 523. Winners 8/14 (57.1%). Spread MAE 12.1, total MAE 10.3, total bias −3.0. Minute CRPS 4.28, points CRPS 3.46, 10–90 coverage 87.6%. Confident picks 3/8 against a claimed 65.1%. All eight were assist windows of 2–6. Double-doubles 7/8 against a claimed 54.4%. Season to date: 115 games, winners 68.7%, spread 11.6, total 16.2, total bias −2.14.
+
+Night reconcile, predicted mean sum versus the box score: minutes −1.3%, points −1.2%, rebounds −2.9%, assists +0.7%. Flags: steals +20.7%, blocks −11.1%, turnovers +11.8%. Storage 15.30 MiB.
+
+The six winner misses were Philadelphia over Detroit, Brooklyn over Charlotte, Indiana over Memphis, Oklahoma City over Cleveland, Minnesota over Houston, and Denver over Toronto. Denver was the widest: median Toronto by 1, actual Denver by 19.
+
+The Dunks minute fallback now has 101 rows, 55 graded, 27 of those played 8 or more minutes, minute MAE 6.69. It stays out of the season totals.
+
 ## Help defense (2026-11-05)
 
 The other four defenders move the make rate as a residual against that team's usual defenders. The primary is left out, so he is not counted again. Helpers who sit on the team mean change nothing. The weight is 0.35. Lineup defense and matchup shares stayed off. The return blend and the March-April seat were off for the comparison, same as the lineup run. The baseline is the CRPS re-score.
