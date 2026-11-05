@@ -193,6 +193,11 @@ context:
   defender_regression_fga: 80.0
   # Scale of primary-defender FG% adjustment in the possession engine.
   defender_impact_weight: 0.55
+  # The other four defenders also move make rate, as a residual against the
+  # team's usual defenders. Off until its own reconcile and two-season run.
+  # The primary is not counted again. An average help line changes nothing.
+  help_defense_enabled: false
+  help_defense_weight: 0.35
   # On-court six-factor defense (dTOV, dTS, dREB). Off until a decision run
   # passes reconcile and both seasons. The average lineup is removed so this
   # does not stack on team RAPM; only who is actually on the floor moves rates.

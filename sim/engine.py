@@ -145,6 +145,12 @@ def simulate_game(
     packed["defender_impact_weight"] = float(
         (cfg.get("context") or {}).get("defender_impact_weight", 0.55)
     )
+    if bool((cfg.get("context") or {}).get("help_defense_enabled", False)):
+        packed["help_fg_mean"] = _side_factor_mean(players, packed["def_fg_factor"])
+        packed["help_fg3_mean"] = _side_factor_mean(players, packed["def_fg3_factor"])
+        packed["help_defense_weight"] = float(
+            (cfg.get("context") or {}).get("help_defense_weight", 0.35)
+        )
     _pack_lineup_defense(packed, players, projection, cfg)
     if bool((cfg.get("context") or {}).get("matchup_shares_enabled", False)):
         share_rows, off_bucket = _matchup_share_arrays(players)
@@ -582,6 +588,52 @@ def _position_codes(players: list[PlayerProjection]) -> np.ndarray:
         elif raw in {"G-F", "F-G"}:
             codes[i] = 2
     return codes
+
+
+def _side_factor_mean(players: list[PlayerProjection], factors: np.ndarray) -> np.ndarray:
+    """Minutes-weighted mean defender factor for each player's own team.
+
+    Expected minutes are the conditional mean times the chance he plays.
+    A team with no expected minutes stays at 1, which is no help effect.
+    """
+    out = np.ones(len(players), dtype=float)
+    for side in ("H", "A"):
+        numerator = 0.0
+        denominator = 0.0
+        indexes: list[int] = []
+        for index, player in enumerate(players):
+            if player.home_away != side:
+                continue
+            indexes.append(index)
+            if player.minutes.out:
+                continue
+            weight = max(float(player.minutes.mean), 0.0) * max(float(player.minutes.play_prob), 0.0)
+            numerator += weight * float(factors[index])
+            denominator += weight
+        mean = numerator / denominator if denominator > 0.0 else 1.0
+        for index in indexes:
+            out[index] = mean
+    return out
+
+
+def _help_make_factor(
+    on_court: np.ndarray,
+    primary_slot: np.ndarray,
+    team_mean: np.ndarray,
+    *,
+    help_weight: float,
+) -> np.ndarray:
+    """Make multiplier from the four defenders who are not on the ball.
+
+    ``on_court`` is the raw factor (about 1.0) for the five on the floor.
+    The primary slot is left out, so he is not counted twice. The four are
+    compared with the team's usual factor. A typical help line returns 1.
+    """
+    others = np.arange(on_court.shape[1])[None, :] != primary_slot[:, None]
+    counted = np.maximum(others.sum(axis=1), 1)
+    help_mean = (on_court * others).sum(axis=1) / counted
+    residual = help_mean - team_mean + 1.0
+    return 1.0 + float(help_weight) * (residual - 1.0)
 
 
 def _defender_factor_array(
@@ -1324,6 +1376,23 @@ def _vector_possession(
         # Blend toward 1.0 so matchup defense is a soft overlay on team defense.
         def_factor = 1.0 + weight * (def_factor - 1.0)
         fg_pct = fg_pct * def_factor
+        if "help_fg_mean" in packed:
+            on_court = np.where(
+                is_three[:, None],
+                packed["def_fg3_factor"][def_lineups],
+                packed["def_fg_factor"][def_lineups],
+            )
+            team_mean = np.where(
+                is_three,
+                packed["help_fg3_mean"][def_lineups[:, 0]],
+                packed["help_fg_mean"][def_lineups[:, 0]],
+            )
+            fg_pct = fg_pct * _help_make_factor(
+                on_court,
+                def_slots,
+                team_mean,
+                help_weight=float(packed.get("help_defense_weight", 0.35)),
+            )
     fg_pct = fg_pct * fg_mult
     if home_hot is not None and away_hot is not None:
         hot = np.where(offense_home, home_hot, away_hot)
