@@ -84,6 +84,36 @@ def test_epm_usage_moves_partway():
     assert abs(rates.ft_pct - (0.70 * 0.70 + 0.30 * 0.90)) < 1e-9
 
 
+def test_full_rotation_keeps_its_minute_total(tmp_path):
+    _CACHE.clear()
+    home = {}
+    epm_rows = []
+    for pid in range(1, 9):
+        mean = 10.0 if pid == 1 else 230.0 / 7.0
+        home[pid] = _Player(pid, f"P{pid}", "SAS", RateVector(usage=0.12), _minutes(mean))
+        prior = _epm(mpg=36.0 if pid == 1 else mean)
+        epm_rows.append(prior)
+    _write_epm_rows(tmp_path, epm_rows)
+    away = {9: _Player(9, "Other", "BOS", RateVector(), _minutes(24.0))}
+    apply_dunks_blend(
+        home,
+        away,
+        settings=_settings(tmp_path),
+        as_of=date(2026, 11, 1),
+        home_poss=100.0,
+        away_poss=100.0,
+        home_strength=TeamStrength(114.0, 114.0),
+        away_strength=TeamStrength(114.0, 114.0),
+        league=TeamStrength(114.0, 114.0),
+        config=_config(dunks_box_weight=0.0, dunks_team_weight=0.0),
+        defender_fg_factor={},
+        defender_fg3_factor={},
+    )
+    total = sum(player.minutes.mean for player in home.values())
+    assert abs(total - 240.0) < 0.05
+    assert home[1].minutes.mean > 10.0
+
+
 def test_minutes_follow_box_more_than_epm():
     blended = _blend_minutes(_minutes(20.0), _epm(mpg=30.0), _box(minutes=32.0), 0.30, 0.25)
     # 60% model, 25% box, 15% EPM minutes.
@@ -285,6 +315,35 @@ def _two_sides():
     }
     away = {3: _Player(3, "Other", "BOS", RateVector(usage=0.18), _minutes(24.0))}
     return home, away
+
+
+def _write_epm_rows(path, rows: list[EpmPrior], stamp: str = "2026-11-01") -> None:
+    dest = path / "external" / "dunks"
+    dest.mkdir(parents=True, exist_ok=True)
+    table = pa.table(
+        {
+            "nba_id": list(range(1, len(rows) + 1)),
+            "team": [row.team for row in rows],
+            "p_mpg": [row.mpg for row in rows],
+            "p_usg": [row.usg for row in rows],
+            "oepm": [row.oepm for row in rows],
+            "depm": [row.depm for row in rows],
+            "p_pts_100": [row.pts_100 for row in rows],
+            "p_fg2a_100": [row.fg2a_100 for row in rows],
+            "p_fg2pct": [row.fg2_pct for row in rows],
+            "p_fg3a_100": [row.fg3a_100 for row in rows],
+            "p_fg3pct": [row.fg3_pct for row in rows],
+            "p_fta_100": [row.fta_100 for row in rows],
+            "p_ftpct": [row.ft_pct for row in rows],
+            "p_orb_100": [row.orb_100 for row in rows],
+            "p_drb_100": [row.drb_100 for row in rows],
+            "p_ast_100": [row.ast_100 for row in rows],
+            "p_tov_100": [row.tov_100 for row in rows],
+            "p_stl_100": [row.stl_100 for row in rows],
+            "p_blk_100": [row.blk_100 for row in rows],
+        }
+    )
+    pq.write_table(table, dest / f"epm_{stamp}.parquet")
 
 
 def _write_epm(path, row: EpmPrior, stamp: str = "2026-11-01") -> None:

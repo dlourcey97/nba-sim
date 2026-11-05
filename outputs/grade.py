@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
@@ -617,6 +617,133 @@ def _dunks_fallback_lines(repo_root: Path, season: str) -> list[str]:
     return lines
 
 
+def _dunks_minutes_comparison_lines(repo_root: Path, season: str) -> list[str]:
+    """Minutes MAE for the stored sim against the same-day Dunks box.
+
+    The stored sim is the engine when that night's files were archived after
+    tip, and the blend when both the EPM snapshot and the minutes file were
+    already on disk. Dunks-only is the box minute versus the actual minute.
+    """
+    lines = ["## Dunks minutes vs the sim", ""]
+    try:
+        from nba_sim.settings import load_settings
+
+        settings = load_settings()
+    except Exception:
+        lines.append("Dunks archive could not be read.")
+        lines.append("")
+        return lines
+    dunks = Path(settings.data_dir) / "external" / "dunks"
+    if not dunks.is_dir():
+        lines.append("No Dunks archive.")
+        lines.append("")
+        return lines
+    box_files = sorted(dunks.glob("box_*.parquet"))
+    if not box_files:
+        lines.append("No same-day minutes files.")
+        lines.append("")
+        return lines
+    import pyarrow.parquet as pq
+
+    history = {
+        (str(row["game_date"])[:10], int(row["player_id"])): row
+        for row in read_rows(settings, "prediction_history", season)
+        if row["row_kind"] == "player" and row.get("player_id") is not None
+    }
+    epm_files = []
+    for path in dunks.glob("epm_*.parquet"):
+        match = re.search(r"_(\d{4}-\d{2}-\d{2})\.parquet$", path.name)
+        if match:
+            epm_files.append((match.group(1), path.stat().st_mtime))
+    epm_files.sort()
+
+    lines.append(
+        "Same players, same nights. Engine is the stored sim on nights whose "
+        "Dunks files landed after that sim. Blend is the stored sim on nights "
+        "that already had both files. Dunks is the same-day minutes file. "
+        "A blank cell was not measured."
+    )
+    lines.append("")
+    lines.append("| Date | Players | Engine MAE | Dunks MAE | Blend MAE |")
+    lines.append("| --- | ---: | ---: | ---: | ---: |")
+    partial: list[str] = []
+    totals = {"engine": [], "dunks": [], "blend": []}
+    for path in box_files:
+        match = re.search(r"_(\d{4}-\d{2}-\d{2})\.parquet$", path.name)
+        if match is None:
+            continue
+        slate = match.group(1)
+        box_mtime = path.stat().st_mtime
+        epm_mtime = None
+        for stamped, mtime in epm_files:
+            if stamped <= slate:
+                epm_mtime = mtime
+        engine_err: list[float] = []
+        dunks_err: list[float] = []
+        blend_err: list[float] = []
+        published_err: list[float] = []
+        sim_times: list[float] = []
+        for row in pq.read_table(path).to_pylist():
+            pred = history.get((slate, int(row["player_id"])))
+            if pred is None or pred.get("actual_min") is None or pred.get("pred_min_mean") is None:
+                continue
+            actual = float(pred["actual_min"])
+            dunks_err.append(abs(float(row["minutes"]) - actual))
+            published_err.append(abs(float(pred["pred_min_mean"]) - actual))
+            stamped = _epoch(pred.get("simulated_at"))
+            if stamped is not None:
+                sim_times.append(stamped)
+        sim_at = max(sim_times) if sim_times else None
+        saw_box = sim_at is not None and sim_at >= box_mtime
+        saw_epm = sim_at is not None and epm_mtime is not None and sim_at >= epm_mtime
+        if saw_box and saw_epm:
+            blend_err = published_err
+        elif not saw_box and not saw_epm:
+            engine_err = published_err
+        elif published_err:
+            partial.append(slate)
+        if not dunks_err:
+            continue
+        totals["dunks"].extend(dunks_err)
+        totals["engine"].extend(engine_err)
+        totals["blend"].extend(blend_err)
+        lines.append(
+            f"| {slate} | {len(dunks_err)} | {_mae(engine_err)} | {_mae(dunks_err)} | {_mae(blend_err)} |"
+        )
+    if len(totals["dunks"]) > len(box_files):
+        lines.append(
+            f"| Compared | {len(totals['dunks'])} | {_mae(totals['engine'])} | "
+            f"{_mae(totals['dunks'])} | {_mae(totals['blend'])} |"
+        )
+    lines.append("")
+    if partial:
+        days = ", ".join(sorted(set(partial)))
+        lines.append(
+            f"Published sim on {days} saw the EPM snapshot or the minutes file, but not both, "
+            "so it is neither column."
+        )
+        lines.append("")
+    return lines
+
+
+def _epoch(value: object) -> float | None:
+    if value is None:
+        return None
+    if hasattr(value, "timestamp"):
+        return float(value.timestamp())  # type: ignore[no-any-return]
+    text = str(value).replace("Z", "+00:00")
+    try:
+        return datetime.fromisoformat(text).timestamp()
+    except ValueError:
+        return None
+
+
+def _mae(errors: list[float]) -> str:
+    if not errors:
+        return "—"
+    return f"{sum(errors) / len(errors):.2f}"
+
+
 def write_season_scorecard(
     repo_root: Path,
     *,
@@ -784,6 +911,7 @@ def write_season_scorecard(
         lines.append("")
 
     lines.extend(_dunks_fallback_lines(repo_root, season))
+    lines.extend(_dunks_minutes_comparison_lines(repo_root, season))
 
     for night in nights:
         s = night.summary()

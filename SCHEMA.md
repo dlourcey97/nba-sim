@@ -557,6 +557,17 @@ Key: `entity_kind`, `entity_id`, `play_type`, `side`
 
 **Play types stored:** Isolation, P&R Ball Handler, P&R Roll Man, Post Up, Spot Up, Handoff, Cut, Off Screen, Transition, Putbacks, Misc.
 
+## external/dunks/ (Dunks & Threes)
+
+Not a season-partitioned engine table. Compact Parquet under `{DATA_DIR}/external/dunks/`, written by `ingest/dunks_files.py` from a CSV dropped in `inbox/`. Raw CSVs are not stored and are not in the repository. Credit: Dunks & Threes.
+
+- `epm_YYYY-MM-DD.parquet` — latest player rating on or before that tip. `nba_id` is the player id. A name is matched to `current_rosters` only when the id is blank.
+- `box_YYYY-MM-DD.parquet` — that night's minutes and counting-stat projection. Used only on that date.
+- `team_ratings_YYYY-MM-DD.parquet` — team offense and defense, latest file on or before tip.
+- `manifest.parquet` — kind, date, archive time, and row count for each snapshot.
+
+The blend weights are `dunks_epm_weight`, `dunks_box_weight`, and `dunks_team_weight`. Dates with no file change nothing.
+
 ## external/referees/ (NBA officials)
 
 Not a season-partitioned engine table. Compact Parquet under `{DATA_DIR}/external/referees/`, written by `ingest/referees.py`. The live crew (crew chief, referee, umpire) is parsed from the public assignments table at [official.nba.com/referee-assignments](https://official.nba.com/referee-assignments/), at most once per day. Historical crews come from stats.nba.com `boxscoresummaryv3` (the officials list on each game's box score summary), one game at a time, for 2023-24 through the current season. Personal fouls are the sum of both teams' `PF` from `leaguegamelog`, one request per season. Raw HTML and JSON are not stored. Credit: NBA.com.

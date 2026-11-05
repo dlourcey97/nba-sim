@@ -111,6 +111,11 @@ def apply_dunks_blend(
     )
     fallbacks: list[dict[str, Any]] = []
     for players, poss, team_str, opp_str, team_abbr, opp_abbr in sides:
+        before = {
+            pid: float(player.minutes.mean)
+            for pid, player in players.items()
+            if not _is_out(player)
+        }
         for pid, player in list(players.items()):
             epm_row = epm.get(int(player.player_id))
             box_row = box.get(int(player.player_id))
@@ -165,9 +170,41 @@ def apply_dunks_blend(
                     defender_fg3_factor,
                 )
             players[pid] = replace(player, rates=rates, minutes=minutes)
+        _hold_side_total(players, before)
+        for event in fallbacks:
+            player = players.get(event["player_id"])
+            if player is not None and str(player.team_abbr) == str(event["team_abbr"]):
+                event["minutes_after"] = float(player.minutes.mean)
     _renorm_usage(home_players, config)
     _renorm_usage(away_players, config)
     return fallbacks
+
+
+def _hold_side_total(players: dict, before: dict[int, float]) -> None:
+    """Put a full rotation's minute total back where the minutes model left it.
+
+    The blend can raise one player without giving the team extra minutes.
+    Sides with fewer than eight available players are left alone, so a short
+    test roster does not get stretched to a game total. The sim draw still
+    scales every team to 240.
+    """
+    active = [pid for pid in before if pid in players and not _is_out(players[pid])]
+    if len(active) < 8:
+        return
+    goal = sum(before[pid] for pid in active)
+    total = sum(float(players[pid].minutes.mean) for pid in active)
+    if goal <= 1.0 or total <= 1.0 or abs(goal - total) < 0.05:
+        return
+    scale = goal / total
+    for pid in active:
+        player = players[pid]
+        mean = float(player.minutes.mean) * scale
+        lo = float(player.minutes.min_minutes)
+        hi = float(player.minutes.max_minutes)
+        if hi > 0.0:
+            mean = min(hi, mean)
+        mean = max(lo, mean)
+        players[pid] = replace(player, minutes=replace(player.minutes, mean=float(mean)))
 
 
 def _has_minute_number(epm: EpmPrior | None, box: BoxPrior | None) -> bool:

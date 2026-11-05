@@ -1,6 +1,26 @@
 # Progress
 
-Last updated 2026-11-05 — Honest scoring is the baseline. Pre-debut stints stay on. March-April bench seating is on. A partial return blend is on (20% of the full blend). The 15-man cap, the fringe floor, lineup defense, matchup shares, and help defense stay off. Assist picks stay.
+Last updated 2026-11-05 — Honest scoring is the baseline. Pre-debut stints stay on. March-April bench seating is on. A partial return blend is on (20% of the full blend). The 15-man cap, the fringe floor, lineup defense, matchup shares, and help defense stay off. Assist picks stay. Dunks files live in `DATA_DIR/external/dunks`, and `daily.py` loads a new CSV from that inbox.
+
+## Dunks archive (2026-11-05)
+
+Every Dunks & Threes CSV in Downloads was already in the archive. Fifteen EPM days, from October 20 through November 5, plus the November 1 team ratings. Same-day minutes files exist for October 20–30 except October 31, plus November 1 and November 5. No file failed to load. Six EPM names are not on the current roster: AK Okereke, Adam Flagler, Blake Hinson, Enrique Freeman, Kevin McCullar Jr., and Otega Oweh. Their rows stay in the snapshot.
+
+Game nights with no EPM file of that date: November 2, which still reads the November 1 snapshot. Game nights with no minutes file: October 31, November 2, and November 4. October 29 has a minutes file and no stored sim. November 3 had no games.
+
+The scorecard now compares minutes on the overlapping players. On nights simulated before the files were archived, engine MAE is 6.52. Dunks minutes against the actuals are 4.46 across all 1,694 compared players. November 1 is the night that already had both files: blend MAE 3.46, Dunks 2.49, 24 players. Weights stay 0.30 / 0.25 / 0.20. A full rotation is scaled back to the minutes-model total after the blend, so the blend does not add team minutes. Those totals are about 255–263, not 240. The sim draw still forces 240. `normalize_gap_close` stays 0. The March–April stack run is still going, so this hold was not put through a new 80-game reconcile.
+
+Tonight, November 5, reads `epm_2026-11-05.parquet` (529) and `box_2026-11-05.parquet` (55). Injury report had 15 entries. Projection means, not the 240 draw:
+
+| Player | Engine | Dunks | Blend |
+| --- | ---: | ---: | ---: |
+| Giannis Antetokounmpo | 31.9 | 32.0 | 32.6 |
+| Stephen Curry | 28.8 | 29.0 | 29.3 |
+| Franz Wagner | 35.7 | 35.0 | 36.2 |
+| Devin Booker | 33.3 | 34.0 | 34.4 |
+| Bam Adebayo | 31.4 | 33.0 | 32.7 |
+
+The blend also pulls toward EPM minutes, so a player can land outside the engine and the box line. Tonight has not been simulated.
 
 ## November 4 grade (2026-11-05)
 

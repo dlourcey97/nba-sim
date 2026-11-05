@@ -53,6 +53,25 @@ Separate from the season grade. These are healthy players we had at 0 minutes wh
 | ---: | ---: | ---: | ---: |
 | 101 | 55 | 27 | 6.69 |
 
+## Dunks minutes vs the sim
+
+Same players, same nights. Engine is the stored sim on nights whose Dunks files landed after that sim. Blend is the stored sim on nights that already had both files. Dunks is the same-day minutes file. A blank cell was not measured.
+
+| Date | Players | Engine MAE | Dunks MAE | Blend MAE |
+| --- | ---: | ---: | ---: | ---: |
+| 2026-10-20 | 68 | 5.28 | 3.53 | — |
+| 2026-10-21 | 254 | 7.93 | 4.62 | — |
+| 2026-10-22 | 45 | 7.08 | 3.18 | — |
+| 2026-10-23 | 275 | 7.48 | 4.76 | — |
+| 2026-10-24 | 164 | 6.91 | 4.70 | — |
+| 2026-10-25 | 81 | 7.12 | 5.10 | — |
+| 2026-10-26 | 212 | 6.31 | 4.87 | — |
+| 2026-10-27 | 94 | 5.57 | 4.58 | — |
+| 2026-10-28 | 251 | 5.98 | 4.32 | — |
+| 2026-10-30 | 226 | 4.71 | 4.00 | — |
+| 2026-11-01 | 24 | — | 2.49 | 3.46 |
+| Compared | 1694 | 6.52 | 4.46 | 3.46 |
+
 ## 2026-10-20
 
 | Metric | Value |

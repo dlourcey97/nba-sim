@@ -135,6 +135,14 @@ def main(argv: list[str] | None = None) -> int:
         except Exception as exc:  # noqa: BLE001 — never block the slate
             log(f"WARNING: darko refresh error (continuing): {exc}")
 
+        try:
+            from ingest.dunks_files import ingest_inbox
+
+            log("dunks inbox")
+            log(ingest_inbox(settings, slate_date))
+        except Exception as exc:  # noqa: BLE001 — never block the slate
+            log(f"WARNING: dunks inbox error (continuing): {exc}")
+
         injuries = injuries_for_date(
             settings,
             slate_date,

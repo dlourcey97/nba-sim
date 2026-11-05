@@ -183,7 +183,10 @@ context:
 
   # Dunks & Threes priors. Partial blend: EPM is the player rating, the same-day
   # box line is tonight's rotation and counting stats, team ratings nudge
-  # offense and defense. The possession model keeps the rest.
+  # offense and defense. The possession model keeps the rest. daily.py reads
+  # new CSVs from DATA_DIR/external/dunks/inbox. A full rotation is scaled
+  # back to the minutes-model total after the blend. The sim draw still
+  # targets 240.
   dunks_enabled: true
   dunks_epm_weight: 0.30
   dunks_box_weight: 0.25
