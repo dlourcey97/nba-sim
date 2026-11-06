@@ -1,6 +1,18 @@
 # Progress
 
-Last updated 2026-11-06 — Honest scoring is the baseline. Pre-debut stints stay on. March-April bench seating is on. A partial return blend is on (20% of the full blend). The 15-man cap, the fringe floor, lineup defense, matchup shares, and help defense stay off. Assist picks stay. Dunks files live in `DATA_DIR/external/dunks`, and `daily.py` loads a new CSV from that inbox.
+Last updated 2026-11-06 — Honest scoring is the baseline. Pre-debut stints stay on. March-April bench seating stays on, and the 20% return blend stays on with it. The 15-man cap, the fringe floor, lineup defense, matchup shares, and help defense stay off. Assist picks stay. Dunks files live in `DATA_DIR/external/dunks`, and `daily.py` loads a new CSV from that inbox.
+
+## March-April stack (2026-11-06)
+
+The 20% return blend and the March-April bench seat were each kept alone. This run is the seat on top of the blend. October through February are the blend either way, so the paired difference is the seat. Baseline is `mild_return_20`. The call is KEEP. Both flags stay on.
+
+Reconcile passed, 80 games, 80 sims, skip 400, seed 1. The window does not include March or April. Team minutes −0.42%, points −0.18%, rebounds +0.40%, assists −1.26%, turnovers +2.22%, steals −1.43%, blocks +1.54%. Starter minutes +1.59%, points −2.87%, rebounds −0.11%, assists −0.91%, turnovers 0, steals −2.56%, blocks +1.09%. Largest team flag was turnovers +2.22%. Largest starter flag was points −2.87%.
+
+2025-26, 1,314 games, 1,000 sims, 72.8 minutes of scoring time. Minute CRPS 5.902, points CRPS 4.090, spread MAE 12.01, total MAE 15.88, Brier 0.2137. Stack minus blend: minute CRPS −0.040 (−0.064 to −0.016), points CRPS −0.035 (−0.047 to −0.024). Brier, spread, and total were inside noise.
+
+2024-25, 1,313 games, 54.2 minutes. Minute CRPS 5.905, points CRPS 4.131, spread MAE 11.65, total MAE 17.34, Brier 0.2141. Stack minus blend: minute CRPS −0.088 (−0.116 to −0.059), points CRPS −0.058 (−0.070 to −0.046), spread MAE −0.090 (−0.159 to −0.022). Brier and total were inside noise. Play Brier was inside noise.
+
+Minute coverage moved the other way on 2025-26, −0.006 (−0.009 to −0.003). Points coverage rose on both seasons. Coverage is not part of the keep rule. Wall clock was about 24.6 hours because the machine was shared. Scoring time was 127 minutes.
 
 ## Dunks archive (2026-11-05)
 
@@ -8,7 +20,7 @@ Every Dunks & Threes CSV in Downloads was already in the archive. Fifteen EPM da
 
 Game nights with no EPM file of that date: November 2, which still reads the November 1 snapshot. Game nights with no minutes file: October 31, November 2, and November 4. October 29 has a minutes file and no stored sim. November 3 had no games.
 
-The scorecard now compares minutes on the overlapping players. On nights simulated before the files were archived, engine MAE is 6.52. Dunks minutes against the actuals are 4.46 across all 1,694 compared players. November 1 is the night that already had both files: blend MAE 3.46, Dunks 2.49, 24 players. Weights stay 0.30 / 0.25 / 0.20. A full rotation is scaled back to the minutes-model total after the blend, so the blend does not add team minutes. Those totals are about 255–263, not 240. The sim draw still forces 240. `normalize_gap_close` stays 0. The March–April stack run is still going, so this hold was not put through a new 80-game reconcile.
+The scorecard now compares minutes on the overlapping players. On nights simulated before the files were archived, engine MAE is 6.52. Dunks minutes against the actuals are 4.46 across all 1,694 compared players. November 1 is the night that already had both files: blend MAE 3.46, Dunks 2.49, 24 players. Weights stay 0.30 / 0.25 / 0.20. A full rotation is scaled back to the minutes-model total after the blend, so the blend does not add team minutes. Those totals are about 255–263, not 240. The sim draw still forces 240. `normalize_gap_close` stays 0. That hold was not put through a new 80-game reconcile.
 
 Tonight, November 5, reads `epm_2026-11-05.parquet` (529) and `box_2026-11-05.parquet` (55). Injury report had 15 entries. Projection means, not the 240 draw:
 
