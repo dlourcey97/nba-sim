@@ -1,6 +1,6 @@
 # Progress
 
-Last updated 2026-11-05 — Honest scoring is the baseline. Pre-debut stints stay on. March-April bench seating is on. A partial return blend is on (20% of the full blend). The 15-man cap, the fringe floor, lineup defense, matchup shares, and help defense stay off. Assist picks stay. Dunks files live in `DATA_DIR/external/dunks`, and `daily.py` loads a new CSV from that inbox.
+Last updated 2026-11-06 — Honest scoring is the baseline. Pre-debut stints stay on. March-April bench seating is on. A partial return blend is on (20% of the full blend). The 15-man cap, the fringe floor, lineup defense, matchup shares, and help defense stay off. Assist picks stay. Dunks files live in `DATA_DIR/external/dunks`, and `daily.py` loads a new CSV from that inbox.
 
 ## Dunks archive (2026-11-05)
 
@@ -20,7 +20,13 @@ Tonight, November 5, reads `epm_2026-11-05.parquet` (529) and `box_2026-11-05.pa
 | Devin Booker | 33.3 | 34.0 | 34.4 |
 | Bam Adebayo | 31.4 | 33.0 | 32.7 |
 
-The blend also pulls toward EPM minutes, so a player can land outside the engine and the box line. Tonight has not been simulated.
+The blend also pulls toward EPM minutes, so a player can land outside the engine and the box line. The November 5 sim is graded below. On the 52 players in that night's minutes file, Dunks minute MAE was 3.15 and the blend was 3.28.
+
+## November 5 grade (2026-11-06)
+
+Two games, 10,000 sims. Rosters went from 523 to 524: Norchad Omier added in Cleveland, Kevin McCullar Jr. added in Toronto, Riley Minix removed from Cleveland. Winners 1/2. Phoenix beat Orlando 117–104 after a median of Orlando by 6. Golden State beat Miami 120–100 after a median of Golden State by 8. Spread MAE 15.5, total MAE 5.5, total bias +2.5. Minute CRPS 2.29, points CRPS 2.72, minute MAE 3.09, points MAE 3.81, 10–90 coverage 91.3%. Confident picks 3/8 against a claimed 57.5%. The three hits were Giannis, Brandin Podziemski, and Stephen Curry, all assist windows. Double-doubles 5/8 against a claimed 30.3%. Season to date: 117 games, winners 68.4%, spread 11.6, total 16.0, total bias −2.06.
+
+Night reconcile, predicted mean sum versus the box score: minutes +0.2%, points +1.2%. Flags: rebounds +5.2%, assists −10.2%, steals −15.4%, blocks −8.9%, turnovers −19.8%. Two games, so these are not a retune. Storage 15.52 MiB.
 
 ## November 4 grade (2026-11-05)
 

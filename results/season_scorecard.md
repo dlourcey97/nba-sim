@@ -6,20 +6,20 @@ Graded from `prediction_history` after finals. No sportsbook lines or odds. Play
 
 | Metric | Value |
 | --- | ---: |
-| Games graded | 115 |
-| Winner accuracy | 68.7% |
-| Spread MAE (margin) | 11.55 |
-| Total MAE | 16.21 |
-| Player MIN CRPS | 5.00 |
-| Player PTS CRPS | 3.74 |
-| Player MIN MAE | 6.33 |
-| Player PTS MAE | 5.08 |
-| 10–90 coverage (player stats) | 84.6% |
-| Top confident picks hit rate | 60.6% (109/180) |
+| Games graded | 117 |
+| Winner accuracy | 68.4% |
+| Spread MAE (margin) | 11.62 |
+| Total MAE | 16.03 |
+| Player MIN CRPS | 4.94 |
+| Player PTS CRPS | 3.72 |
+| Player MIN MAE | 6.26 |
+| Player PTS MAE | 5.06 |
+| 10–90 coverage (player stats) | 84.8% |
+| Top confident picks hit rate | 59.6% (112/188) |
 | Top picks avg claimed confidence | 56.7% |
-| Double-double hit rate | 41.3% (26/63) |
-| Double-double avg claimed P(DD) | 44.6% |
-| Total bias (pred − actual) | -2.14 |
+| Double-double hit rate | 43.7% (31/71) |
+| Double-double avg claimed P(DD) | 43.0% |
+| Total bias (pred − actual) | -2.06 |
 
 ## Per night
 
@@ -39,7 +39,8 @@ Graded from `prediction_history` after finals. No sportsbook lines or odds. Play
 | 2026-11-01 | 4 | 100.0% | 5.75 | 26.75 | 4.25 | 2.86 | 3.36 | 4.07 | 4.72 | 2.09 | 1.31 | 0.67 | 0.31 | 91.6% | 5/8 (62.5%) | 60.5% | 0/8 (0.0%) | 28.1% |
 | 2026-11-02 | 15 | 73.3% | 11.73 | 16.33 | 0.20 | 3.77 | 3.30 | 4.97 | 4.65 | 1.83 | 1.26 | 0.55 | 0.42 | 89.5% | 4/8 (50.0%) | 66.3% | 4/8 (50.0%) | 59.5% |
 | 2026-11-04 | 14 | 57.1% | 12.14 | 10.29 | -3.00 | 4.28 | 3.46 | 5.57 | 4.91 | 1.98 | 1.28 | 0.58 | 0.47 | 87.6% | 3/8 (37.5%) | 65.1% | 7/8 (87.5%) | 54.4% |
-| Season | 115 | 68.7% | 11.55 | 16.21 | -2.14 | 5.00 | 3.74 | 6.33 | 5.08 | 2.06 | 1.31 | 0.63 | 0.42 | 84.6% | 109/180 (60.6%) | 56.7% | 26/63 (41.3%) | 44.6% |
+| 2026-11-05 | 2 | 50.0% | 15.50 | 5.50 | 2.50 | 2.29 | 2.72 | 3.09 | 3.81 | 1.60 | 1.42 | 0.56 | 0.38 | 91.3% | 3/8 (37.5%) | 57.5% | 5/8 (62.5%) | 30.3% |
+| Season | 117 | 68.4% | 11.62 | 16.03 | -2.06 | 4.94 | 3.72 | 6.26 | 5.06 | 2.05 | 1.31 | 0.63 | 0.42 | 84.8% | 112/188 (59.6%) | 56.7% | 31/71 (43.7%) | 43.0% |
 
 ## Notes
 
@@ -51,7 +52,7 @@ Separate from the season grade. These are healthy players we had at 0 minutes wh
 
 | Rows | Graded | Played 8+ | Minute MAE |
 | ---: | ---: | ---: | ---: |
-| 101 | 55 | 27 | 6.69 |
+| 102 | 55 | 27 | 6.69 |
 
 ## Dunks minutes vs the sim
 
@@ -70,7 +71,8 @@ Same players, same nights. Engine is the stored sim on nights whose Dunks files 
 | 2026-10-28 | 251 | 5.98 | 4.32 | — |
 | 2026-10-30 | 226 | 4.71 | 4.00 | — |
 | 2026-11-01 | 24 | — | 2.49 | 3.46 |
-| Compared | 1694 | 6.52 | 4.46 | 3.46 |
+| 2026-11-05 | 52 | — | 3.15 | 3.28 |
+| Compared | 1746 | 6.52 | 4.42 | 3.33 |
 
 ## 2026-10-20
 
@@ -3464,3 +3466,111 @@ Same players, same nights. Engine is the stored sim on nights whose Dunks files 
 | Tim Hardaway Jr. | MIA | 16.1/7 | 6.0/0 | 1.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | all |
 | Ryan Conwell | MIA | 2.0/17 | 0.0/0 | 0.0/2 | 0.0/2 | 0.0/0 | 0.0/0 | MIN,REB |
 | Simone Fontecchio | MIA | 0.0/5 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | MIN |
+
+## 2026-11-05
+
+| Metric | Value |
+| --- | ---: |
+| Games graded | 2 |
+| Winner accuracy | 50.0% |
+| Spread MAE | 15.50 |
+| Total MAE | 5.50 |
+| MIN MAE | 3.09 |
+| PTS MAE | 3.81 |
+| REB MAE | 1.60 |
+| AST MAE | 1.42 |
+| 10–90 coverage | 91.3% |
+| Top picks hit rate | 37.5% (3/8) |
+| Top picks avg claimed confidence | 57.5% |
+| Double-double hit rate | 62.5% (5/8) |
+| Double-double avg claimed P(DD) | 30.3% |
+
+### Games
+
+| Matchup | Pred winner | Actual | Hit | Pred score | Actual score | Pred margin | Act margin | Pred total | Act total |
+| --- | --- | --- | --- | --- | --- | ---: | ---: | ---: | ---: |
+| ORL@PHX | ORL (60%) | PHX | N | ORL 111 – PHX 106 | ORL 104 – PHX 117 | -6.0 | +13.0 | 218.0 | 221.0 |
+| MIA@GSW | GSW (63%) | GSW | Y | MIA 110 – GSW 118 | MIA 100 – GSW 120 | +8.0 | +20.0 | 228.0 | 220.0 |
+
+### Top confident picks
+
+| Player | Matchup | Stat | Range | Actual | Hit |
+| --- | --- | --- | --- | ---: | --- |
+| Desmond Bane | ORL vs PHX | AST | 2-6 | 0 | N |
+| Giannis Antetokounmpo | MIA vs GSW | AST | 2-6 | 4 | Y |
+| Devin Booker | PHX vs ORL | AST | 2-6 | 8 | N |
+| Brandin Podziemski | GSW vs MIA | AST | 2-6 | 3 | Y |
+| Franz Wagner | ORL vs PHX | AST | 3-7 | 15 | N |
+| Stephen Curry | GSW vs MIA | AST | 3-7 | 4 | Y |
+| Yaxel Lendeborg | GSW vs MIA | REB | 3-7 | 8 | N |
+| Miles Bridges | PHX vs ORL | REB | 4-8 | 13 | N |
+
+### Double-doubles
+
+| Player | Matchup | Pair | Claimed | Hit |
+| --- | --- | --- | ---: | --- |
+| Wendell Carter Jr. | ORL vs PHX | PTS+REB | 73.5% | Y |
+| Giannis Antetokounmpo | MIA vs GSW | PTS+REB | 59.1% | Y |
+| Bam Adebayo | MIA vs GSW | PTS+REB | 39.1% | Y |
+| Franz Wagner | ORL vs PHX | PTS+AST | 18.1% | Y |
+| Davion Mitchell | MIA vs GSW | PTS+AST | 15.8% | N |
+| Miles Bridges | PHX vs ORL | PTS+REB | 14.0% | Y |
+| Stephen Curry | GSW vs MIA | PTS+AST | 12.1% | N |
+| Yaxel Lendeborg | GSW vs MIA | PTS+REB | 10.6% | N |
+
+### Player grades (MIN / PTS / REB / AST / STL / BLK)
+
+| Player | Team | MIN pred/act | PTS | REB | AST | STL | BLK | in 10–90 (any miss listed) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Devin Booker | PHX | 33.5/34 | 16.0/30 | 2.0/1 | 4.0/8 | 1.0/3 | 0.0/0 | STL |
+| Stephen Curry | GSW | 28.1/28 | 20.0/29 | 4.0/1 | 5.0/4 | 1.0/1 | 0.0/0 | all |
+| Wendell Carter Jr. | ORL | 32.6/34 | 18.0/27 | 18.0/13 | 3.0/2 | 1.0/1 | 0.0/1 | all |
+| Dillon Brooks | PHX | 30.7/29 | 12.0/24 | 3.0/1 | 2.0/1 | 1.0/2 | 0.0/1 | all |
+| Davion Mitchell | MIA | 33.1/38 | 9.0/22 | 1.0/2 | 6.0/8 | 1.0/1 | 0.0/0 | PTS |
+| Giannis Antetokounmpo | MIA | 31.5/31 | 21.0/20 | 11.0/14 | 4.0/4 | 1.0/0 | 0.0/0 | all |
+| Miles Bridges | PHX | 31.0/31 | 12.0/18 | 6.0/13 | 2.0/5 | 1.0/2 | 0.0/0 | REB |
+| Tristan da Silva | ORL | 29.3/30 | 9.0/18 | 2.0/2 | 2.0/1 | 1.0/0 | 0.0/0 | all |
+| Bam Adebayo | MIA | 31.9/33 | 15.0/18 | 9.0/10 | 3.0/0 | 1.0/1 | 0.0/1 | AST |
+| Yaxel Lendeborg | GSW | 28.3/30 | 14.0/17 | 5.0/8 | 2.0/6 | 1.0/3 | 0.0/1 | STL |
+| Franz Wagner | ORL | 34.8/38 | 16.0/15 | 4.0/8 | 5.0/15 | 1.0/4 | 0.0/0 | AST,STL |
+| Desmond Bane | ORL | 34.7/32 | 15.0/15 | 2.0/6 | 4.0/0 | 1.0/0 | 0.0/0 | REB,AST |
+| Georges Niang | GSW | 18.9/22 | 7.0/13 | 3.0/4 | 1.0/3 | 0.0/1 | 0.0/0 | all |
+| Pelle Larsson | MIA | 28.7/29 | 8.0/13 | 1.0/1 | 3.0/4 | 1.0/3 | 0.0/0 | STL |
+| Ryan Conwell | MIA | 8.3/30 | 2.0/13 | 0.0/1 | 1.0/2 | 0.0/3 | 0.0/0 | MIN,PTS,STL |
+| Luke Kennard | PHX | 15.7/21 | 5.0/12 | 2.0/1 | 1.0/5 | 0.0/0 | 0.0/0 | AST |
+| Ryan Dunn | PHX | 18.8/25 | 4.0/11 | 4.0/3 | 1.0/3 | 0.0/0 | 0.0/1 | MIN |
+| Klay Thompson | MIA | 25.5/23 | 11.0/11 | 1.0/0 | 1.0/3 | 0.0/0 | 0.0/2 | BLK |
+| Anthony Black | ORL | 28.6/31 | 10.0/10 | 2.0/7 | 3.0/6 | 1.0/1 | 0.0/0 | REB |
+| Jase Richardson | ORL | 23.9/26 | 7.0/10 | 2.0/2 | 2.0/3 | 1.0/2 | 0.0/2 | BLK |
+| Will Richard | GSW | 19.3/16 | 4.0/10 | 1.0/0 | 1.0/2 | 0.0/0 | 0.0/1 | all |
+| Brandon Williams | GSW | 17.9/21 | 8.0/10 | 1.0/1 | 1.0/4 | 0.0/0 | 0.0/2 | BLK |
+| Brandin Podziemski | GSW | 30.8/32 | 11.0/9 | 3.0/6 | 4.0/3 | 1.0/1 | 0.0/1 | all |
+| Gary Payton II | GSW | 14.6/10 | 5.0/9 | 2.0/0 | 1.0/0 | 0.0/1 | 0.0/0 | all |
+| Khaman Maluach | PHX | 16.8/22 | 6.0/8 | 7.0/6 | 0.0/2 | 0.0/2 | 0.0/0 | all |
+| Al Horford | GSW | 17.9/18 | 3.0/8 | 3.0/5 | 1.0/1 | 0.0/0 | 0.0/0 | all |
+| Charles Bassey | GSW | 14.0/14 | 6.0/8 | 4.0/7 | 0.0/0 | 0.0/0 | 0.0/3 | BLK |
+| Jalen Green | PHX | 29.9/24 | 14.0/6 | 4.0/0 | 3.0/3 | 1.0/2 | 0.0/0 | REB |
+| Collin Gillespie | PHX | 24.7/24 | 7.0/6 | 2.0/2 | 4.0/2 | 1.0/3 | 0.0/0 | all |
+| Jamal Cain | ORL | 20.7/25 | 7.0/5 | 2.0/5 | 0.0/0 | 0.0/0 | 0.0/0 | REB |
+| De'Anthony Melton | GSW | 23.4/17 | 9.0/5 | 3.0/6 | 3.0/2 | 1.0/3 | 0.0/0 | MIN |
+| Goga Bitadze | ORL | 6.8/8 | 2.0/4 | 2.0/5 | 0.0/0 | 0.0/0 | 0.0/0 | all |
+| Oso Ighodaro | PHX | 21.8/24 | 6.0/2 | 4.0/5 | 2.0/1 | 0.0/0 | 0.0/1 | all |
+| Draymond Green | GSW | 23.2/27 | 6.0/2 | 6.0/5 | 6.0/11 | 1.0/1 | 0.0/1 | all |
+| Andrew Wiggins | MIA | 24.2/21 | 8.0/2 | 2.0/6 | 2.0/4 | 1.0/0 | 0.0/1 | REB |
+| Nikola Jović | MIA | 15.7/12 | 5.0/1 | 2.0/0 | 1.0/1 | 0.0/0 | 0.0/1 | all |
+| Pat Spencer | PHX | 5.6/2 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | all |
+| Duop Reath | PHX | 2.1/2 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | all |
+| Jamaree Bouyea | PHX | 3.8/2 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | all |
+| Koa Peat | PHX | 1.1/2 | 0.0/0 | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | all |
+| Jevon Carter | ORL | 14.0/3 | 5.0/0 | 1.0/0 | 1.0/0 | 0.0/0 | 0.0/0 | MIN |
+| Nikola Vučević | ORL | 9.8/4 | 4.0/0 | 3.0/0 | 1.0/0 | 0.0/0 | 0.0/0 | all |
+| Alex Morales | ORL | 7.2/6 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/1 | 0.0/0 | all |
+| Colin Castleton | ORL | 0.8/2 | 0.0/0 | 0.0/0 | 0.0/1 | 0.0/0 | 0.0/0 | all |
+| Graham Ike | GSW | 6.4/1 | 2.0/0 | 2.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | all |
+| Malevy Leons | GSW | 2.1/1 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | all |
+| LJ Cryer | GSW | 3.2/1 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | all |
+| Bobby Portis Jr. | MIA | 18.3/14 | 6.0/0 | 5.0/5 | 1.0/0 | 0.0/0 | 0.0/0 | all |
+| Tim Hardaway Jr. | MIA | 12.5/4 | 4.0/0 | 0.0/0 | 0.0/1 | 0.0/0 | 0.0/0 | all |
+| Dru Smith | MIA | 0.5/1 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | all |
+| Myron Gardner | MIA | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | MIN |
+| Nick Richards | MIA | 0.0/1 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | 0.0/0 | MIN |
