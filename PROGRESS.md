@@ -2,6 +2,22 @@
 
 Last updated 2026-11-07 — Honest scoring is the baseline. Pre-debut stints stay on. March-April bench seating stays on, and the 20% return blend stays on with it. The 15-man cap, the fringe floor, lineup defense, matchup shares, and help defense stay off. Assist picks stay. Dunks files live in `DATA_DIR/external/dunks`, and `daily.py` loads a new CSV from that inbox.
 
+## November 7 Dunks file (2026-11-07)
+
+Tonight reads `epm_2026-11-07.parquet` (530) and `box_2026-11-07.parquet` (202). The minutes file is the full published list, bench included. Eight of those rows are 0 minutes. A line under 1 minute does not enter the blend, so the other 194 do, including the deep bench. Every name matched a player id. Team minute sums in the file run from 238 to 243. They were stored as published.
+
+Projection means, not the 240 draw. Injury report had 34 entries. Team totals after the blend match the minutes model (Denver 256.7, Golden State 283.5, San Antonio 242.4).
+
+| Player | Engine | Dunks | Blend |
+| --- | ---: | ---: | ---: |
+| Nikola Jokić | 30.3 | 33.0 | 31.3 |
+| Stephen Curry | 29.6 | 28.0 | 30.1 |
+| Victor Wembanyama | 26.7 | 30.0 | 26.3 |
+| Al Horford | 19.3 | 16.0 | 19.1 |
+| Gary Payton II | 14.0 | 8.0 | 13.0 |
+
+Horford and Payton are the bench check. Payton is pulled from 14 toward 8. The team-total hold can leave a player a little outside both the engine mean and the Dunks line, which is what happens to Curry and Wembanyama. The sim draw still targets 240.
+
 ## November 6 grade (2026-11-07)
 
 Nine games, graded from the stored sims. The two 9 PM games use the late rerun. Rosters stayed at 524. Winners 8/9. Oklahoma City beat Memphis 128–97 after a median of Memphis by 1. Toronto 121, Milwaukee 107 matched the median on the nose. Spread MAE 9.0, total MAE 12.2, total bias −3.1. Minute CRPS 3.84, points CRPS 3.43, minute MAE 5.02, points MAE 4.86, 10–90 coverage 88.7%. Confident picks 6/8 against a claimed 66.1%. The misses were Sion James (0 assists) and Jrue Holiday (7). Double-doubles 5/8 against a claimed 50.3%. The misses were Isaiah Hartenstein, Rudy Gobert, and Joel Embiid. Season to date: 126 games, winners 69.8%, spread 11.4, total 15.8, total bias −2.13.
