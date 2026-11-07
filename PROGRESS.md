@@ -1,6 +1,14 @@
 # Progress
 
-Last updated 2026-11-06 — Honest scoring is the baseline. Pre-debut stints stay on. March-April bench seating stays on, and the 20% return blend stays on with it. The 15-man cap, the fringe floor, lineup defense, matchup shares, and help defense stay off. Assist picks stay. Dunks files live in `DATA_DIR/external/dunks`, and `daily.py` loads a new CSV from that inbox.
+Last updated 2026-11-07 — Honest scoring is the baseline. Pre-debut stints stay on. March-April bench seating stays on, and the 20% return blend stays on with it. The 15-man cap, the fringe floor, lineup defense, matchup shares, and help defense stay off. Assist picks stay. Dunks files live in `DATA_DIR/external/dunks`, and `daily.py` loads a new CSV from that inbox.
+
+## November 6 grade (2026-11-07)
+
+Nine games, graded from the stored sims. The two 9 PM games use the late rerun. Rosters stayed at 524. Winners 8/9. Oklahoma City beat Memphis 128–97 after a median of Memphis by 1. Toronto 121, Milwaukee 107 matched the median on the nose. Spread MAE 9.0, total MAE 12.2, total bias −3.1. Minute CRPS 3.84, points CRPS 3.43, minute MAE 5.02, points MAE 4.86, 10–90 coverage 88.7%. Confident picks 6/8 against a claimed 66.1%. The misses were Sion James (0 assists) and Jrue Holiday (7). Double-doubles 5/8 against a claimed 50.3%. The misses were Isaiah Hartenstein, Rudy Gobert, and Joel Embiid. Season to date: 126 games, winners 69.8%, spread 11.4, total 15.8, total bias −2.13.
+
+The late rerun had written a second pick list for Portland, the Lakers, San Antonio, and Sacramento. Those extra rows were removed. Harper, Holiday, and the four double-doubles from those games keep the windows and claimed rates from the slate report.
+
+Night reconcile, predicted mean sum versus the box score: minutes +0.1%, points −1.2%, rebounds +0.7%, assists +0.4%, turnovers +0.3%. Flags: steals +8.8%, blocks +19.3%. One night, so these are not a retune. Storage 15.56 MiB.
 
 ## March-April stack (2026-11-06)
 
