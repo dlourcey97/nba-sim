@@ -63,6 +63,11 @@ class GameSimResult:
     # Points scored in each regulation period: shape (n_runs, 4).
     home_period_pts: np.ndarray | None = None
     away_period_pts: np.ndarray | None = None
+    # Player points, rebounds, and assists in Q3–Q4 only. Shape (players, runs).
+    # Filled when simulate_game is called with split_half=True.
+    second_pts: np.ndarray | None = None
+    second_reb: np.ndarray | None = None
+    second_ast: np.ndarray | None = None
     # Optional single-run possession narrative (typical-game hook).
     possession_log: PossessionLog | None = None
 
@@ -74,12 +79,18 @@ def simulate_game(
     seed: int | None = None,
     config: dict | None = None,
     trace_run: int | None = None,
+    split_half: bool = False,
+    resume: object | None = None,
 ) -> GameSimResult:
     """Simulate one game. Default runs/seed come from config.yaml when omitted.
 
     ``trace_run`` (0-based) records a compact possession log for that single run
     only. Re-run with the same seed and ``trace_run`` after picking the typical
     sim index so the log matches the Monte Carlo cloud.
+
+    ``resume`` is a ``ResumeState``. When it is omitted the game starts at tip
+    and this path is unchanged. When it is set, only the remaining regulation
+    is played from that score, clock, and box.
     """
     cfg = config or {}
     sim_cfg = cfg.get("simulation", {})
@@ -119,16 +130,33 @@ def simulate_game(
         [0.0 if p.minutes.out else float(p.minutes.max_minutes) for p in players],
         dtype=float,
     )
-    for pool in (home_idx, away_idx):
-        minutes[pool] = normalize_team_minute_draws(
-            minutes[pool],
-            out_mask=out_mask[pool],
-            caps=caps[pool],
-            target=team_target,
+    if resume is None:
+        for pool in (home_idx, away_idx):
+            minutes[pool] = normalize_team_minute_draws(
+                minutes[pool],
+                out_mask=out_mask[pool],
+                caps=caps[pool],
+                target=team_target,
+                min_minutes=min_minutes,
+            )
+    else:
+        from sim.resume import apply_resume_minutes
+
+        apply_resume_minutes(
+            minutes,
+            players,
+            resume,
+            home_idx,
+            away_idx,
+            team_target=team_target,
             min_minutes=min_minutes,
         )
 
     packed = _pack_rates(players)
+    if resume is not None:
+        from sim.resume import apply_resume_rates
+
+        apply_resume_rates(packed, players, resume)
     packed["assist_matrix"] = _assist_matrix(
         players, getattr(projection, "assist_network", None) or {}
     )
@@ -188,6 +216,11 @@ def simulate_game(
         rotation=None if flat_lineups else rotation,
         flat=flat_lineups,
     )
+    if resume is not None:
+        from sim.resume import pin_on_court
+
+        pin_on_court(home_grid, home_idx, resume.home.on_court, players, resume.period_index, rng)
+        pin_on_court(away_grid, away_idx, resume.away.on_court, players, resume.period_index, rng)
 
     sim_cfg = cfg.get("simulation", {})
     packed["assist_p_scale"] = float(sim_cfg.get("assist_p_scale", 1.0))
@@ -241,11 +274,19 @@ def simulate_game(
     foul_prob = float(
         sim_cfg.get("intentional_foul_prob", game_state.intentional_foul_prob)
     )
+    if resume is not None:
+        from sim.resume import resume_foul_prob
+
+        foul_prob = resume_foul_prob(foul_prob, resume)
     pace_adjusted = np.zeros(n_runs, dtype=bool)
 
     pts = np.zeros((n_players, n_runs), dtype=float)
     reb = np.zeros((n_players, n_runs), dtype=float)
     ast = np.zeros((n_players, n_runs), dtype=float)
+    half_pts = np.zeros_like(pts) if split_half else None
+    half_reb = np.zeros_like(reb) if split_half else None
+    half_ast = np.zeros_like(ast) if split_half else None
+    half_taken = np.zeros(n_runs, dtype=bool) if split_half else None
     fg3m = np.zeros((n_players, n_runs), dtype=float)
     stl = np.zeros((n_players, n_runs), dtype=float)
     blk = np.zeros((n_players, n_runs), dtype=float)
@@ -266,6 +307,27 @@ def simulate_game(
 
     offense_home = rng.random(n_runs) < 0.5
     endings = np.zeros(n_runs, dtype=np.int32)
+    if resume is not None:
+        from sim.resume import seed_resume_score
+
+        (
+            endings,
+            last_period_idx,
+            period_home_start,
+            period_away_start,
+            offense_mask,
+        ) = seed_resume_score(
+            pts=pts,
+            reb=reb,
+            ast=ast,
+            home_pts=home_pts,
+            away_pts=away_pts,
+            players=players,
+            resume=resume,
+            base_target=base_target,
+        )
+        if offense_mask is not None:
+            offense_home = offense_mask
     # Allow extra iterations for OREB retries (typical OREB rate ~25% of misses).
     max_iters = int(base_target.max() * 1.55) + 20
     run_ids = np.arange(n_runs)
@@ -284,6 +346,13 @@ def simulate_game(
             close_thr=close_thr,
             blowout_thr=blowout_thr,
         )
+        if half_taken is not None and half_pts is not None and half_reb is not None and half_ast is not None:
+            cross = ~half_taken & (period_idx >= 2)
+            if np.any(cross):
+                half_pts[:, cross] = pts[:, cross]
+                half_reb[:, cross] = reb[:, cross]
+                half_ast[:, cross] = ast[:, cross]
+                half_taken |= cross
         # Snapshot points when a run rolls into a new quarter.
         rolled = active & (period_idx > last_period_idx)
         if np.any(rolled):
@@ -387,6 +456,17 @@ def simulate_game(
         home_period_pts[in_period, p] = home_pts[in_period] - period_home_start[in_period]
         away_period_pts[in_period, p] = away_pts[in_period] - period_away_start[in_period]
     clock_remaining = np.maximum(0.0, clock_remaining)
+
+    second_pts = second_reb = second_ast = None
+    if half_taken is not None and half_pts is not None and half_reb is not None and half_ast is not None:
+        missed = ~half_taken
+        if np.any(missed):
+            half_pts[:, missed] = pts[:, missed]
+            half_reb[:, missed] = reb[:, missed]
+            half_ast[:, missed] = ast[:, missed]
+        second_pts = pts - half_pts
+        second_reb = reb - half_reb
+        second_ast = ast - half_ast
 
     overtime = np.zeros(n_runs, dtype=bool)
     ot_periods = np.zeros(n_runs, dtype=np.int32)
@@ -513,6 +593,9 @@ def simulate_game(
         clock_remaining=clock_remaining,
         home_period_pts=home_period_pts,
         away_period_pts=away_period_pts,
+        second_pts=second_pts,
+        second_reb=second_reb,
+        second_ast=second_ast,
         possession_log=possession_log,
     )
 

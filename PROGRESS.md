@@ -1,10 +1,30 @@
 # Progress
 
-Last updated 2026-11-07 — Honest scoring is the baseline. Pre-debut stints stay on. March-April bench seating stays on, and the 20% return blend stays on with it. The 15-man cap, the fringe floor, lineup defense, matchup shares, and help defense stay off. Assist picks stay. Dunks files live in `DATA_DIR/external/dunks`, and `daily.py` loads a new CSV from that inbox.
+Last updated 2026-11-09 — Honest scoring is the baseline. Pre-debut stints stay on. March-April bench seating stays on, and the 20% return blend stays on with it. The 15-man cap, the fringe floor, lineup defense, matchup shares, and help defense stay off. Assist picks stay. Dunks files live in `DATA_DIR/external/dunks`, and `daily.py` loads a new CSV from that inbox. The live re-sim is a separate command and does not change a pregame run.
+
+## Live re-sim (2026-11-09)
+
+`python live.py --game MIA-SAC` reads the live box and play-by-play and starts 10,000 new sims from that state. A game id, one team, or `MIA-XXX` works the same way. It does not filter the pregame sims and it does not write prediction history. Passing no resume state leaves `run.py` on the old path.
+
+The state is the score, period, clock, possession, each player's minutes, points, rebounds, assists, and fouls, who is on the floor, team fouls and bonus, and timeouts. Counting stats come from the box. The ball, the foul count, and a past horn come from the play-by-play only through that moment.
+
+Rates start at the pregame projection. Tonight's usage, free-throw rate, assist rate, and shooting move them by possessions so far over possessions so far plus 250, so one half is about a sixth of the way from the pregame rate to tonight's rate. Six fouls is a disqualification. Five fouls before the fourth quarter, and four in the first half, cut the remaining minutes. Blowout lineups stay the bench group. In the fourth quarter, under three minutes, with the trailing team out of timeouts, the intentional-foul rate goes up.
+
+The report gives the win percent from here, the final score band, the rest-of-game band, the points still to score in each quarter, and each player's remaining and final points, rebounds, and assists as a 10th–90th band with the median. Remaining and final are separate tables.
+
+A halftime replay of Miami at Sacramento (`0022600202`), injury report included, 10,000 runs, took 57 seconds.
+
+The grade uses 400 runs so a season can finish. It replays from the halftime horn and from the end of the third, using play-by-play only through that horn, and scores only the rest of the game. The baseline is the pregame counting projection scaled by the fraction of regulation still left, with a normal win probability around that remaining margin. It was stopped at 1,075 of 1,314 finals, from 2025-10-22 through Chicago at Philadelphia on 2026-03-25. Opening night, the two games on 2025-10-21, has no prior final and stays out. None of the 1,075 were skipped. Wall clock was 3.0 hours.
+
+Halftime, 1,075 games: Brier 0.165 against a baseline 0.172. Remaining margin MAE 9.06 against 8.98. Remaining total MAE 11.30 against 12.28. Player remaining CRPS for points, rebounds, and assists: 2.57, 1.02, 0.66. Sim MAE 3.39, 1.37, 0.91 against a baseline 3.35, 1.39, 1.00. 10–90 coverage 84.2%, 85.1%, 87.8%.
+
+End of the third, same games: Brier 0.130 against 0.132. Remaining margin MAE 6.80 against 6.70. Remaining total MAE 8.25 against 8.12. CRPS 1.85, 0.73, 0.43. Sim MAE 2.48, 1.00, 0.62 against a baseline 2.29, 0.92, 0.69. Coverage 82.0%, 83.9%, 87.0%.
+
+Win probability and the halftime remaining total are closer than the scaled pregame line. The remaining margin is a tenth of a point worse at both checkpoints. Player points are about even at the half and a little worse after three quarters. Assists are closer than the baseline at both stops. This is not a retune.
 
 ## November 7 Dunks file (2026-11-07)
 
-Tonight reads `epm_2026-11-07.parquet` (530) and `box_2026-11-07.parquet` (202). The minutes file is the full published list, bench included. Eight of those rows are 0 minutes. A line under 1 minute does not enter the blend, so the other 194 do, including the deep bench. Every name matched a player id. Team minute sums in the file run from 238 to 243. They were stored as published.
+Tonight reads `epm_2026-11-07.parquet` (530) and `box_2026-11-07.parquet` (202). The minutes file is the full published list, bench included. The Denver-Indiana game page is the same projection with exact minutes, so those two teams were updated from the rounded list. Denver now sums to 239.9 and Indiana to 240.1. Zeke Nnaji (0.9) and DaRon Holmes II (0.6) fall under 1 minute and stay out of the blend. The other five games are still the rounded list. A line under 1 minute does not enter the blend. Every name matched a player id.
 
 Projection means, not the 240 draw. Injury report had 34 entries. Team totals after the blend match the minutes model (Denver 256.7, Golden State 283.5, San Antonio 242.4).
 

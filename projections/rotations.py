@@ -545,14 +545,18 @@ def _fit_replacements_from_logs(
     avg: dict[tuple[int, int], float] = {
         k: sum_min[k] / count[k] for k in sum_min if count[k] >= 3
     }
+    usual_by_team: dict[int, list[int]] = defaultdict(list)
+    for (team_id, player_id), mean_m in avg.items():
+        if mean_m >= 12.0:
+            usual_by_team[team_id].append(player_id)
 
     for game_date, team_id, _gid, players in games:
         w = _recency_weight(game_date, as_of, half_life_days)
         # Usual rotation players who sat this game.
         out_candidates = [
             pid
-            for (tid, pid), mean_m in avg.items()
-            if tid == team_id and mean_m >= 12.0 and players.get(pid, 0.0) <= 0.5
+            for pid in usual_by_team.get(team_id, ())
+            if players.get(pid, 0.0) <= 0.5
         ]
         if not out_candidates:
             continue
