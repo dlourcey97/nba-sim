@@ -1,6 +1,26 @@
 # Progress
 
-Last updated 2026-11-09 — Honest scoring is the baseline. Pre-debut stints stay on. March-April bench seating stays on, and the 20% return blend stays on with it. The 15-man cap, the fringe floor, lineup defense, matchup shares, and help defense stay off. Assist picks stay. Dunks files live in `DATA_DIR/external/dunks`, and `daily.py` loads a new CSV from that inbox. The live re-sim is a separate command and does not change a pregame run.
+Last updated 2026-11-10 — Star scoring is light on the mean, team totals are not. No November flag moves it. The model is unchanged; the fix is not applied yet.
+
+## Star scoring (2026-11-10)
+
+Findings only. The projection, the usage renormalization, and the reconcile guardrail are unchanged.
+
+Last night's stored Luka line (Lakers at Atlanta, `0022600203`, 10,000 runs) is a median of 26 and a mean of 27.3, on a median 39.2 minutes (mean 37.5). The 10th percentile is 9, so a little more than one sim in ten scored under 10. His 2026-27 line is 40.1 points, 35.9 minutes, 24.6 field-goal attempts, 11.3 free-throw attempts, 13.8 threes, and 1.63 points per field-goal attempt. The ~20 the recent slates showed is the earlier pattern (Nov 1 was 20 on 30.7 minutes, Nov 2 was 19, Nov 6 was 20). Nov 9 is the high night and it is still about 13 points under his season rate.
+
+A rebuild of that game on current code, with the Nov 9 injury archive (it has no Lakers-at-Atlanta list, so Austin Reaves is available and the minute line is 33.6 rather than the stored 37.5), gives play probability 0.96, usage 0.344, 18.5 field-goal attempts, 8.7 free-throw attempts, 9.7 threes, 1.17 points per shot, and 28.9 expected points. The minutes-weighted usage scale that night is about 1.0 (0.95 to 1.03). It is not hitting the 0.70 floor. Dunks (EPM 0.30) moves him from 28.2 to 28.9. Turning off the return blend, the role prior, or March-April seating does not move him. Turning off the rotation play probability moves him to 29.3. Zeroing the defense weights moves the points-per-shot from 1.17 to 1.16 and the expected points to 28.6. Lineup defense, help defense, and matchup shares are already off.
+
+His rate-table usage is 0.314. His box usage, (field goals + 0.44 × free throws + turnovers) divided by pace × minutes / 48, is 0.464. The possession count credited to him is 1.30× what his minutes and the team pace imply, and usage is shots divided by that count, so the rate is diluted. 40.1 × 0.314 / 0.464 is 27, which is last night's mean. The same parser runs the other way for other players: Tyrese Maxey's stored usage is 0.516 against a box usage of 0.329, and Cade Cunningham's is 0.547 against 0.366. Team possession totals still match pace (about 95 against a recorded 99). The shots are assigned to the wrong teammates. `ingest/parse.py` has not changed since Nov 1.
+
+Top 30 scorers, last seven slates (Nov 2 through Nov 9), each player's slate-average minus his season average: median points −8.80, mean points −7.28, median minutes −4.35. On the 69 player-games where the projected median minutes were already at least 30: median points −7.02, mean points −5.45, minutes −0.94. All 30 are negative. Minutes explain the nights a star is projected near 23. They do not explain the nights he is already at 30.
+
+Across 80 team-games with a final score, the sum of player median points averages 91.3 and the actual team score averages 112.7, a gap of −21.5. The sum of player means is 112.1, the team's median simulated points 111.9, and the team's mean simulated points 112.1. The 21-point gap is the median sitting below the mean. The team total is within a point. Players who played at least 15 minutes (645 rows) have a mean error of −1.97 and a median error of −3.44. The top 30 who played at least 20 (77 rows) have a mean error of −6.62. The points the stars do not get are on their teammates, which is why the team total holds.
+
+Fourteen games from Nov 2 to Nov 6 missed the final margin by 15 or more. The large ones are a single star beating his mean by 12 to 22: Shai 43 against 20.5 (Oklahoma City at Cleveland, Nov 2, we had Cleveland by 13, Oklahoma City won by 5), Brunson 33 against 18.7, Cade 33 against 19.2, Tatum 34 against 16.6 (Boston by 17 at Charlotte, and Boston won by 39), Jokić 32 against 17.6, Booker 30 against 17.7, Davis 27 against 15.7. Teammates on that side usually came in under their means, so the star gap is bigger than the team gap, and it is large enough to be the margin. Cleveland's own stars in the Nov 2 game scored 17, 16, and 14 against projections of 17.8, 15.5, and 14.9. They were not the miss. Last night we had Cleveland 118, Charlotte 103 (Cleveland by 15). The final was Cleveland 112, Charlotte 124. Mitchell, Mobley, and Harden were projected for 19, 16, and 15 and scored 11, 12, and 11. Grayson Allen and Naz Reid were projected for 13 and 15 and scored 27 and 25. Raising Cleveland's stars would have made that spread worse.
+
+The slate box now prints the mean in parentheses next to the median. No prop file was provided, so there is no market comparison. Props stay off the sim either way.
+
+Pre-debut stints stay on. March-April bench seating stays on, and the 20% return blend stays on with it. The 15-man cap, the fringe floor, lineup defense, matchup shares, and help defense stay off. Assist picks stay. Dunks files live in `DATA_DIR/external/dunks`, and `daily.py` loads a new CSV from that inbox. The live re-sim is a separate command and does not change a pregame run.
 
 ## Live re-sim (2026-11-09)
 

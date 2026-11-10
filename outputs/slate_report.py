@@ -143,6 +143,8 @@ def _game_section(summary: GameSummary, started: dict[int, bool]) -> list[str]:
         "",
         "#### Projected box score",
         "",
+        "Each cell is the median, with the mean in parentheses.",
+        "",
     ]
 
     for side, abbr in (("Away", summary.away_abbr), ("Home", summary.home_abbr)):
@@ -170,4 +172,5 @@ def _game_section(summary: GameSummary, started: dict[int, bool]) -> list[str]:
 
 
 def _r(player: PlayerSummary, stat: str) -> str:
-    return f"{player.stats[stat].p50:.1f}"
+    summary = player.stats[stat]
+    return f"{summary.p50:.1f} ({summary.mean:.1f})"
