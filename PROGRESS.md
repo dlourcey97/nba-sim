@@ -1,6 +1,30 @@
 # Progress
 
-Last updated 2026-11-10 — Star scoring is light on the mean, team totals are not. No November flag moves it. The model is unchanged; the fix is not applied yet.
+Last updated 2026-11-10 — Usage rebase measured and reverted. Star points stay low. Team totals were already close. The top-30 check is on the reconcile guardrail and it fails, so a nightly slate stops until that gap is inside 5%.
+
+## Usage rebase (2026-11-10) — REVERTED from sim
+
+The play-by-play lineup credit does not match minutes. Team pace is about right (implied pace ~95 against a recorded ~99). Individual credit is not. A star marked on the floor too often gets a diluted usage. A teammate the parser misses gets an inflated one. The approved change rebases each game onto offensive possessions = pace × minutes / 48 and uses = FGA + 0.44×FTA + TOV, so usage = uses / offensive. That path is `align_box_usage`. It is off. The historical `player_game_rates` files were not rewritten. New ingest follows the flag, so tonight's games stay on the play-by-play credit.
+
+The call is revert. Full 2025-26 and the 2024-25 holdout, 1,000 sims, seed 1, four workers. Before is align off, Dunks usage ceiling 0.45, and the point-line usage scale on. After is align on, ceiling 0.60, and the point-line scale off. Paired difference is after minus before. A metric counts only when the 95% interval excludes zero.
+
+2025-26, 1,314 games. Before: minute MAE 7.355, points 5.224, rebounds 2.103, assists 1.393, spread 12.012, total 15.881, bias −2.57, Brier 0.2137. After: minute MAE 7.355, points 5.246, rebounds 2.094, assists 1.390, spread 12.011, total 15.947, bias −3.10, Brier 0.2136. Brier −0.0001 (−0.0011 to +0.0009). Spread −0.001 (−0.049 to +0.048). Total +0.066 (+0.014 to +0.119), worse. Scoring time 8,583 seconds then 2,506. The first pass was the slow one.
+
+2024-25, 1,313 games. Before: minute MAE 7.374, points 5.280, rebounds 2.165, assists 1.389, spread 11.652, total 17.342, bias −10.55, Brier 0.2141. After: minute MAE 7.374, points 5.319, rebounds 2.159, assists 1.390, spread 11.657, total 17.160, bias −10.17, Brier 0.2133. Brier −0.0008 (−0.0021 to +0.0004). Spread +0.005 (−0.063 to +0.066). Total −0.181 (−0.244 to −0.118), better. Scoring time about 2,500 seconds a side.
+
+Spread and Brier are noise in both seasons. Totals move, in opposite directions, and the season we are projecting got worse. That is not a keep.
+
+Cade and Maxey were not a projection that used the inflated table. Stored 2026-27 usage, minutes at least 20 and at least 8 games: Cade 0.547 against a box usage of 0.366, Maxey 0.516 against 0.329, Luka 0.314 against 0.464. The sim never reads 0.547. The multi-season blend and the 30% EPM mix land them near 0.28–0.38. Detroit at Charlotte on Nov 2 (`0022600159`), align off, 1,000 sims: Cade usage 0.382, median minutes 27.8, median points 17, mean 18.6. His season is 24.0 points on 33.4 minutes, about 24 per 36, and 18.6 on 27.8 minutes is that rate. The stored slate that night was a mean of 19.2. Actual 33 was the outlier above the season rate. Align on pulled him the wrong way: usage 0.328, median 14, mean 16.3, because the box 0.366 then mixes toward an EPM usage near 0.30. Maxey, Chicago at Philadelphia (`0022600163`), align off: usage 0.292, minutes 31.3, median 18, mean 19.9, against a season 26.9. Align on: usage 0.281, median 17, mean 19.0. There is no `box_2026-11-02.parquet`, so the point-line usage pull did not fire that night, and both final usages were already under the old 0.45 ceiling. The ceiling and the point-line pull are the wrong rescales. They were not this contradiction. They went back on with the revert.
+
+The remaining share gap is the on-court five. Five high-minute players can sum to about 1.20 in box usage, and the sim scores the lineup by relative weights, so a star gets usage / sum(five) rather than his box share. Luka on Nov 9, align on, 2,000 runs: usage 0.396 against a box 0.464, median minutes 32.4, median points 23, mean 24.7, 10th percentile 6. Season is 40.1 points on 35.9 minutes. Align off was a mean of 22.2. That injury archive has no Lakers-at-Atlanta list, so Reaves stayed available and the minutes are not the stored 37.5. Forcing every teammate to keep his own box usage would count the same possession twice and move the team total, which was already within about a point.
+
+Last seven slates, Nov 2 through Nov 9, 40 finals, 1,000 sims, seed 1. High-minute top 30 means projected median minutes of at least 30. Before: n=15, median points gap −9.66, mean −7.97, minutes −4.33. After: n=15, median −9.73, mean −7.94, minutes −4.31. The gap did not move, and those minutes are still about 4 under the season average, so the "minutes are right" bar was not met. Share of sims where a top-30 scorer finishes under half his season average: 0.393 before and 0.397 after, against 0.051 in the actuals, n=82 player-games. That tail was not retuned. Team totals, 80 team-games: before, sum of medians −22.46, sum of means −1.34, team sim median −1.49, team sim mean −1.34. After: −22.52, −1.05, −1.19, −1.05. The mean team total stays inside about 1 point. The 22-point median gap is still the median sitting under the mean.
+
+Reconcile on the after config, 80 games, 80 sims, skip 400, seed 1: failed. Team rebounds +3.28% and turnovers −3.37%. Starter points −3.44%. Top 30 by projected usage, at least 3 prior games and a projected mean minute of at least 1: points −28.43%, minutes −16.71%, n=30. Team points −0.55%, team minutes −0.39%. The top-30 check is now part of `passed`. `daily.py` refuses the slate when it fails. It will refuse until star points and minutes are inside 5% of the entering per-game averages.
+
+The Oklahoma City at Portland box from tonight was simulated with the rebase on, before this revert. Portland 117 (117.2), Oklahoma City 113 (112.7), Portland 58.1%.
+
+## Star scoring (2026-11-10)
 
 ## Star scoring (2026-11-10)
 

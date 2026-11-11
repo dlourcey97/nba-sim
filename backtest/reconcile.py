@@ -60,8 +60,13 @@ class ReconcileReport:
     role_flags: list[str] = field(default_factory=list)
     top_rebounders: list[dict[str, Any]] = field(default_factory=list)
     top_scorers: list[dict[str, Any]] = field(default_factory=list)
+    star_flags: list[str] = field(default_factory=list)
+    star_pts_delta_pct: float = 0.0
+    star_min_delta_pct: float = 0.0
+    star_players: int = 0
     passed: bool = False
     threshold_pct: float = 3.0
+    star_threshold_pct: float = 5.0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -78,8 +83,13 @@ class ReconcileReport:
             "role_flags": self.role_flags,
             "top_rebounders": self.top_rebounders,
             "top_scorers": self.top_scorers,
+            "star_flags": self.star_flags,
+            "star_pts_delta_pct": self.star_pts_delta_pct,
+            "star_min_delta_pct": self.star_min_delta_pct,
+            "star_players": self.star_players,
             "passed": self.passed,
             "threshold_pct": self.threshold_pct,
+            "star_threshold_pct": self.star_threshold_pct,
         }
 
 
@@ -224,6 +234,32 @@ def prior_season_rates(
     return out
 
 
+def _entering_per_game(
+    logs: dict[tuple, dict],
+) -> dict[tuple[int, str], tuple[float, float, int]]:
+    """Per-game averages from games strictly before this one.
+
+    Keyed by (player_id, game_id). Value is (points per game, minutes per game, games).
+    """
+    ordered = sorted(
+        logs.values(),
+        key=lambda row: (row["game_date"], str(row["game_id"])),
+    )
+    running: dict[int, list[float]] = defaultdict(lambda: [0.0, 0.0, 0.0])
+    out: dict[tuple[int, str], tuple[float, float, int]] = {}
+    for row in ordered:
+        pid = int(row["player_id"])
+        games, pts, minutes = running[pid]
+        if games >= 1:
+            out[(pid, str(row["game_id"]))] = (pts / games, minutes / games, int(games))
+        running[pid] = [
+            games + 1.0,
+            pts + float(row.get("pts") or 0.0),
+            minutes + float(row.get("minutes") or 0.0),
+        ]
+    return out
+
+
 def run_walkforward_reconcile(
     settings,
     *,
@@ -275,6 +311,8 @@ def run_walkforward_reconcile(
     player_act: dict[int, dict[str, list[float]]] = defaultdict(
         lambda: {"min": [], "pts": [], "reb": []}
     )
+    entering = _entering_per_game(logs)
+    star_obs: dict[int, list[tuple[float, float, float, float, float]]] = defaultdict(list)
 
     cache = ProjectionCache()
     games = 0
@@ -306,6 +344,7 @@ def run_walkforward_reconcile(
             continue
         sim = simulate_game(projection, runs=runs, seed=seed + games, config=cfg)
         summary = summarize_game(projection, sim)
+        usage_by_id = {int(p.player_id): float(p.rates.usage) for p in projection.players}
         sim_team["possessions"] += float(sim.home_possessions) + float(
             sim.away_possessions
         )
@@ -338,6 +377,17 @@ def run_walkforward_reconcile(
                 act_team["fg3m"] += float(actual.get("fg3m") or 0)
                 act_team["fta"] += float(actual.get("fta") or 0)
                 act_team["ftm"] += float(actual.get("ftm") or 0)
+                prior = entering.get((int(player.player_id), str(summary.game_id)))
+                if prior is not None and prior[2] >= 3 and float(player.stats["min"].mean) >= 1.0:
+                    star_obs[int(player.player_id)].append(
+                        (
+                            usage_by_id.get(int(player.player_id), 0.0),
+                            float(player.stats["pts"].mean),
+                            float(player.stats["min"].mean),
+                            prior[0],
+                            prior[1],
+                        )
+                    )
                 if player.player_id in watch_ids:
                     player_sim[player.player_id]["min"].append(player.stats["min"].mean)
                     player_sim[player.player_id]["pts"].append(player.stats["pts"].mean)
@@ -454,6 +504,36 @@ def run_walkforward_reconcile(
         )
         if k in full_actual
     }
+    star_ranked = []
+    for pid, obs in star_obs.items():
+        if len(obs) < 3:
+            continue
+        star_ranked.append(
+            (
+                float(np.mean([item[0] for item in obs])),
+                float(np.mean([item[1] for item in obs])),
+                float(np.mean([item[2] for item in obs])),
+                float(np.mean([item[3] for item in obs])),
+                float(np.mean([item[4] for item in obs])),
+            )
+        )
+    star_ranked.sort(key=lambda item: -item[0])
+    top_stars = star_ranked[:30]
+    star_pts_delta = 0.0
+    star_min_delta = 0.0
+    star_flags: list[str] = []
+    if len(top_stars) >= 15:
+        proj_pts = float(np.mean([item[1] for item in top_stars]))
+        proj_min = float(np.mean([item[2] for item in top_stars]))
+        recent_pts = float(np.mean([item[3] for item in top_stars]))
+        recent_min = float(np.mean([item[4] for item in top_stars]))
+        star_pts_delta = _pct_delta(proj_pts, recent_pts)
+        star_min_delta = _pct_delta(proj_min, recent_min)
+        if abs(star_pts_delta) > 5.0:
+            star_flags.append("pts")
+        if abs(star_min_delta) > 5.0:
+            star_flags.append("min")
+
     report = ReconcileReport(
         season=season,
         games=games,
@@ -468,12 +548,16 @@ def run_walkforward_reconcile(
         role_flags=role_flags,
         top_rebounders=_player_rows(top_reb, "reb"),
         top_scorers=_player_rows(top_pts, "pts"),
+        star_flags=star_flags,
+        star_pts_delta_pct=star_pts_delta,
+        star_min_delta_pct=star_min_delta,
+        star_players=len(top_stars),
         threshold_pct=threshold_pct,
     )
     # Guardrail: ANY team or role flag over threshold blocks projections.
     # (Previously MIN / starter-MIN / BLK-role were informational and the
     # 10-23 slate shipped despite MIN +7.8%, TOV −13%, starter shares −5–8%.)
-    report.passed = not team_flags and not role_flags
+    report.passed = not team_flags and not role_flags and not star_flags
     _ = sample_act  # sample-matched actuals available for future FG instrumentation
     return report
 
@@ -484,6 +568,7 @@ def format_report(report: ReconcileReport) -> str:
         "",
         f"Games: {report.games} | team-games: {report.team_games} | "
         f"threshold: ±{report.threshold_pct:.0f}% | "
+        f"stars ±{report.star_threshold_pct:.0f}% | "
         f"**{'PASS' if report.passed else 'FAIL'}**",
         "",
         "## League totals (per team-game)",
@@ -548,7 +633,20 @@ def format_report(report: ReconcileReport) -> str:
             f"{row['prior_per36']:.1f} |"
         )
 
-    lines.extend(["", "## Top scorers (sim vs sample act vs prior per-36)", ""])
+    lines.extend(
+        [
+            "",
+            "## Top 30 usage (projected vs entering per-game)",
+            "",
+            f"Players: {report.star_players} | "
+            f"PTS {report.star_pts_delta_pct:+.1f}% | "
+            f"MIN {report.star_min_delta_pct:+.1f}% | "
+            f"{'FLAG ' + ','.join(report.star_flags) if report.star_flags else 'ok'}",
+            "",
+            "## Top scorers (sim vs sample act vs prior per-36)",
+            "",
+        ]
+    )
     lines.append(
         "| Player | Sim MIN | Sim PTS | Sim/36 | Act PTS | Prior PTS | Prior/36 |"
     )

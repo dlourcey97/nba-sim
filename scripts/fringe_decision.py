@@ -156,6 +156,12 @@ def _guardrail(settings, config: dict) -> None:
     print(f"RECONCILE passed={report.passed} games={report.games}", flush=True)
     print(f"team_flags={report.team_flags}", flush=True)
     print(f"role_flags={report.role_flags}", flush=True)
+    print(
+        f"star_flags={report.star_flags} "
+        f"PTS {report.star_pts_delta_pct:+.2f}% MIN {report.star_min_delta_pct:+.2f}% "
+        f"n={report.star_players}",
+        flush=True,
+    )
     keys = ("min", "pts", "reb", "ast", "tov", "stl", "blk")
     print(
         "team "

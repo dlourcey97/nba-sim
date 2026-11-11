@@ -6,6 +6,9 @@ from dataclasses import dataclass, field, replace
 
 from nba_sim.schema import POSITIONS_5, ZONES
 
+# Box usage counts a free throw as 0.44 of a field-goal attempt.
+BOX_FTA_COEF = 0.44
+
 RATE_FIELDS = (
     "usage",
     "tov_rate",
@@ -88,12 +91,53 @@ def empty_accumulator() -> dict[str, float]:
     }
 
 
+def box_usage_credit(
+    minutes: object,
+    pace: object,
+    fga: object,
+    fta: object,
+    tov: object,
+) -> tuple[float, float, float] | None:
+    """On-court possessions from minutes and team pace, and the box uses.
+
+    Returns (off+def possessions, offensive possessions, uses) or None when
+    the box line cannot support a rate. Uses are FGA + 0.44*FTA + TOV, so the
+    stored usage matches that box rate instead of the play-by-play lineup credit.
+    """
+    played = float(minutes or 0.0)
+    team_pace = float(pace or 0.0)
+    if played < 0.5 or team_pace <= 0.0:
+        return None
+    offensive = team_pace * played / 48.0
+    if offensive <= 0.25:
+        return None
+    uses = float(fga or 0.0) + BOX_FTA_COEF * float(fta or 0.0) + float(tov or 0.0)
+    return offensive * 2.0, offensive, max(0.0, uses)
+
+
+def align_rate_row(rate: dict, log: dict, pace: float) -> None:
+    """Write box usage and pace-minutes possessions onto one rate row."""
+    credit = box_usage_credit(
+        log.get("minutes"),
+        pace,
+        log.get("fga"),
+        log.get("fta"),
+        log.get("tov"),
+    )
+    if credit is None:
+        return
+    possessions, offensive, uses = credit
+    rate["possessions"] = possessions
+    rate["usage"] = uses / offensive
+
+
 def add_game_to_accumulator(
     acc: dict[str, float],
     *,
     rate_row: dict,
     log_row: dict | None,
     weight: float,
+    align: bool = False,
 ) -> None:
     if weight <= 0:
         return
@@ -105,6 +149,20 @@ def add_game_to_accumulator(
     # so expected uses ≈ usage * (possessions / 2).
     offensive_possessions = possessions * 0.5
     used = usage * offensive_possessions
+    if align and log_row is not None:
+        # The play-by-play lineup credit does not match minutes. Stars who are
+        # marked on the floor too often get a diluted usage; players who are
+        # missed get an inflated one. Rebase this game on team pace × minutes
+        # and the box line so those two usages agree.
+        credit = box_usage_credit(
+            log_row.get("minutes"),
+            rate_row.get("pace") if rate_row.get("pace") is not None else log_row.get("pace"),
+            log_row.get("fga"),
+            log_row.get("fta"),
+            log_row.get("tov"),
+        )
+        if credit is not None:
+            possessions, offensive_possessions, used = credit
     acc["possessions"] += weight * possessions
     acc["used"] += weight * used
     acc["offensive_possessions"] += weight * offensive_possessions
@@ -257,3 +315,58 @@ def five_position(
     if float(reb) >= 5.0:
         return "SF"
     return "SG"
+
+
+def rewrite_aligned_rate_files(settings) -> list[str]:
+    """Rewrite stored usage and possessions so the rate table matches the box.
+
+    Completed seasons are updated in place. The projection also realigns at
+    read time, so a season that cannot be rewritten still scores correctly.
+    """
+    import os
+
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+    from duckdb import connect
+
+    from nba_sim.storage import data_file, list_seasons
+
+    written: list[str] = []
+    con = connect()
+    for season in list_seasons(settings.data_dir, "player_game_rates"):
+        rates = data_file(settings.data_dir, "player_game_rates", season)
+        logs = data_file(settings.data_dir, "player_game_logs", season)
+        teams = data_file(settings.data_dir, "team_game_results", season)
+        if not logs.is_file() or not teams.is_file():
+            continue
+        original = pq.read_schema(rates)
+        table = con.execute(
+            f"""
+            SELECT r.* REPLACE (
+                CASE
+                    WHEN l.minutes >= 0.5 AND t.pace > 0
+                         AND (t.pace * l.minutes / 48.0) > 0.25
+                    THEN (t.pace * l.minutes / 48.0) * 2
+                    ELSE r.possessions
+                END AS possessions,
+                CASE
+                    WHEN l.minutes >= 0.5 AND t.pace > 0
+                         AND (t.pace * l.minutes / 48.0) > 0.25
+                    THEN (l.fga + {BOX_FTA_COEF} * l.fta + l.tov)
+                         / (t.pace * l.minutes / 48.0)
+                    ELSE r.usage
+                END AS usage
+            )
+            FROM read_parquet('{rates}') r
+            LEFT JOIN read_parquet('{logs}') l
+              ON r.game_id = l.game_id AND r.player_id = l.player_id
+            LEFT JOIN read_parquet('{teams}') t
+              ON r.game_id = t.game_id AND r.team_id = t.team_id
+            """
+        ).to_arrow_table()
+        table = table.cast(pa.schema(original))
+        tmp = rates.with_suffix(".align.tmp")
+        pq.write_table(table, tmp)
+        os.replace(tmp, rates)
+        written.append(season)
+    return written

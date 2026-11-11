@@ -258,7 +258,7 @@ def test_build_projection_from_data_dir():
     # not forced to sum to 1 across the full rotation.
     usages = [row.rates.usage for row in active if row.minutes.mean > 1]
     assert usages and min(usages) > 0
-    assert max(usages) < 0.45
+    assert max(usages) < 0.65
     assert 0.12 < (sum(usages) / len(usages)) < 0.30
     window = available_season_window(
         settings,

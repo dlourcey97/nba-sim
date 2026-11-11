@@ -512,7 +512,11 @@ def _build(
         cache = ProjectionCache()
     cache.reset_if_needed(as_of)
     if cache.priors is None:
-        cache.priors = build_position_priors(bundles, as_of=as_of)
+        cache.priors = build_position_priors(
+            bundles,
+            as_of=as_of,
+            align_box_usage=bool(config["blending"].get("align_box_usage", False)),
+        )
     if cache.meta is None:
         cache.meta = load_player_meta(bundles, as_of=as_of)
     priors = cache.priors

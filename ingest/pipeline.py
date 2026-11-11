@@ -18,6 +18,7 @@ from ingest.parse import (
     team_zone_defense,
 )
 from ingest.rosters import rebuild_team_rosters
+from projections.rates import align_rate_row
 from ingest.source import NbaSource, PossessionsMissing, SourceUnavailable
 from nba_sim.errors import SeasonFrozenError
 from nba_sim.settings import Settings
@@ -276,6 +277,20 @@ def _store_game(
             missing = True
         else:
             rate_rows, pace, overtime = rates_from_possessions(season, game, players, views)
+            align = bool(settings.config.get("blending", {}).get("align_box_usage", False))
+            if align and players:
+                logs_by_player = {
+                    int(row["player_id"]): row
+                    for row in player_rows_from_box(season, game, players, {
+                        game.home_team_id: game.home_pts or 0,
+                        game.away_team_id: game.away_pts or 0,
+                    })
+                }
+                for rate in rate_rows:
+                    log = logs_by_player.get(int(rate["player_id"]))
+                    team_pace = pace.get(int(rate["team_id"]))
+                    if log is not None and team_pace:
+                        align_rate_row(rate, log, float(team_pace))
     if not team_points and players:
         team_points = {
             game.home_team_id: game.home_pts or 0,

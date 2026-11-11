@@ -192,8 +192,11 @@ def main(argv: list[str] | None = None) -> int:
             log(format_report(reconcile))
             raise NbaSimError(
                 "Reconcile guardrail failed — refusing to produce projections. "
-                f"team_flags={reconcile.team_flags} role_flags={reconcile.role_flags}. "
-                "Any league-total or starter-share flag over ±3% blocks the slate."
+                f"team_flags={reconcile.team_flags} role_flags={reconcile.role_flags} "
+                f"star_flags={reconcile.star_flags}. "
+                "Any league-total or starter-share flag over ±3% blocks the slate. "
+                "The top 30 usage players' points or minutes outside ±5% of their "
+                "entering per-game numbers blocks it too."
             )
         log(
             f"reconcile PASS games={reconcile.games} "

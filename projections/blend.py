@@ -76,6 +76,17 @@ def load_season_bundle(
     for row in read_rows(settings, "player_game_logs", season, season_type=season_type):
         logs_by_player[int(row["player_id"])].append(row)
         logs_by_defender[int(row["opponent_team_id"])].append(row)
+    pace_by: dict[tuple[str, int], float] = {}
+    for row in read_rows(settings, "team_game_results", season, season_type=season_type):
+        pace = row.get("pace")
+        if pace is None:
+            continue
+        pace_by[(str(row["game_id"]), int(row["team_id"]))] = float(pace)
+    for rows in rates_by_player.values():
+        for row in rows:
+            pace = pace_by.get((str(row["game_id"]), int(row["team_id"])))
+            if pace is not None and float(pace) > 0.0:
+                row["pace"] = float(pace)
     for mapping in (rates_by_player, logs_by_player):
         for player_id, rows in mapping.items():
             mapping[player_id] = sorted(rows, key=lambda item: item["game_date"])
@@ -99,6 +110,7 @@ def build_position_priors(
     bundles: list[SeasonBundle],
     *,
     as_of: date | None = None,
+    align_box_usage: bool = False,
 ) -> dict[str, RateVector]:
     buckets: dict[str, dict[str, float]] = defaultdict(empty_accumulator)
     for bundle in bundles:
@@ -114,7 +126,13 @@ def build_position_priors(
                     continue
                 log = log_index.get((rate["game_id"], rate["player_id"]))
                 bucket = position_bucket(None if log is None else log.get("position"))
-                add_game_to_accumulator(buckets[bucket], rate_row=rate, log_row=log, weight=1.0)
+                add_game_to_accumulator(
+                    buckets[bucket],
+                    rate_row=rate,
+                    log_row=log,
+                    weight=1.0,
+                    align=align_box_usage,
+                )
     return {bucket: vector_from_accumulator(acc) for bucket, acc in buckets.items()}
 
 
@@ -133,6 +151,7 @@ def player_baseline_and_form(
     weights = list(blend_cfg["season_weights"]["weights"])
     form_decay = float(blend_cfg["form_decay"])
     regression_strength = float(blend_cfg["regression_strength"])
+    align_box_usage = bool(blend_cfg.get("align_box_usage", False))
     min_games_for_form = int(blend_cfg["min_games_for_form"])
     # Full season-weight reliability by this many games. Without this, a 1-game
     # current season still takes its full config weight (e.g. 0.40) and a cold
@@ -166,10 +185,14 @@ def player_baseline_and_form(
         ordered = sorted(rates, key=lambda row: row["game_date"], reverse=True)
         for index, rate in enumerate(ordered):
             log = logs.get((rate["game_id"], rate["player_id"]))
-            add_game_to_accumulator(season_acc, rate_row=rate, log_row=log, weight=1.0)
+            add_game_to_accumulator(
+                season_acc, rate_row=rate, log_row=log, weight=1.0, align=align_box_usage
+            )
             if bundle.season == current_season:
                 weight = math.exp(-form_decay * index)
-                add_game_to_accumulator(form_acc, rate_row=rate, log_row=log, weight=weight)
+                add_game_to_accumulator(
+                    form_acc, rate_row=rate, log_row=log, weight=weight, align=align_box_usage
+                )
                 form_games += 1
         season_vector = vector_from_accumulator(season_acc)
         base_w = weight_by_season.get(bundle.season, fallback_weight)

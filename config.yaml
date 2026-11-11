@@ -66,6 +66,9 @@ blending:
   # Applied against the player's blended sample_possessions (not as a raw
   # weight next to season weights that sum to 1).
   regression_strength: 12.0
+  # Off. Rebasing usage onto pace × minutes matches the box, and it did not
+  # bring star points back. 2025-26 total MAE got worse. The code stays.
+  align_box_usage: false
   min_games_for_form: 5
   # Scale each season's blend weight by min(1, games / this). Stops a 1-game
   # current season from taking its full 0.40 weight and wrecking FG%.
@@ -190,6 +193,12 @@ context:
   dunks_enabled: true
   dunks_epm_weight: 0.30
   dunks_box_weight: 0.25
+  # EPM usage mix ceiling. Tried 0.60 on 2026-11-10 and reverted with the
+  # usage rebase: 2025-26 totals got worse and star points did not move.
+  dunks_usage_hi: 0.45
+  # On. Tried off on 2026-11-10. Same revert. Scales usage by tonight's point
+  # line versus EPM points-per-100.
+  dunks_scale_usage_by_points: true
   dunks_team_weight: 0.20
 
   # Pseudo-FGA for Bayesian shrink of defender FG% allowed toward league.

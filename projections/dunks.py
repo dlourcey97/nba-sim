@@ -93,6 +93,8 @@ def apply_dunks_blend(
     epm_w = float(ctx.get("dunks_epm_weight", 0.30))
     box_w = float(ctx.get("dunks_box_weight", 0.25))
     team_w = float(ctx.get("dunks_team_weight", 0.20))
+    usage_hi = float(ctx.get("dunks_usage_hi", 0.45))
+    scale_usage = bool(ctx.get("dunks_scale_usage_by_points", True))
     if epm_w <= 0 and box_w <= 0 and team_w <= 0:
         return []
     data_dir = Path(settings.data_dir) / "external" / "dunks"
@@ -130,9 +132,17 @@ def apply_dunks_blend(
                 continue
             rates = player.rates
             if epm_row is not None and epm_w > 0:
-                rates = _blend_epm_rates(rates, epm_row, epm_w)
+                rates = _blend_epm_rates(rates, epm_row, epm_w, usage_hi=usage_hi)
             if epm_row is not None and box_row is not None and box_w > 0:
-                rates = _nudge_box_rates(rates, epm_row, box_row, poss, box_w)
+                rates = _nudge_box_rates(
+                    rates,
+                    epm_row,
+                    box_row,
+                    poss,
+                    box_w,
+                    scale_usage=scale_usage,
+                    usage_hi=usage_hi,
+                )
             minutes = _blend_minutes(player.minutes, epm_row, box_row, epm_w, box_w)
             if zero_fallback and float(minutes.mean) > 0.0:
                 # The sit/play draw was built for a zero-minute player. Keep
@@ -249,10 +259,18 @@ def _side_abbr(players: dict) -> str:
     return ""
 
 
-def _blend_epm_rates(rates: RateVector, epm: EpmPrior, weight: float) -> RateVector:
+def _blend_epm_rates(
+    rates: RateVector,
+    epm: EpmPrior,
+    weight: float,
+    *,
+    usage_hi: float = 0.45,
+) -> RateVector:
     usg = float(epm.usg)
     updates: dict[str, float] = {
-        "usage": _mix(rates.usage, usg, weight, 0.02, 0.45),
+        # 0.45 is the shipped ceiling. 0.60 was tried on 2026-11-10 and reverted
+        # with the usage rebase: totals moved the wrong way on 2025-26.
+        "usage": _mix(rates.usage, usg, weight, 0.02, usage_hi),
         "ft_pct": _mix(rates.ft_pct, epm.ft_pct, weight, 0.45, 0.95),
         "stl_rate": _mix(rates.stl_rate, epm.stl_100 / 100.0, weight, 0.002, 0.06),
         "blk_rate": _mix(rates.blk_rate, epm.blk_100 / 100.0, weight, 0.001, 0.08),
@@ -322,6 +340,9 @@ def _nudge_box_rates(
     box: BoxPrior,
     team_poss: float,
     weight: float,
+    *,
+    scale_usage: bool = True,
+    usage_hi: float = 0.45,
 ) -> RateVector:
     """Move rates toward tonight's box, measured against the EPM per-100 line."""
     if box.minutes < 8.0 or team_poss <= 0:
@@ -336,7 +357,12 @@ def _nudge_box_rates(
         current = float(getattr(rates, field))
         updates[field] = min(hi, max(lo, current * ((1.0 - weight) + weight * ratio)))
 
-    pull("usage", box.pts, epm.pts_100, 0.02, 0.45)
+    # Usage is the box rate (FGA + 0.44×FTA + TOV) / (pace × minutes / 48).
+    # Scaling it by tonight's point projection pulls stars down whenever that
+    # point line sits under the EPM points-per-100. Turning the scale off was
+    # tried on 2026-11-10 and reverted with the usage rebase.
+    if scale_usage:
+        pull("usage", box.pts, epm.pts_100, 0.02, usage_hi)
     pull("ast_rate", box.ast, epm.ast_100, 0.02, 0.55)
     pull("stl_rate", box.stl, epm.stl_100, 0.002, 0.06)
     pull("blk_rate", box.blk, epm.blk_100, 0.001, 0.08)

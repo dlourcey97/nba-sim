@@ -10,10 +10,12 @@ import pyarrow.parquet as pq
 import pytest
 
 from projections.dunks import (
+    BoxPrior,
     EpmPrior,
     _CACHE,
     _blend_epm_rates,
     _blend_minutes,
+    _nudge_box_rates,
     apply_dunks_blend,
 )
 from projections.context import TeamStrength
@@ -82,6 +84,35 @@ def test_epm_usage_moves_partway():
     rates = _blend_epm_rates(RateVector(usage=0.20, ft_pct=0.70), _epm(), 0.30)
     assert rates.usage == 0.26
     assert abs(rates.ft_pct - (0.70 * 0.70 + 0.30 * 0.90)) < 1e-9
+
+
+def test_usage_ceiling_clips_only_the_old_cap():
+    clipped = _blend_epm_rates(RateVector(usage=0.70), _epm(usg=0.70), 0.0, usage_hi=0.45)
+    assert clipped.usage == 0.45
+    kept = _blend_epm_rates(RateVector(usage=0.50), _epm(usg=0.50), 0.0, usage_hi=0.60)
+    assert kept.usage == 0.50
+
+
+def test_point_line_does_not_scale_usage_unless_asked():
+    rates = RateVector(usage=0.40)
+    epm = _epm(pts_100=40.0)
+    box = BoxPrior(
+        team="SAS",
+        minutes=32.0,
+        pts=10.0,
+        reb=5.0,
+        ast=5.0,
+        stl=1.0,
+        blk=1.0,
+        tov=2.0,
+        oreb=1.0,
+        dreb=4.0,
+        fg3a=6.0,
+    )
+    held = _nudge_box_rates(rates, epm, box, 100.0, 0.25, scale_usage=False)
+    assert held.usage == 0.40
+    pulled = _nudge_box_rates(rates, epm, box, 100.0, 0.25, scale_usage=True, usage_hi=0.45)
+    assert pulled.usage < 0.40
 
 
 def test_full_rotation_keeps_its_minute_total(tmp_path):
