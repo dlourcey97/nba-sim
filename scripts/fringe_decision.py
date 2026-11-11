@@ -96,7 +96,10 @@ def _run(settings, config: dict, season: str, out: Path) -> dict:
         f"REB {report.mae_reb:.3f} AST {report.mae_ast:.3f} "
         f"causes {report.cause_a}/{report.cause_b}/{report.cause_c}/{report.cause_d}/{report.cause_e} "
         f"spread {report.mae_margin:.3f} total {report.mae_total:.3f} "
-        f"bias {payload['total_bias']:.2f} brier {report.brier_win:.4f}",
+        f"bias {payload['total_bias']:.2f} brier {report.brier_win:.4f} "
+        f"star_bust {report.star_bust_rate:.3f} actual_bust {report.star_actual_bust_rate:.3f} "
+        f"star_pts {report.star_pred_mean:.2f}/{report.star_med_mean:.2f} vs {report.star_act_mean:.2f} "
+        f"cover_star {report.coverage_star_pts:.3f} cover_bench {report.coverage_bench_pts:.3f}",
         flush=True,
     )
     return payload

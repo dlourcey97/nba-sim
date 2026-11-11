@@ -29,11 +29,20 @@ simulation:
   intentional_foul_prob: 0.22
   # Soft remaining-budget scale applied once when progress crosses 0.70.
   late_pace_adjust: true
-  # Overdispersion: coverage comes from shoot/usage/pace — not minutes_variance.
-  # Tuned 2026-10-23: post-stabilize ~0.86 PTS 10–90. Caps are 1.5×SD (max 0.60),
-  # so shoot_sd must drop below 0.40 before bands actually tighten. Target ~0.80.
+  # One shooting SD and one usage SD. A tighter star SD was tried with the
+  # budget lineup on 2026-11-11 and reverted with it.
   player_shoot_sd: 0.32
   player_usage_sd: 0.28
+  # Projected usage at or above this is the star group in the bust check.
+  star_usage_min: 0.24
+  star_shoot_sd: 0.32
+  star_usage_sd: 0.28
+  # gumbel: one independent top five each quarter. budget spends the minute
+  # line in substints. Budget cut the star bust and won 2025-26 Brier, and
+  # it lost the holdout spread and the starter-share check.
+  lineup_model: gumbel
+  lineup_substints: 4
+  lineup_budget_noise: 0.40
   team_hot_sd: 0.05
   pace_sd: 6.5
   # Multiply sum-of-on-court ast_rates before P(assisted). Season-average rates

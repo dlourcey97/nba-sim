@@ -68,6 +68,12 @@ class GameSimResult:
     second_pts: np.ndarray | None = None
     second_reb: np.ndarray | None = None
     second_ast: np.ndarray | None = None
+    # On-court possessions in the simulated second half and in Q4.
+    # Shape (players, runs) and (runs,). Filled only for a resumed game.
+    second_floor_poss: np.ndarray | None = None
+    second_floor_n: np.ndarray | None = None
+    q4_floor_poss: np.ndarray | None = None
+    q4_floor_n: np.ndarray | None = None
     # Optional single-run possession narrative (typical-game hook).
     possession_log: PossessionLog | None = None
 
@@ -200,6 +206,12 @@ def simulate_game(
         (cfg.get("features") or {}).get("minutes_model", "engine")
     ).lower()
     flat_lineups = minutes_model in {"naive_last10", "naive"}
+    lineup_model = str(sim_cfg.get("lineup_model", "gumbel")).lower()
+    budget_noise = None
+    substints = 1
+    if lineup_model == "budget":
+        budget_noise = float(sim_cfg.get("lineup_budget_noise", 0.40))
+        substints = int(sim_cfg.get("lineup_substints", 4))
     home_grid = _lineups_state_grid(
         rng,
         home_idx,
@@ -207,6 +219,8 @@ def simulate_game(
         players,
         rotation=None if flat_lineups else rotation,
         flat=flat_lineups,
+        substints=substints,
+        budget_noise=budget_noise,
     )
     away_grid = _lineups_state_grid(
         rng,
@@ -215,6 +229,8 @@ def simulate_game(
         players,
         rotation=None if flat_lineups else rotation,
         flat=flat_lineups,
+        substints=substints,
+        budget_noise=budget_noise,
     )
     if resume is not None:
         from sim.resume import pin_on_court
@@ -234,32 +250,20 @@ def simulate_game(
     packed["blk_credit_raw_weight"] = 0.35
     pace_sd = float(sim_cfg.get("pace_sd", 5.5))
     team_hot_sd = float(sim_cfg.get("team_hot_sd", 0.05))
-    player_shoot_sd = float(sim_cfg.get("player_shoot_sd", 0.12))
-    player_usage_sd = float(sim_cfg.get("player_usage_sd", 0.10))
     home_poss = np.clip(
         rng.normal(projection.home_possessions, pace_sd, size=n_runs), 80.0, 130.0
     )
     away_poss = np.clip(
         rng.normal(projection.away_possessions, pace_sd, size=n_runs), 80.0, 130.0
     )
-    # Team-level hot/cold (small) + per-player tonight effects (main overdispersion).
-    # Minutes noise is intentionally NOT inflated for coverage.
+    # Team-level hot/cold (small) + per-player tonight effects.
+    # High-usage players get a tighter draw than the bench. One pooled SD
+    # made stars' left tail too fat once floor time was noisy; the bench
+    # still needs the wider draw because a handful of shots is already thin.
     home_hot = np.clip(rng.normal(1.0, team_hot_sd, size=n_runs), 0.88, 1.12)
     away_hot = np.clip(rng.normal(1.0, team_hot_sd, size=n_runs), 0.88, 1.12)
-    # Symmetric clips around 1.0. Cap scales with configured SD so widening
-    # player_shoot_sd / player_usage_sd actually widens the draw (hard 0.28/0.30
-    # ceilings previously blocked coverage from reaching ~80%).
-    shoot_cap = float(np.clip(1.5 * player_shoot_sd, 0.18, 0.60))
-    usage_cap = float(np.clip(1.5 * player_usage_sd, 0.18, 0.60))
-    player_hot = np.clip(
-        rng.normal(1.0, player_shoot_sd, size=(n_players, n_runs)),
-        1.0 - shoot_cap,
-        1.0 + shoot_cap,
-    )
-    player_usage = np.clip(
-        rng.normal(1.0, player_usage_sd, size=(n_players, n_runs)),
-        1.0 - usage_cap,
-        1.0 + usage_cap,
+    player_hot, player_usage = _group_dispersion(
+        rng, packed["usage"], n_runs, sim_cfg
     )
     # Pace targets possession *endings* (NBA pace). OREB continuations must not
     # consume the budget — only dead balls, makes, FT trips, and DREBs count.
@@ -304,6 +308,12 @@ def simulate_game(
     period_away_start = np.zeros(n_runs, dtype=float)
     possession_events: list[PossessionEvent] = []
     player_id_arr = np.array([p.player_id for p in players], dtype=np.int32)
+    second_floor_poss = second_floor_n = q4_floor_poss = q4_floor_n = None
+    if resume is not None:
+        second_floor_poss = np.zeros((n_players, n_runs), dtype=np.int16)
+        second_floor_n = np.zeros(n_runs, dtype=np.int16)
+        q4_floor_poss = np.zeros((n_players, n_runs), dtype=np.int16)
+        q4_floor_n = np.zeros(n_runs, dtype=np.int16)
 
     offense_home = rng.random(n_runs) < 0.5
     endings = np.zeros(n_runs, dtype=np.int32)
@@ -389,8 +399,13 @@ def simulate_game(
                 )
                 target_endings = np.clip(target_endings, 160, 280)
                 pace_adjusted |= due
-        home_lineups = home_grid[run_ids, period_idx, bucket_idx]
-        away_lineups = away_grid[run_ids, period_idx, bucket_idx]
+        home_lineups = _take_lineups(home_grid, run_ids, period_idx, bucket_idx, clock_remaining)
+        away_lineups = _take_lineups(away_grid, run_ids, period_idx, bucket_idx, clock_remaining)
+        if second_floor_poss is not None:
+            second = active & (period_idx >= 2)
+            fourth = active & (period_idx >= 3)
+            _tally_floor(second_floor_poss, second_floor_n, home_lineups, away_lineups, second)
+            _tally_floor(q4_floor_poss, q4_floor_n, home_lineups, away_lineups, fourth)
         # Intentional fouls only matter in late Q4; skip the branch earlier.
         foul_p = foul_prob if float(progress.max()) >= 0.85 else 0.0
         want_trace = trace_i is not None and bool(active[trace_i])
@@ -478,9 +493,13 @@ def simulate_game(
         ot_periods = np.where(tied, ot_period, ot_periods)
         ot_endings = np.zeros(n_runs, dtype=np.int32)
         ot_target = np.where(tied, 16, 0)
-        # OT uses Q4 close-game lineups (shortened star rotation).
-        home_lineups = home_grid[run_ids, 3, 0]
-        away_lineups = away_grid[run_ids, 3, 0]
+        # OT uses the opening Q4 close lineup, while stars still have minutes left.
+        if home_grid.ndim == 4:
+            home_lineups = home_grid[run_ids, 3, 0]
+            away_lineups = away_grid[run_ids, 3, 0]
+        else:
+            home_lineups = home_grid[run_ids, 3, 0, 0]
+            away_lineups = away_grid[run_ids, 3, 0, 0]
         for _ in range(28):
             still = ot_endings < ot_target
             if not np.any(still):
@@ -596,8 +615,24 @@ def simulate_game(
         second_pts=second_pts,
         second_reb=second_reb,
         second_ast=second_ast,
+        second_floor_poss=second_floor_poss,
+        second_floor_n=second_floor_n,
+        q4_floor_poss=q4_floor_poss,
+        q4_floor_n=q4_floor_n,
         possession_log=possession_log,
     )
+
+
+def _tally_floor(count, chances, home_lineups, away_lineups, mask) -> None:
+    """Add one on-court possession for each player in the two lineups."""
+    if count is None or not np.any(mask):
+        return
+    chances[mask] += 1
+    runs = np.flatnonzero(mask)
+    for lineups in (home_lineups, away_lineups):
+        chosen = lineups[mask]
+        for slot in range(chosen.shape[1]):
+            np.add.at(count, (chosen[:, slot], runs), 1)
 
 
 def _usage_weights(
@@ -960,6 +995,59 @@ def _lineups_stints(
     return out
 
 
+def _group_dispersion(
+    rng: np.random.Generator,
+    usage: np.ndarray,
+    n_runs: int,
+    sim_cfg: dict,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Per-player shooting and usage multipliers.
+
+    Players at or above ``star_usage_min`` use the star SDs. Everyone else
+    uses ``player_shoot_sd`` / ``player_usage_sd``. The clip is symmetric
+    around 1 so the draw does not move the mean. A star cap can sit inside
+    the old 0.18 floor; the bench keeps that floor so the pooled tuning
+    still applies to low-usage players.
+    """
+    usage = np.asarray(usage, dtype=float)
+    n_players = int(usage.shape[0])
+    cut = float(sim_cfg.get("star_usage_min", 0.24))
+    bench_shoot = float(sim_cfg.get("player_shoot_sd", 0.12))
+    bench_usage = float(sim_cfg.get("player_usage_sd", 0.10))
+    star_shoot = float(sim_cfg.get("star_shoot_sd", bench_shoot))
+    star_usage = float(sim_cfg.get("star_usage_sd", bench_usage))
+    star = usage >= cut
+    shoot_sd = np.where(star, star_shoot, bench_shoot).astype(float)
+    usage_sd = np.where(star, star_usage, bench_usage).astype(float)
+
+    def _draw(sd: np.ndarray, floor: float) -> np.ndarray:
+        cap = np.clip(1.5 * sd, floor, 0.60)
+        # Stars may use a tighter floor than the bench.
+        cap = np.where(star, np.clip(1.5 * sd, 0.05, 0.60), cap)
+        noise = rng.normal(0.0, 1.0, size=(n_players, n_runs))
+        drawn = 1.0 + noise * sd[:, None]
+        return np.clip(drawn, 1.0 - cap[:, None], 1.0 + cap[:, None])
+
+    return _draw(shoot_sd, 0.18), _draw(usage_sd, 0.18)
+
+
+def _take_lineups(
+    grid: np.ndarray,
+    run_ids: np.ndarray,
+    period_idx: np.ndarray,
+    bucket_idx: np.ndarray,
+    clock_remaining: np.ndarray,
+) -> np.ndarray:
+    """Lineup for this possession. Budget grids have a substint axis."""
+    if grid.ndim == 4:
+        return grid[run_ids, period_idx, bucket_idx]
+    n_sub = int(grid.shape[3])
+    elapsed = np.clip(REGULATION_SECONDS - clock_remaining, 0.0, REGULATION_SECONDS)
+    within = np.mod(elapsed, PERIOD_SECONDS)
+    sub = np.minimum((within / PERIOD_SECONDS * n_sub).astype(np.int32), n_sub - 1)
+    return grid[run_ids, period_idx, bucket_idx, sub]
+
+
 def _lineups_state_grid(
     rng: np.random.Generator,
     pool: np.ndarray,
@@ -968,8 +1056,13 @@ def _lineups_state_grid(
     *,
     rotation=None,
     flat: bool = False,
+    substints: int = 1,
+    budget_noise: float | None = None,
 ) -> np.ndarray:
-    """Return shape (n_runs, 4 periods, 3 buckets, 5) player indexes.
+    """Return player indexes for each run, period, and margin bucket.
+
+    Gumbel shape is (n_runs, 4, 3, 5). Budget shape adds a substint axis,
+    (n_runs, 4, 3, substints, 5).
 
     Weights = projected minutes × period/margin priors, with a mild boost for
     players who historically share the floor (co-appearance).
@@ -983,7 +1076,12 @@ def _lineups_state_grid(
     n_runs = minutes.shape[1]
     size = min(5, int(pool.size))
     n_pool = int(pool.size)
-    out = np.zeros((n_runs, 4, 3, size), dtype=np.int32)
+    use_budget = budget_noise is not None
+    n_sub = max(1, int(substints)) if use_budget else 1
+    if use_budget:
+        out = np.zeros((n_runs, 4, 3, n_sub, size), dtype=np.int32)
+    else:
+        out = np.zeros((n_runs, 4, 3, size), dtype=np.int32)
     if n_pool == 0:
         return out
 
@@ -1016,6 +1114,28 @@ def _lineups_state_grid(
                     ],
                     dtype=float,
                 )
+            if use_budget:
+                # Each quarter spends the minute budget in substint units.
+                # An independent Gumbel draw every quarter put a 36-minute
+                # player on the floor for about 2.6 of 4 quarters (target 3)
+                # and under half his target share in about 14% of sims.
+                # That was the star bust: reported minutes stayed up while
+                # he missed whole quarters. Depleting a budget keeps the
+                # count of stints near minutes / 48.
+                scale = period_w * co_boost
+                target = base * (n_sub / 48.0) * scale[:, None]
+                left = target.copy()
+                run_ids = np.arange(n_runs)
+                for sub in range(n_sub):
+                    score = left + rng.normal(0.0, float(budget_noise), size=left.shape)
+                    score = score + 0.01 * base
+                    score[base <= 0.2] = -1e9
+                    order = np.argsort(-score, axis=0)[:size]
+                    out[:, period - 1, b_idx, sub, :] = pool[order].T
+                    for slot in range(size):
+                        left[order[slot], run_ids] -= 1.0
+                    np.maximum(left, 0.0, out=left)
+                continue
             weights = base * period_w[:, None] * co_boost[:, None]
             # Gumbel-top-k ≈ sample without replacement with probs ∝ weights.
             # Additive noise on the raw weights let the top five lock every

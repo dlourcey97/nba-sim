@@ -6,6 +6,7 @@ import argparse
 import json
 import os
 import sys
+from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import replace
 from pathlib import Path
@@ -38,6 +39,27 @@ from nba_sim.settings import load_settings
 from nba_sim.storage import finish_run, read_rows
 from projections.blend import available_season_window, load_season_bundle
 from projections.build import ProjectionCache, build_game_projections
+
+
+def _entering_ppg(logs_by_game: dict, schedule: list[dict]) -> dict:
+    """Points per game from games strictly before this one, minutes at least 8."""
+    running: dict[int, list[float]] = defaultdict(lambda: [0.0, 0.0])
+    out: dict = {}
+    for row in schedule:
+        gid = row["game_id"]
+        game_logs = logs_by_game.get(gid, {})
+        snap = {}
+        for pid in game_logs:
+            games, pts = running[int(pid)]
+            if games >= 8:
+                snap[int(pid)] = pts / games
+        out[gid] = snap
+        for pid, rec in game_logs.items():
+            if float(rec.get("minutes") or 0.0) < 8:
+                continue
+            games, pts = running[int(pid)]
+            running[int(pid)] = [games + 1.0, pts + float(rec.get("pts") or 0.0)]
+    return out
 
 
 def evaluate_seasons(
@@ -91,6 +113,28 @@ def evaluate_seasons(
     played_for_crps = 0
     cover_min_hits = 0.0
     cover_pts_hits = 0.0
+    cover_star_hits = 0.0
+    cover_star_n = 0
+    cover_bench_hits = 0.0
+    cover_bench_n = 0
+    star_bust = 0
+    star_bust_draws = 0
+    star_actual_bust = 0
+    star_n = 0
+    star_pred_sum = 0.0
+    star_med_sum = 0.0
+    star_act_sum = 0.0
+    cover_star_hits = 0.0
+    cover_star_n = 0
+    cover_bench_hits = 0.0
+    cover_bench_n = 0
+    star_bust = 0
+    star_bust_draws = 0
+    star_actual_bust = 0
+    star_n = 0
+    star_pred_sum = 0.0
+    star_med_sum = 0.0
+    star_act_sum = 0.0
     play_brier_sum = 0.0
     play_n = 0
     play_bin_count = [0] * 10
@@ -125,6 +169,7 @@ def evaluate_seasons(
         logs_by_game: dict[object, dict[int, dict]] = {}
         for record in read_rows(local, "player_game_logs", season):
             logs_by_game.setdefault(record["game_id"], {})[int(record["player_id"])] = record
+        entering_ppg = _entering_ppg(logs_by_game, schedule)
         team_results = {
             (row["game_id"], int(row["team_id"])): row
             for row in read_rows(local, "team_game_results", season)
@@ -162,6 +207,12 @@ def evaluate_seasons(
         def _absorb(item: dict) -> None:
             nonlocal crps_min_sum, crps_pts_sum, played_for_crps
             nonlocal cover_min_hits, cover_pts_hits, play_brier_sum, play_n
+            nonlocal cover_star_hits, cover_star_n, cover_bench_hits, cover_bench_n
+            nonlocal star_bust, star_bust_draws, star_actual_bust, star_n
+            nonlocal star_pred_sum, star_med_sum, star_act_sum
+            nonlocal cover_star_hits, cover_star_n, cover_bench_hits, cover_bench_n
+            nonlocal star_bust, star_bust_draws, star_actual_bust, star_n
+            nonlocal star_pred_sum, star_med_sum, star_act_sum
             game_rows.append(
                 {
                     "game_id": item["game_id"],
@@ -191,6 +242,17 @@ def evaluate_seasons(
             played_for_crps += int(item.get("played_n") or 0)
             cover_min_hits += float(item.get("cover_min_hits") or 0.0)
             cover_pts_hits += float(item.get("cover_pts_hits") or 0.0)
+            cover_star_hits += float(item.get("cover_star_hits") or 0.0)
+            cover_star_n += int(item.get("cover_star_n") or 0)
+            cover_bench_hits += float(item.get("cover_bench_hits") or 0.0)
+            cover_bench_n += int(item.get("cover_bench_n") or 0)
+            star_bust += int(item.get("star_bust") or 0)
+            star_bust_draws += int(item.get("star_bust_draws") or 0)
+            star_actual_bust += int(item.get("star_actual_bust") or 0)
+            star_n += int(item.get("star_n") or 0)
+            star_pred_sum += float(item.get("star_pred_sum") or 0.0)
+            star_med_sum += float(item.get("star_med_sum") or 0.0)
+            star_act_sum += float(item.get("star_act_sum") or 0.0)
             play_brier_sum += float(item.get("play_brier_sum") or 0.0)
             play_n += int(item.get("play_n") or 0)
             for slot, row in enumerate(item.get("play_bins") or []):
@@ -289,6 +351,7 @@ def evaluate_seasons(
                         "away_tr": team_results.get((row["game_id"], int(projection.away_team_id))),
                         "home_pts": row["home_pts"],
                         "away_pts": row["away_pts"],
+                        "season_ppg": entering_ppg.get(row["game_id"], {}),
                     }
                 )
                 if len(pending) >= batch_size:
@@ -325,6 +388,14 @@ def evaluate_seasons(
         crps_min=(crps_min_sum / played_for_crps) if played_for_crps else float("nan"),
         coverage_min_10_90=(cover_min_hits / played_for_crps) if played_for_crps else float("nan"),
         coverage_pts_10_90=(cover_pts_hits / played_for_crps) if played_for_crps else float("nan"),
+        coverage_star_pts=(cover_star_hits / cover_star_n) if cover_star_n else float("nan"),
+        coverage_bench_pts=(cover_bench_hits / cover_bench_n) if cover_bench_n else float("nan"),
+        star_bust_rate=(star_bust / star_bust_draws) if star_bust_draws else float("nan"),
+        star_actual_bust_rate=(star_actual_bust / star_n) if star_n else float("nan"),
+        star_pred_mean=(star_pred_sum / star_n) if star_n else float("nan"),
+        star_med_mean=(star_med_sum / star_n) if star_n else float("nan"),
+        star_act_mean=(star_act_sum / star_n) if star_n else float("nan"),
+        star_players=star_n,
         play_brier=(play_brier_sum / play_n) if play_n else float("nan"),
         play_bins=[
             {

@@ -188,21 +188,42 @@ def main(argv: list[str] | None = None) -> int:
             seed=1,
             threshold_pct=3.0,
         )
+        if reconcile.star_flags:
+            log(
+                "WARNING top-30 vs entering averages "
+                f"PTS {reconcile.star_pts_delta_pct:+.1f}% "
+                f"MIN {reconcile.star_min_delta_pct:+.1f}% "
+                f"flags={reconcile.star_flags} (does not block)"
+            )
         if not reconcile.passed:
             log(format_report(reconcile))
             raise NbaSimError(
                 "Reconcile guardrail failed — refusing to produce projections. "
-                f"team_flags={reconcile.team_flags} role_flags={reconcile.role_flags} "
-                f"star_flags={reconcile.star_flags}. "
-                "Any league-total or starter-share flag over ±3% blocks the slate. "
-                "The top 30 usage players' points or minutes outside ±5% of their "
-                "entering per-game numbers blocks it too."
+                f"team_flags={reconcile.team_flags} role_flags={reconcile.role_flags}. "
+                "Any league-total or starter-share flag over ±3% blocks the slate."
             )
         log(
             f"reconcile PASS games={reconcile.games} "
             f"REBΔ={reconcile.team_delta_pct.get('reb', 0):+.1f}% "
             f"starter_REBΔ={reconcile.role_delta_pct.get('reb', 0):+.1f}%"
         )
+        from backtest.star_gap import check_graded_star_gap
+
+        star_gap = check_graded_star_gap(settings, season=season, days=21)
+        log(
+            "graded star gap "
+            f"{star_gap.start_date}..{star_gap.end_date} "
+            f"players={star_gap.players} games={star_gap.player_games} "
+            f"pred={star_gap.pred_mean:.2f} actual={star_gap.actual_mean:.2f} "
+            f"gap={star_gap.gap_pct:+.1f}%"
+        )
+        if not star_gap.passed:
+            raise NbaSimError(
+                "Star gap failed — refusing to produce projections. "
+                f"Top {star_gap.players} by pregame usage, last {star_gap.days} days: "
+                f"mean projection {star_gap.pred_mean:.1f} vs actual {star_gap.actual_mean:.1f} "
+                f"({star_gap.gap_pct:+.1f}%). A gap outside ±5% blocks the slate."
+            )
 
         slate = run_slate(
             settings,

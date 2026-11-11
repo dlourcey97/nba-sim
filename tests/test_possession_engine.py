@@ -168,3 +168,66 @@ def test_rotation_lineup_includes_mid_minute_player():
     star_share = float(np.mean(np.any(grid == 0, axis=-1)))
     assert share > 0.12
     assert star_share > share
+
+
+def test_budget_lineup_tracks_star_minutes():
+    """A 36-minute player stays near 75% of the floor, and rarely under half that."""
+    from types import SimpleNamespace
+
+    from sim.engine import _lineups_state_grid
+
+    rng = np.random.default_rng(2)
+    minutes_line = np.array([36, 34, 32, 30, 26, 22, 18, 14, 10, 8], dtype=float)
+    players = [
+        SimpleNamespace(team_id=1, player_id=100 + i, depth_rank=i)
+        for i in range(len(minutes_line))
+    ]
+    runs = 400
+    minutes = np.repeat(minutes_line[:, None], runs, axis=1)
+    grid = _lineups_state_grid(
+        rng,
+        np.arange(len(minutes_line)),
+        minutes,
+        players,
+        flat=True,
+        substints=4,
+        budget_noise=0.40,
+    )
+    assert grid.ndim == 5
+    # Close bucket only. Count substints on the floor across four quarters.
+    chosen = grid[:, :, 0, :, :]  # runs, periods, substints, 5
+    on = np.zeros((runs, len(minutes_line)), dtype=float)
+    for period in range(4):
+        for sub in range(4):
+            five = chosen[:, period, sub, :]
+            for slot in range(5):
+                on[np.arange(runs), five[:, slot]] += 1.0
+    share = on / 16.0
+    star = share[:, 0]
+    bench = share[:, 6]  # 18 minutes
+    assert abs(float(star.mean()) - 36.0 / 48.0) < 0.06
+    assert float((star < 0.5 * 36.0 / 48.0).mean()) < 0.05
+    assert float(bench.mean()) > 0.12
+
+
+def test_star_dispersion_is_tighter_than_bench():
+    from sim.engine import _group_dispersion
+
+    rng = np.random.default_rng(3)
+    usage = np.array([0.34, 0.12])
+    hot, used = _group_dispersion(
+        rng,
+        usage,
+        4000,
+        {
+            "star_usage_min": 0.24,
+            "player_shoot_sd": 0.32,
+            "player_usage_sd": 0.28,
+            "star_shoot_sd": 0.14,
+            "star_usage_sd": 0.10,
+        },
+    )
+    assert float(hot[0].std()) < float(hot[1].std())
+    assert float(used[0].std()) < float(used[1].std())
+    assert abs(float(hot[0].mean()) - 1.0) < 0.03
+    assert abs(float(hot[1].mean()) - 1.0) < 0.03

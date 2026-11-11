@@ -1,6 +1,22 @@
 # Progress
 
-Last updated 2026-11-10 — Usage rebase measured and reverted. Star points stay low. Team totals were already close. The top-30 check is on the reconcile guardrail and it fails, so a nightly slate stops until that gap is inside 5%.
+Last updated 2026-11-11 — Budget lineups measured and reverted. Star busts fell from 37% to 20% against an actual 9%, and the holdout spread got worse. The top-30 comparison to season averages is a warning. The graded-slate gap is −23.5%, so a nightly slate still stops.
+
+## Budget lineups (2026-11-11) — REVERTED from sim
+
+The bust is not the minute draw and not the shooting noise. On four games from November 6, 14 players with usage at least 0.24 and a minutes mean of at least 20, 500 sims: the minute draw was under half the projected minutes in 2% of sims. Zeroing the per-player shooting and usage noise moved the points bust from 35% to 31%. A tighter star noise on the same lineup moved it to 32%. Dunks off, and the point-line usage scale off, did not move it. The point-line scale multiplies usage by tonight's Dunks point line over the EPM points-per-100 rate. The draw that matters is the lineup. One independent top five per quarter lets a star miss a quarter while the minute line still looks normal.
+
+The tried fix spends each quarter's minutes in four substints, and players with usage at least 0.24 use a shooting SD of 0.14 and a usage SD of 0.10. Everyone else stays at 0.32 and 0.28. The call is revert. `lineup_model` is `gumbel`. Full 2025-26 and the 2024-25 holdout, 1,000 sims, seed 1, four workers. Before is the independent top five and one SD for everyone. After is the minute budget plus the tighter star noise. Paired difference is after minus before.
+
+2025-26, 1,314 games, about 2,660 seconds a side. Before: minute MAE 7.355, points 5.224, rebounds 2.103, assists 1.393, spread 12.012, total 15.881, bias −2.57, Brier 0.2137. Star bust 0.373 against an actual 0.086. Star mean 16.34, median 14.74, actual 22.02. Points coverage 0.886 for usage at least 0.24 and 0.823 for everyone else. After: minute MAE 7.354, points 5.029, rebounds 2.084, assists 1.377, spread 12.005, total 15.913, bias −1.72, Brier 0.2118. Star bust 0.196 against the same actual 0.086. Star mean 18.53, median 18.05, actual 22.02. Coverage 0.791 and 0.753. Brier −0.0019 (−0.0035 to −0.0003), better. Spread −0.008 (−0.087 to +0.070). Total +0.032 (−0.050 to +0.112).
+
+2024-25, 1,313 games, about 2,700 seconds a side. Before: minute MAE 7.374, points 5.280, rebounds 2.165, assists 1.389, spread 11.652, total 17.342, bias −10.55, Brier 0.2141. Star bust 0.360 against an actual 0.080. Star mean 16.16, median 14.57, actual 21.87. Coverage 0.864 and 0.803. After: minute MAE 7.373, points 5.130, rebounds 2.172, assists 1.373, spread 11.743, total 17.098, bias −9.96, Brier 0.2144. Star bust 0.192. Star mean 18.19, median 17.70, actual 21.87. Coverage 0.769 and 0.730. Brier +0.0003 (−0.0015 to +0.0020). Spread +0.092 (+0.012 to +0.171), worse. Total −0.244 (−0.314 to −0.173), better.
+
+2025-26 wins on Brier. The holdout does not confirm it: the spread is worse. Reconcile on the after config, 80 games, 80 sims, skip 400, seed 1, failed the starter share. Rebounds +6.32%, assists +4.52%, steals +4.27%, blocks +7.87%. Team points were +0.24%. The top-30 warning was points −17.13% and minutes −16.62%. Stars moved toward their actuals and were still about 3.5 points light. The bust rate is closer to the games and still about double.
+
+## Graded star gap (2026-11-11)
+
+The top-30 comparison to entering per-game averages is a warning. Those averages pick up hot starts, so they do not stop a slate. The block is the last 21 days of graded slates. Stars are the 30 players with the highest pregame usage, at least 3 games in the window. The gap is their published mean points against the points they scored. October 17 through November 6, 126 games, 216 player-games: mean 18.33, median 16.68, actual 23.95, gap −23.5%. That is outside 5%, so `daily.py` refuses the slate. `run.py` does not run this check.
 
 ## Usage rebase (2026-11-10) — REVERTED from sim
 
@@ -20,7 +36,7 @@ The remaining share gap is the on-court five. Five high-minute players can sum t
 
 Last seven slates, Nov 2 through Nov 9, 40 finals, 1,000 sims, seed 1. High-minute top 30 means projected median minutes of at least 30. Before: n=15, median points gap −9.66, mean −7.97, minutes −4.33. After: n=15, median −9.73, mean −7.94, minutes −4.31. The gap did not move, and those minutes are still about 4 under the season average, so the "minutes are right" bar was not met. Share of sims where a top-30 scorer finishes under half his season average: 0.393 before and 0.397 after, against 0.051 in the actuals, n=82 player-games. That tail was not retuned. Team totals, 80 team-games: before, sum of medians −22.46, sum of means −1.34, team sim median −1.49, team sim mean −1.34. After: −22.52, −1.05, −1.19, −1.05. The mean team total stays inside about 1 point. The 22-point median gap is still the median sitting under the mean.
 
-Reconcile on the after config, 80 games, 80 sims, skip 400, seed 1: failed. Team rebounds +3.28% and turnovers −3.37%. Starter points −3.44%. Top 30 by projected usage, at least 3 prior games and a projected mean minute of at least 1: points −28.43%, minutes −16.71%, n=30. Team points −0.55%, team minutes −0.39%. The top-30 check is now part of `passed`. `daily.py` refuses the slate when it fails. It will refuse until star points and minutes are inside 5% of the entering per-game averages.
+Reconcile on the after config, 80 games, 80 sims, skip 400, seed 1: failed. Team rebounds +3.28% and turnovers −3.37%. Starter points −3.44%. Top 30 by projected usage, at least 3 prior games and a projected mean minute of at least 1: points −28.43%, minutes −16.71%, n=30. Team points −0.55%, team minutes −0.39%. The top-30 check was added to `passed` here. On 2026-11-11 that comparison became a warning. The block is the graded-slate gap, above.
 
 The Oklahoma City at Portland box from tonight was simulated with the rebase on, before this revert. Portland 117 (117.2), Oklahoma City 113 (112.7), Portland 58.1%.
 

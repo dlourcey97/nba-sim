@@ -13,6 +13,8 @@ os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
 
+import numpy as np
+
 from backtest.metrics import crps_from_samples, pit_from_samples
 from outputs.summarize import summarize_game
 from sim.engine import simulate_game
@@ -69,8 +71,13 @@ def score_projected_game(payload: dict) -> dict:
     crps_pts_sum = 0.0
     cover_min_hits = 0.0
     cover_pts_hits = 0.0
+    cover_star_hits = 0.0
+    cover_star_n = 0
+    cover_bench_hits = 0.0
+    cover_bench_n = 0
     played_n = 0
     id_to_idx = {int(pid): index for index, pid in enumerate(sim.player_ids)}
+    usage_by_id = {int(p.player_id): float(p.rates.usage) for p in projection.players}
     # Every player who played is scored. Someone the projection left off is a
     # point mass at 0: CRPS is the absolute error, and the 10–90 band is {0}.
     for pid, player, actual in iter_played(summary.players, logs):
@@ -121,6 +128,15 @@ def score_projected_game(payload: dict) -> dict:
         cover_hits.append(1.0 if pts_inside else 0.0)
         cover_pts_hits += 1.0 if pts_inside else 0.0
         cover_min_hits += 1.0 if min_inside else 0.0
+        usage = usage_by_id.get(int(pid), 0.0)
+        cut = float((payload["config"].get("simulation") or {}).get("star_usage_min", 0.24))
+        if usage >= cut:
+            cover_star_hits += 1.0 if pts_inside else 0.0
+            cover_star_n += 1
+        else:
+            cover_bench_hits += 1.0 if pts_inside else 0.0
+            cover_bench_n += 1
+    groups = _star_bust(payload, projection, sim, id_to_idx)
     play_brier_sum, play_n, play_bins = _play_calibration(projection, logs)
     sim_poss = [float(sim.home_possessions), float(sim.away_possessions)]
     del sim
@@ -161,6 +177,11 @@ def score_projected_game(payload: dict) -> dict:
         "played_n": played_n,
         "cover_min_hits": cover_min_hits,
         "cover_pts_hits": cover_pts_hits,
+        "cover_star_hits": cover_star_hits,
+        "cover_star_n": cover_star_n,
+        "cover_bench_hits": cover_bench_hits,
+        "cover_bench_n": cover_bench_n,
+        **groups,
         "play_brier_sum": play_brier_sum,
         "play_n": play_n,
         "play_bins": play_bins,
@@ -168,6 +189,52 @@ def score_projected_game(payload: dict) -> dict:
         "pred_away_pts": float(summary.away_pts.mean),
         "act_home_pts": home_pts,
         "act_away_pts": away_pts,
+    }
+
+
+def _star_bust(payload, projection, sim, id_to_idx) -> dict:
+    """Sims under half the entering points-per-game, for high-usage players.
+
+    The minutes draw is not the comparison. A player qualifies from the
+    pregame usage and a minutes mean of at least 20, with at least 8 prior
+    games of 8+ minutes.
+    """
+    ppg_map = payload.get("season_ppg") or {}
+    cut = float((payload["config"].get("simulation") or {}).get("star_usage_min", 0.24))
+    logs = payload["logs"]
+    bust = draws = actual_bust = n = 0
+    pred_sum = med_sum = act_sum = 0.0
+    for player in projection.players:
+        if float(player.rates.usage) < cut or float(player.minutes.mean) < 20:
+            continue
+        pid = int(player.player_id)
+        rate = ppg_map.get(pid)
+        if rate is None or float(rate) < 12:
+            continue
+        idx = id_to_idx.get(pid)
+        if idx is None:
+            continue
+        pts = sim.pts[idx]
+        threshold = 0.5 * float(rate)
+        bust += int((pts < threshold).sum())
+        draws += int(pts.shape[0])
+        pred_sum += float(pts.mean())
+        med_sum += float(np.median(pts))
+        actual = logs.get(pid)
+        if actual is None:
+            actual = logs.get(str(pid))
+        scored = float(actual.get("pts") or 0.0) if actual else 0.0
+        act_sum += scored
+        actual_bust += int(scored < threshold)
+        n += 1
+    return {
+        "star_bust": bust,
+        "star_bust_draws": draws,
+        "star_actual_bust": actual_bust,
+        "star_n": n,
+        "star_pred_sum": pred_sum,
+        "star_med_sum": med_sum,
+        "star_act_sum": act_sum,
     }
 
 

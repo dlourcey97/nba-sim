@@ -1,102 +1,82 @@
-"""Decision run for on-court six-factor lineup defense.
+"""Decision run for the budget lineup and separate star noise.
 
-Reconcile first (mid-season 2025-26, 80 games, 80 sims, skip 400, seed 1,
-±3%). A failure stops the script before the long seasons. The long run is
-2025-26 and the 2024-25 holdout, 1,000 sims, seed 1, four workers. The
-baseline is the CRPS re-score base (same engine, flag off). Difference is
-lineup minus base. This script does not flip config.yaml.
+Before draws one independent top five each quarter and uses one shooting
+and usage SD for every player. After spends each quarter's minutes in four
+substints, and high-usage players get a tighter SD than the bench.
+Both seasons, 1,000 sims, seed 1, four workers. The paired interval is
+after minus before.
 """
 
 from __future__ import annotations
 
 import copy
+import json
+import os
 import sys
+from dataclasses import replace
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ.setdefault("VECLIB_MAXIMUM_THREADS", "1")
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+os.environ.setdefault("MKL_NUM_THREADS", "1")
 
-from backtest.bootstrap import paired_bootstrap, paired_player_bootstrap
-from nba_sim.settings import load_settings
-from scripts.crps_decision import _bins, _config, _fmt
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from backtest.bootstrap import paired_bootstrap
 from scripts.fringe_decision import SEASONS, _guardrail, _load, _out, _run
 
-STEP = "lineup"
+from nba_sim.settings import load_settings
 
 
-def _lineup_config(settings) -> dict:
-    config = _config(settings, {"context": {"lineup_defense_enabled": True}})
+def _config(settings, *, budget: bool) -> dict:
+    config = copy.deepcopy(settings.config)
+    sim = config["simulation"]
+    if budget:
+        sim["lineup_model"] = "budget"
+        sim["lineup_substints"] = 4
+        sim["lineup_budget_noise"] = 0.40
+        sim["player_shoot_sd"] = 0.32
+        sim["player_usage_sd"] = 0.28
+        sim["star_usage_min"] = 0.24
+        sim["star_shoot_sd"] = 0.14
+        sim["star_usage_sd"] = 0.10
+    else:
+        sim["lineup_model"] = "gumbel"
+        sim["player_shoot_sd"] = 0.32
+        sim["player_usage_sd"] = 0.28
+        sim["star_usage_min"] = 0.24
+        sim["star_shoot_sd"] = 0.32
+        sim["star_usage_sd"] = 0.28
+    config["context"]["dunks_fallback_log"] = False
     return config
 
 
-def _better(row: dict) -> bool:
-    return bool(row["decisive"] and row["high"] < 0.0)
-
-
-def _worse(row: dict) -> bool:
-    return bool(row["decisive"] and row["low"] > 0.0)
-
-
-def _call(player: dict[str, dict], game: dict[str, dict]) -> str:
-    """Drop a decisive loss. Keep a decisive gain on both seasons. Else noise."""
-    watched = ("crps_min", "crps_pts")
-    game_keys = ("brier", "mae_margin", "mae_total")
-    worse = False
-    better = {season: False for season in player}
-    for season, boot in player.items():
-        for key in watched:
-            if _worse(boot[key]):
-                worse = True
-            if _better(boot[key]):
-                better[season] = True
-    for season, boot in game.items():
-        for key in game_keys:
-            if _worse(boot[key]):
-                worse = True
-            if _better(boot[key]):
-                better[season] = True
-    if worse:
-        return "DROP"
-    if all(better.values()):
-        return "KEEP"
-    return "NOISE"
-
-
 def main() -> None:
-    settings = load_settings(ROOT)
-    base_cfg = _config(settings, {})
-    on_cfg = _lineup_config(settings)
-    if base_cfg.get("context", {}).get("lineup_defense_enabled"):
-        raise SystemExit("baseline config has lineup defense on")
-    print("RECONCILE lineup defense on", flush=True)
-    _guardrail(settings, on_cfg)
-    payloads = {}
+    settings = load_settings()
+    before = _config(settings, budget=False)
+    after = _config(settings, budget=True)
+    print("GUARDRAIL after", flush=True)
+    try:
+        _guardrail(settings, after)
+    except SystemExit as exc:
+        print(f"GUARDRAIL FAILED {exc}", flush=True)
     for season in SEASONS:
-        base_metrics = _out(season, "crps_base") / "metrics.json"
-        if not base_metrics.exists():
-            print(f"BASE missing; running {season} crps_base", flush=True)
-            _run(settings, base_cfg, season, _out(season, "crps_base"))
-        out = _out(season, STEP)
-        payloads[season] = _run(settings, on_cfg, season, out)
-        row = payloads[season]
-        print(
-            f"SCORES {out.name} CRPS min {row.get('crps_min')} "
-            f"CRPS pts {row.get('crps_pts')} play {row.get('play_brier')} "
-            f"spread {row.get('mae_margin')} total {row.get('mae_total')} "
-            f"brier {row.get('brier_win')}",
-            flush=True,
+        _run(replace(settings, config=before), before, season, _out(season, "lineup_before"))
+        _run(replace(settings, config=after), after, season, _out(season, "lineup_after"))
+        boot = paired_bootstrap(
+            _load(_out(season, "lineup_before") / "games.parquet"),
+            _load(_out(season, "lineup_after") / "games.parquet"),
+            n_boot=2000,
+            seed=1,
         )
-        print(f"PLAY BINS {out.name} {_bins(row)}", flush=True)
-    player: dict[str, dict] = {}
-    game: dict[str, dict] = {}
-    for season in SEASONS:
-        base = _out(season, "crps_base") / "games.parquet"
-        variant = _out(season, STEP) / "games.parquet"
-        player[season] = paired_player_bootstrap(_load(base), _load(variant), n_boot=2000, seed=1)
-        game[season] = paired_bootstrap(_load(base), _load(variant), n_boot=2000, seed=1)
-        print(f"PLAYER {STEP} {season} lineup-minus-base {_fmt(player[season])}", flush=True)
-        print(f"GAME {STEP} {season} lineup-minus-base {_fmt(game[season])}", flush=True)
-    print(f"CALL {STEP} {_call(player, game)}", flush=True)
+        print(f"PAIRED {season} after-minus-before {boot}", flush=True)
+        (_out(season, "lineup_after") / "paired.json").write_text(
+            json.dumps(boot, indent=2) + "\n",
+            encoding="utf-8",
+        )
     print("LINEUP DECISION DONE", flush=True)
 
 

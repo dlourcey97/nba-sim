@@ -554,10 +554,10 @@ def run_walkforward_reconcile(
         star_players=len(top_stars),
         threshold_pct=threshold_pct,
     )
-    # Guardrail: ANY team or role flag over threshold blocks projections.
-    # (Previously MIN / starter-MIN / BLK-role were informational and the
-    # 10-23 slate shipped despite MIN +7.8%, TOV −13%, starter shares −5–8%.)
-    report.passed = not team_flags and not role_flags and not star_flags
+    # Team and role flags block. The top-30 comparison to entering averages
+    # is a warning: those averages are inflated by hot starts, so they do
+    # not stop a slate. The out-of-sample star gap is a separate check.
+    report.passed = not team_flags and not role_flags
     _ = sample_act  # sample-matched actuals available for future FG instrumentation
     return report
 
@@ -636,12 +636,13 @@ def format_report(report: ReconcileReport) -> str:
     lines.extend(
         [
             "",
-            "## Top 30 usage (projected vs entering per-game)",
+            "## Top 30 usage (warning: projected vs entering per-game)",
             "",
+            "Does not block. Entering averages include hot starts.",
             f"Players: {report.star_players} | "
             f"PTS {report.star_pts_delta_pct:+.1f}% | "
             f"MIN {report.star_min_delta_pct:+.1f}% | "
-            f"{'FLAG ' + ','.join(report.star_flags) if report.star_flags else 'ok'}",
+            f"{'WARNING ' + ','.join(report.star_flags) if report.star_flags else 'ok'}",
             "",
             "## Top scorers (sim vs sample act vs prior per-36)",
             "",

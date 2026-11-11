@@ -24,6 +24,14 @@ class MetricReport:
     crps_min: float = float("nan")
     coverage_min_10_90: float = float("nan")
     coverage_pts_10_90: float = float("nan")
+    coverage_star_pts: float = float("nan")
+    coverage_bench_pts: float = float("nan")
+    star_bust_rate: float = float("nan")
+    star_actual_bust_rate: float = float("nan")
+    star_pred_mean: float = float("nan")
+    star_med_mean: float = float("nan")
+    star_act_mean: float = float("nan")
+    star_players: int = 0
     play_brier: float = float("nan")
     play_bins: list | None = None
     calibration_bins: list[dict[str, float]] | None = None
@@ -80,6 +88,14 @@ class MetricReport:
             "coverage_10_90": _json_float(self.coverage_10_90),
             "coverage_min_10_90": _json_float(self.coverage_min_10_90),
             "coverage_pts_10_90": _json_float(self.coverage_pts_10_90),
+            "coverage_star_pts": _json_float(self.coverage_star_pts),
+            "coverage_bench_pts": _json_float(self.coverage_bench_pts),
+            "star_bust_rate": _json_float(self.star_bust_rate),
+            "star_actual_bust_rate": _json_float(self.star_actual_bust_rate),
+            "star_pred_mean": _json_float(self.star_pred_mean),
+            "star_med_mean": _json_float(self.star_med_mean),
+            "star_act_mean": _json_float(self.star_act_mean),
+            "star_players": int(self.star_players),
             "play_brier": _json_float(self.play_brier),
             "play_bins": [
                 {key: _json_float(value) if isinstance(value, float) else value for key, value in row.items()}
