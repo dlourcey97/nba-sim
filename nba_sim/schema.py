@@ -456,15 +456,19 @@ def _tables() -> dict[str, Table]:
         key=("row_kind", "game_id", "player_id", "pick_stat"),
         grain=(
             "one player row per player per game, one game row per game, "
-            "and optional pick rows (row_kind=pick) for top confident stat lines"
+            "optional pick rows, and post-sim edge/lean rows"
         ),
         description=(
             "Summary of a simulation, not the raw runs. "
-            "row_kind is player, game, or pick. Player rows leave the game distribution null. "
+            "row_kind is player, game, pick, edge, or lean. "
+            "Player rows leave the game distribution null. "
             "Game rows leave player_id and the player distributions null. "
-            "Pick rows store claimed confidence ranges for tonight's top lines; "
+            "Pick rows store claimed confidence ranges for tonight's top lines. "
+            "Edge and lean rows are the post-sim play card. The line and the odds "
+            "are recorded after the sim and are never an input to it. "
             "actual_pick_hit is filled after the game. "
-            "pick_stat is '' on player/game rows and the stat code (pts/reb/…) on pick rows. "
+            "pick_stat is '' on player/game rows, a stat code on pick rows, "
+            "and stat_side (ast_under) on edge rows. "
             "Actuals are filled by a later upsert. Only the current season is writable "
             "unless a backfill passes allow_historical. A _COMPLETE marker freezes the season."
         ),
@@ -501,7 +505,31 @@ def _tables() -> dict[str, Table]:
                 "actual_pick_hit",
                 "BOOLEAN",
                 True,
-                "True when actual stat landed in [pick_lo, pick_hi]. Null before final.",
+                "True when the pick or the edge side hit. Null before final.",
+            ),
+            _col(
+                "edge_market_p",
+                "DOUBLE",
+                True,
+                "No-vig market probability of the edge side. Null except on edge/lean rows.",
+            ),
+            _col(
+                "edge_close_line",
+                "DOUBLE",
+                True,
+                "Closing prop line when a pre-tip snapshot was saved. Null until then.",
+            ),
+            _col(
+                "edge_season_avg",
+                "DOUBLE",
+                True,
+                "Player season average of the prop stat at selection. Edge/lean rows.",
+            ),
+            _col(
+                "edge_last10",
+                "DOUBLE",
+                True,
+                "Player last-10 average of the prop stat at selection. Edge/lean rows.",
             ),
         )
         + _player_distribution_columns()
@@ -673,7 +701,7 @@ def render_schema_markdown() -> str:
         "- `replace`: delete the season partition and write it again. Used for derived rates and aggregates so they are never appended or versioned.",
         "- `upsert_current`: insert or replace rows by key in the current season. Used so prediction actuals can be filled without keeping every simulation draw.",
         "",
-        "Not stored: raw API responses, raw play-by-play (optional compressed copy under `ARCHIVE_DIR` only, never read back), individual simulation runs, odds, lines, or betting edges. Official injury PDFs are downloaded, parsed in memory, and discarded in the same run. `overrides.yaml` in the repo supplies manual injury and minutes-cap changes; those rows are not written to `DATA_DIR`.",
+        "Not stored: raw API responses, raw play-by-play (optional compressed copy under `ARCHIVE_DIR` only, never read back), or individual simulation runs. Odds are not an input to the sim. A post-sim play card may record a line on `prediction_history` edge rows after the sim has finished. Official injury PDFs are downloaded, parsed in memory, and discarded in the same run. `overrides.yaml` in the repo supplies manual injury and minutes-cap changes; those rows are not written to `DATA_DIR`.",
         "",
         "Display JSON in `results/latest/` is overwritten each run and is not part of `DATA_DIR`.",
         "",

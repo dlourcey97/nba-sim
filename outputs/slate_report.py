@@ -21,6 +21,9 @@ def write_slate_report(
     assumptions: Sequence[str],
     projections_started: dict[int, bool] | None = None,
     double_doubles: Sequence[ConfidentPick] = (),
+    sanity_lines: Sequence[str] = (),
+    play_lines: Sequence[str] = (),
+    warn_ids: set[int] | None = None,
 ) -> Path:
     """Write markdown report. Returns path."""
     out_dir = repo_root / "results" / "latest"
@@ -31,8 +34,25 @@ def write_slate_report(
     lines: list[str] = []
     lines.append(f"# NBA Sim Slate Report — {game_date}")
     lines.append("")
-    lines.append("Predictions from the Monte Carlo engine only. No sportsbook lines, odds, or props.")
+    lines.append(
+        "Predictions from the Monte Carlo engine only. "
+        "A cached board, when present, is read after the sim and does not enter it."
+    )
     lines.append("")
+
+    lines.append("## 0. Sanity report")
+    lines.append("")
+    if sanity_lines:
+        for row in sanity_lines:
+            lines.append(f"- {row}")
+    else:
+        lines.append("- (not run)")
+    lines.append("")
+    if play_lines:
+        lines.append("## 0b. Play card")
+        lines.append("")
+        lines.extend(play_lines)
+        lines.append("")
 
     lines.append("## 1. Injury / lineup notes (changes that affected sims)")
     lines.append("")
@@ -46,7 +66,7 @@ def write_slate_report(
     lines.append("## 2. Games")
     lines.append("")
     for summary in sorted(summaries, key=lambda s: s.game_id):
-        lines.extend(_game_section(summary, started))
+        lines.extend(_game_section(summary, started, warn_ids or set()))
 
     lines.append("## 3. Top confident stat lines")
     lines.append("")
@@ -116,7 +136,9 @@ def write_slate_report(
     return path
 
 
-def _game_section(summary: GameSummary, started: dict[int, bool]) -> list[str]:
+def _game_section(
+    summary: GameSummary, started: dict[int, bool], warn_ids: set[int]
+) -> list[str]:
     home_wp = summary.home_win_prob
     away_wp = 1.0 - home_wp
     if home_wp >= away_wp:
@@ -162,8 +184,9 @@ def _game_section(summary: GameSummary, started: dict[int, bool]) -> list[str]:
         lines.append("| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |")
         for p in players:
             role = "Starter" if (started.get(p.player_id) or p.started) else "Bench"
+            name = f"⚠️ {p.player_name}" if p.player_id in warn_ids else p.player_name
             lines.append(
-                f"| {role} | {p.player_name} | "
+                f"| {role} | {name} | "
                 f"{_r(p, 'min')} | {_r(p, 'pts')} | {_r(p, 'reb')} | "
                 f"{_r(p, 'ast')} | {_r(p, 'stl')} | {_r(p, 'blk')} |"
             )

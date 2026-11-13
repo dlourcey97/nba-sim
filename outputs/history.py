@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Sequence
 
 from nba_sim.schema import GAME_DISTRIBUTIONS, PLAYER_STATS, PERCENTILES
@@ -32,6 +33,15 @@ def _kind_base(kind: object) -> str:
     return str(kind or "").split(":", 1)[0]
 
 
+def _empty_edge_fields() -> dict[str, Any]:
+    return {
+        "edge_market_p": None,
+        "edge_close_line": None,
+        "edge_season_avg": None,
+        "edge_last10": None,
+    }
+
+
 def _empty_pick_fields() -> dict[str, Any]:
     return {
         "pick_stat": "",
@@ -41,6 +51,7 @@ def _empty_pick_fields() -> dict[str, Any]:
         "pick_confidence": None,
         "pick_proj_min": None,
         "actual_pick_hit": None,
+        **_empty_edge_fields(),
     }
 
 
@@ -152,6 +163,7 @@ def pick_history_rows(
             "pick_confidence": float(pick.confidence),
             "pick_proj_min": float(pick.proj_minutes),
             "actual_pick_hit": None,
+            **_empty_edge_fields(),
         }
         for stat in PLAYER_STATS:
             for percentile in PERCENTILES:
@@ -213,6 +225,147 @@ def write_pick_history(
     return result.rows_written
 
 
+def edge_history_rows(
+    plays: Sequence[Any],
+    *,
+    season: str,
+    game_date,
+    runs: int,
+    seed: int | None,
+    simulated_at: datetime | None = None,
+) -> list[dict[str, Any]]:
+    """Post-sim play card. The line is stored here and is not a sim input."""
+    now = simulated_at or datetime.now(timezone.utc).replace(tzinfo=None)
+    rows: list[dict[str, Any]] = []
+    for play in plays:
+        stat = str(play.stat).lower()
+        row: dict[str, Any] = {
+            "season": season,
+            "game_id": play.game_id,
+            "game_date": game_date,
+            "row_kind": "edge" if play.tier == "top" else "lean",
+            "player_id": int(play.player_id),
+            "team_abbr": play.team_abbr,
+            "opponent_abbr": play.opponent_abbr,
+            "home_abbr": None,
+            "away_abbr": None,
+            "simulated_at": now,
+            "runs": runs,
+            "seed": seed,
+            "home_win_prob": None,
+            "overtime_prob": None,
+            "actual_home_pts": None,
+            "actual_away_pts": None,
+            "actual_overtime": None,
+            "pick_stat": f"{stat}_{play.side}",
+            "pick_lo": float(play.line),
+            "pick_hi": float(play.odds),
+            "pick_median": float(play.sim_p50),
+            "pick_confidence": float(play.our_p),
+            "pick_proj_min": float(play.minutes),
+            "actual_pick_hit": None,
+            "edge_market_p": float(play.market_p),
+            "edge_close_line": None,
+            "edge_season_avg": None if play.season_avg is None else float(play.season_avg),
+            "edge_last10": None if play.last10 is None else float(play.last10),
+        }
+        for name in PLAYER_STATS:
+            for percentile in PERCENTILES:
+                row[f"pred_{name}_{percentile}"] = None
+            row[f"actual_{name}"] = None
+        for dist in GAME_DISTRIBUTIONS:
+            for percentile in PERCENTILES:
+                row[f"pred_{dist}_{percentile}"] = None
+        rows.append(row)
+    return rows
+
+
+def write_edge_history(
+    settings: Settings,
+    plays: Sequence[Any],
+    *,
+    season: str,
+    game_date,
+    runs: int,
+    seed: int | None = None,
+    allow_historical: bool = False,
+) -> int:
+    if not plays:
+        return 0
+    rows = edge_history_rows(
+        plays,
+        season=season,
+        game_date=game_date,
+        runs=runs,
+        seed=seed,
+    )
+    result = store_rows(
+        settings,
+        "prediction_history",
+        season,
+        rows,
+        allow_historical=allow_historical,
+    )
+    return result.rows_written
+
+
+def _closing_lines(settings: Settings, game_date, logs: list[dict]) -> dict[tuple[int, str], float]:
+    from outputs.edge_plays import load_prop_cache, norm_name
+
+    path = Path(settings.data_dir) / "odds_cache" / str(game_date)[:10] / "close_summary.json"
+    by_name: dict[tuple[str, str], float] = {}
+    for block in load_prop_cache(path):
+        for offer in block.get("players") or []:
+            if offer.get("point") is None or not offer.get("market"):
+                continue
+            by_name[(norm_name(str(offer["player"])), str(offer["market"]))] = float(offer["point"])
+    if not by_name:
+        return {}
+    names = {int(row["player_id"]): str(row.get("player_name") or "") for row in logs}
+    found: dict[tuple[int, str], float] = {}
+    for player_id, name in names.items():
+        for stat in ("pts", "reb", "ast"):
+            line = by_name.get((norm_name(name), stat))
+            if line is not None:
+                found[(player_id, stat)] = line
+    return found
+
+
+def _fill_edge_row(
+    row: dict[str, Any],
+    log: dict | None,
+    logs: list[dict],
+    settings: Settings,
+    close_by_date: dict[str, dict[tuple[int, str], float]],
+) -> None:
+    token = str(row.get("pick_stat") or "")
+    if "_" not in token:
+        return
+    stat, side = token.rsplit("_", 1)
+    if stat not in PLAYER_STATS:
+        return
+    column = "minutes" if stat == "min" else stat
+    actual = 0.0 if log is None else float(log.get(column) or 0.0)
+    line = row.get("pick_lo")
+    if line is not None:
+        if side == "over":
+            row["actual_pick_hit"] = actual > float(line)
+        elif side == "under":
+            row["actual_pick_hit"] = actual < float(line)
+    row[f"actual_{stat}"] = actual
+    if row.get("edge_close_line") is not None:
+        return
+    game_date = str(row.get("game_date") or "")[:10]
+    if game_date not in close_by_date:
+        close_by_date[game_date] = _closing_lines(settings, game_date, logs)
+    player_id = row.get("player_id")
+    if player_id is None:
+        return
+    close = close_by_date[game_date].get((int(player_id), stat))
+    if close is not None:
+        row["edge_close_line"] = close
+
+
 def fill_actuals_for_season(
     settings: Settings,
     season: str,
@@ -232,6 +385,7 @@ def fill_actuals_for_season(
     }
     log_by_key = {(row["game_id"], int(row["player_id"])): row for row in logs}
     team_by_key = {(row["game_id"], row["team_abbr"]): row for row in teams}
+    close_by_date: dict[str, dict[tuple[int, str], float]] = {}
 
     updated: list[dict[str, Any]] = []
     for row in history:
@@ -285,6 +439,10 @@ def fill_actuals_for_season(
                 # Also stamp the matching actual_* for audit.
                 if stat in PLAYER_STATS:
                     new_row[f"actual_{stat}"] = actual
+            updated.append(new_row)
+            continue
+        if _kind_base(row["row_kind"]) in {"edge", "lean"}:
+            _fill_edge_row(new_row, log, logs, settings, close_by_date)
             updated.append(new_row)
             continue
         if log is None:

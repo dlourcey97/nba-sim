@@ -57,6 +57,17 @@ simulation:
   # >1 concentrates boards on elite rebounders (fixes post-stabilize REB/36
   # under-projection for Jokic-class players) without changing team totals.
   reb_share_power: 1.55
+  # Rebound rate is box boards / play-by-play chances. The live feed misses
+  # stints, so chances per minute collapse (Carter 0.22 vs a league 0.975)
+  # and the rate explodes. Games under the thin line use the league density
+  # as the denominator. 2025-26 rotation players sit above 0.80, so this does
+  # not move the season that set reb_share_power. Team rebound leak and the
+  # share power stay as they are.
+  reb_chance_league_per_min: 0.975
+  reb_chance_thin_per_min: 0.80
+  # Dated rows before this stay on the recorded chances. 2024-25 and 2025-26
+  # are the decision-run seasons and are not rewritten by this floor.
+  reb_chance_floor_since: "2026-10-01"
   # Who-gets-steal credit blend: raw stl_rate vs on-court mean.
   # 1.0 = raw rates only; lower pulls toward equal on-court credit.
   # Raw rates over-credit high-rate bench specialists (~−3.3% starter STL

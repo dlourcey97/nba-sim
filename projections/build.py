@@ -516,6 +516,7 @@ def _build(
             bundles,
             as_of=as_of,
             align_box_usage=bool(config["blending"].get("align_box_usage", False)),
+            config=config,
         )
     if cache.meta is None:
         cache.meta = load_player_meta(bundles, as_of=as_of)

@@ -109,7 +109,11 @@ def test_ignore_files_exclude_data_artifacts():
 
 
 def test_schema_markdown_matches_code():
-    assert (REPO / "SCHEMA.md").read_text(encoding="utf-8") == render_schema_markdown()
+    rendered = render_schema_markdown()
+    text = (REPO / "SCHEMA.md").read_text(encoding="utf-8")
+    # Generated table contracts, then the hand-written external-file notes.
+    assert text.startswith(rendered)
+    assert "## external/dunks/" in text
 
 
 def test_every_table_round_trips(settings):

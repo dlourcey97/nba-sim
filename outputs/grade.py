@@ -56,6 +56,7 @@ class NightGrade:
     coverage_hits: list[float] = field(default_factory=list)
     pick_grades: list[ConfidentPickGrade] = field(default_factory=list)
     dd_grades: list[ConfidentPickGrade] = field(default_factory=list)
+    edge_grades: list[dict[str, Any]] = field(default_factory=list)
 
     def summary(self) -> dict[str, Any]:
         def _mae(vals: list[float]) -> float | None:
@@ -311,7 +312,43 @@ def grade_night(
         night.pick_grades = grade_confident_picks(
             settings, season, picks, game_date=game_date
         )
+    night.edge_grades = _grade_edge_rows(history, game_date, name_by_id)
     return night
+
+
+def _grade_edge_rows(
+    history: Sequence[dict[str, Any]],
+    game_date: str,
+    name_by_id: dict[int, str],
+) -> list[dict[str, Any]]:
+    from outputs.edge_plays import close_line_value
+
+    graded: list[dict[str, Any]] = []
+    for row in history:
+        kind = str(row.get("row_kind") or "").split(":", 1)[0]
+        if kind not in {"edge", "lean"} or str(row.get("game_date")) != game_date:
+            continue
+        token = str(row.get("pick_stat") or "")
+        stat, _, side = token.rpartition("_")
+        pid = row.get("player_id")
+        close = row.get("edge_close_line")
+        open_line = row.get("pick_lo")
+        clv = None
+        if close is not None and open_line is not None and side in {"over", "under"}:
+            clv = close_line_value(side, float(open_line), float(close))
+        graded.append(
+            {
+                "tier": "top" if kind == "edge" else "lean",
+                "player_name": name_by_id.get(int(pid), f"player:{pid}") if pid is not None else "player",
+                "stat": stat.upper(),
+                "side": side,
+                "line": open_line,
+                "confidence": float(row.get("pick_confidence") or 0.0),
+                "hit": row.get("actual_pick_hit"),
+                "clv": clv,
+            }
+        )
+    return graded
 
 
 def _grade_history_picks(
@@ -738,6 +775,46 @@ def _epoch(value: object) -> float | None:
         return None
 
 
+def _edge_report_lines(nights: Sequence[NightGrade]) -> list[str]:
+    rows = [item for night in nights for item in night.edge_grades]
+    lines = ["## Edge report", ""]
+    lines.append(
+        "Post-sim play card. Lines are not an input to the engine. "
+        "Hit rate is the side landing. Claimed is our no-vig probability. "
+        "Closing line value is how far the number moved toward the play before tip, "
+        "when a close snapshot exists."
+    )
+    lines.append("")
+    graded = [item for item in rows if item.get("hit") is not None]
+    if not graded:
+        lines.append("No graded edge plays yet.")
+        return lines
+    hits = sum(1 for item in graded if item["hit"])
+    claimed = sum(float(item["confidence"]) for item in graded) / len(graded)
+    lines.append(f"Graded plays: {hits}/{len(graded)} hit, claimed {100 * claimed:.1f}%.")
+    clv = [float(item["clv"]) for item in graded if item.get("clv") is not None]
+    if clv:
+        toward = sum(1 for value in clv if value > 0)
+        lines.append(
+            f"Closing line value: mean {sum(clv) / len(clv):+.2f} points, "
+            f"{toward}/{len(clv)} moved toward the play."
+        )
+    else:
+        lines.append("Closing line value: no pre-tip close snapshot saved yet.")
+    lines.append("")
+    lines.append("| Tier | Player | Prop | Claimed | Hit | CLV |")
+    lines.append("| --- | --- | --- | ---: | --- | ---: |")
+    for item in graded:
+        clv_cell = "—" if item.get("clv") is None else f"{item['clv']:+.1f}"
+        hit = "hit" if item["hit"] else "miss"
+        lines.append(
+            f"| {item['tier']} | {item['player_name']} | "
+            f"{item['stat']} {item['side']} {item['line']} | "
+            f"{100 * float(item['confidence']):.0f}% | {hit} | {clv_cell} |"
+        )
+    return lines
+
+
 def _mae(errors: list[float]) -> str:
     if not errors:
         return "—"
@@ -816,6 +893,8 @@ def write_season_scorecard(
             bias_den += len(night.games)
     season_bias = bias_num / bias_den if bias_den else None
     lines.append(_num_row("Total bias (pred − actual)", season_bias))
+    lines.append("")
+    lines.extend(_edge_report_lines(nights))
     lines.append("")
     lines.append("## Per night")
     lines.append("")

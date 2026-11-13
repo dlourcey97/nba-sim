@@ -19,6 +19,7 @@ from outputs.confidence import (
 )
 from outputs.history import (
     fill_actuals_for_season,
+    write_edge_history,
     write_pick_history,
     write_prediction_history,
 )
@@ -120,6 +121,7 @@ def run_slate(
     raw_picks: list[ConfidentPick] = []
     raw_dds: list[ConfidentPick] = []
     started_flags: dict[int, bool] = {}
+    projections = []
 
     for row in sorted(selected, key=lambda item: item["game_id"]):
         projection = build_game_projections(
@@ -132,6 +134,7 @@ def run_slate(
             minutes_bundles=minutes_bundles,
             minutes_recent_decay=minutes_recent_decay,
         )
+        projections.append(projection)
         for player in projection.players:
             started_flags[player.player_id] = bool(player.started)
         sim = simulate_game(
@@ -200,6 +203,57 @@ def run_slate(
             f"double-double {pick.player_name} {pick.team_abbr} vs {pick.opponent_abbr} "
             f"P={pick.confidence:.3f} pair={pick.range_label} min={pick.proj_minutes:.1f}"
         )
+    sanity_lines: list[str] = []
+    play_lines: list[str] = []
+    warn_ids: set[int] = set()
+    card = None
+    if result.summaries:
+        from outputs.edge_plays import load_prop_cache, select_plays
+        from outputs.sanity import benchmarks_from_logs, check_slate
+
+        logs = _slate_logs(settings, season)
+        benchmarks = benchmarks_from_logs(logs)
+        sanity = check_slate(
+            result.summaries,
+            benchmarks=benchmarks,
+            injuries=injury_rows,
+            game_date=slate_date,
+        )
+        sanity_lines = sanity.lines()
+        warn_ids = {flag.player_id for flag in sanity.flags}
+        for row in sanity_lines:
+            print(f"sanity {row}")
+        props = load_prop_cache(
+            Path(settings.data_dir) / "odds_cache" / slate_date.isoformat() / "summary.json"
+        )
+        questionable = {
+            int(entry.player_id)
+            for entry in injury_rows
+            if entry.player_id is not None
+            and entry.game_date == slate_date
+            and "QUESTION" in (entry.status or "").upper()
+        }
+        history = read_rows(settings, "prediction_history", season) if props else []
+        card = select_plays(
+            result.summaries,
+            projections,
+            props=props,
+            benchmarks=benchmarks,
+            logs=logs,
+            season=season,
+            history_rows=history,
+            sanity=sanity,
+            questionable_ids=questionable,
+        )
+        play_lines = card.lines()
+        if not props:
+            play_lines = ["No cached board for this date, so there is no play card."]
+        for row in card.tops:
+            print(
+                f"top-play {row.player_name} {row.stat} {row.side} {row.line:g} "
+                f"edge={row.edge:.3f}"
+            )
+
     if write_report and result.summaries:
         notes = list(report_notes or [])
         assumptions = list(report_assumptions or [])
@@ -213,13 +267,16 @@ def run_slate(
             notes=notes,
             assumptions=assumptions,
             projections_started=started_flags,
+            sanity_lines=sanity_lines,
+            play_lines=play_lines,
+            warn_ids=warn_ids,
         )
 
     if write_history:
         logged_picks = list(result.confident_picks) + list(result.double_doubles)
+        runs_used = int(result.summaries[0].runs) if result.summaries else 0
+        seed_used = result.summaries[0].seed if result.summaries else None
         if logged_picks and result.summaries:
-            runs_used = int(result.summaries[0].runs)
-            seed_used = result.summaries[0].seed
             result.history_rows += write_pick_history(
                 settings,
                 logged_picks,
@@ -230,6 +287,16 @@ def run_slate(
                 allow_historical=allow_historical,
                 model=history_model,
             )
+        if card is not None and (card.tops or card.leans):
+            result.history_rows += write_edge_history(
+                settings,
+                list(card.tops) + list(card.leans),
+                season=season,
+                game_date=slate_date,
+                runs=runs_used,
+                seed=seed_used,
+                allow_historical=allow_historical,
+            )
         result.actuals_rows = fill_actuals_for_season(
             settings,
             season,
@@ -238,6 +305,15 @@ def run_slate(
     if finish:
         finish_run(settings)
     return result
+
+
+def _slate_logs(settings: Settings, season: str) -> list[dict]:
+    year = int(str(season).split("-")[0])
+    labels = [f"{year - back}-{str(year - back + 1)[-2:]}" for back in range(4)]
+    rows: list[dict] = []
+    for label in labels:
+        rows.extend(read_rows(settings, "player_game_logs", label))
+    return rows
 
 
 def injuries_for_date(settings: Settings, game_date: date, *, fetch_pdf: bool = True) -> list[InjuryEntry]:

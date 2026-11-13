@@ -5,13 +5,16 @@ from __future__ import annotations
 import math
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from typing import Any
 
 from nba_sim.settings import Settings
 from nba_sim.storage import list_seasons, read_rows
 
 from projections.rates import (
+    REB_CHANCE_FLOOR_SINCE,
+    REB_CHANCE_LEAGUE_PER_MIN,
+    REB_CHANCE_THIN_PER_MIN,
     RateVector,
     add_game_to_accumulator,
     blend_vectors,
@@ -106,13 +109,38 @@ def load_season_bundle(
     )
 
 
+def _as_floor_date(value: object) -> date:
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    return date.fromisoformat(str(value)[:10])
+
+
+def _reb_chance_kwargs(config: dict[str, Any] | None) -> dict[str, Any]:
+    sim = (config or {}).get("simulation") or {}
+    return {
+        "reb_chance_league_per_min": float(
+            sim.get("reb_chance_league_per_min", REB_CHANCE_LEAGUE_PER_MIN)
+        ),
+        "reb_chance_thin_per_min": float(
+            sim.get("reb_chance_thin_per_min", REB_CHANCE_THIN_PER_MIN)
+        ),
+        "reb_chance_floor_since": _as_floor_date(
+            sim.get("reb_chance_floor_since", REB_CHANCE_FLOOR_SINCE)
+        ),
+    }
+
+
 def build_position_priors(
     bundles: list[SeasonBundle],
     *,
     as_of: date | None = None,
     align_box_usage: bool = False,
+    config: dict[str, Any] | None = None,
 ) -> dict[str, RateVector]:
     buckets: dict[str, dict[str, float]] = defaultdict(empty_accumulator)
+    chance_kwargs = _reb_chance_kwargs(config)
     for bundle in bundles:
         log_index = {
             (row["game_id"], row["player_id"]): row
@@ -132,6 +160,7 @@ def build_position_priors(
                     log_row=log,
                     weight=1.0,
                     align=align_box_usage,
+                    **chance_kwargs,
                 )
     return {bucket: vector_from_accumulator(acc) for bucket, acc in buckets.items()}
 
@@ -152,6 +181,7 @@ def player_baseline_and_form(
     form_decay = float(blend_cfg["form_decay"])
     regression_strength = float(blend_cfg["regression_strength"])
     align_box_usage = bool(blend_cfg.get("align_box_usage", False))
+    chance_kwargs = _reb_chance_kwargs(config)
     min_games_for_form = int(blend_cfg["min_games_for_form"])
     # Full season-weight reliability by this many games. Without this, a 1-game
     # current season still takes its full config weight (e.g. 0.40) and a cold
@@ -186,12 +216,22 @@ def player_baseline_and_form(
         for index, rate in enumerate(ordered):
             log = logs.get((rate["game_id"], rate["player_id"]))
             add_game_to_accumulator(
-                season_acc, rate_row=rate, log_row=log, weight=1.0, align=align_box_usage
+                season_acc,
+                rate_row=rate,
+                log_row=log,
+                weight=1.0,
+                align=align_box_usage,
+                **chance_kwargs,
             )
             if bundle.season == current_season:
                 weight = math.exp(-form_decay * index)
                 add_game_to_accumulator(
-                    form_acc, rate_row=rate, log_row=log, weight=weight, align=align_box_usage
+                    form_acc,
+                    rate_row=rate,
+                    log_row=log,
+                    weight=weight,
+                    align=align_box_usage,
+                    **chance_kwargs,
                 )
                 form_games += 1
         season_vector = vector_from_accumulator(season_acc)

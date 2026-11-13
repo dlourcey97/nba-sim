@@ -3,11 +3,22 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
+from datetime import date, datetime
 
 from nba_sim.schema import POSITIONS_5, ZONES
 
 # Box usage counts a free throw as 0.44 of a field-goal attempt.
 BOX_FTA_COEF = 0.44
+# Live-feed lineups miss stints. Box rebounds stay complete and recorded
+# chances shrink, so dreb/chances hits 0.94 for a player at 0.22 chances per
+# minute. League density on the 2025-26 play-by-play is 0.975 per minute.
+# Games under the thin line use that density as the denominator. 2025-26 has
+# no rotation player under 0.75, so this does not move the season that set
+# reb_share_power.
+REB_CHANCE_LEAGUE_PER_MIN = 0.975
+REB_CHANCE_THIN_PER_MIN = 0.80
+# Frozen seasons keep the chance counts the rebound-power decision was built on.
+REB_CHANCE_FLOOR_SINCE = date(2026, 10, 1)
 
 RATE_FIELDS = (
     "usage",
@@ -131,6 +142,34 @@ def align_rate_row(rate: dict, log: dict, pace: float) -> None:
     rate["usage"] = uses / offensive
 
 
+def _as_date(value: object) -> date | None:
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    if not value:
+        return None
+    return date.fromisoformat(str(value)[:10])
+
+
+def stabilized_rebound_chances(
+    chances: float,
+    minutes: float,
+    *,
+    league_per_min: float = REB_CHANCE_LEAGUE_PER_MIN,
+    thin_per_min: float = REB_CHANCE_THIN_PER_MIN,
+) -> float:
+    """Replace a collapsed chance count with minutes times the league density.
+
+    A short appearance is left alone. A normal chance count is left alone.
+    """
+    if minutes < 8.0 or chances <= 0.0 or league_per_min <= 0.0:
+        return chances
+    if chances / minutes >= thin_per_min:
+        return chances
+    return minutes * league_per_min
+
+
 def add_game_to_accumulator(
     acc: dict[str, float],
     *,
@@ -138,6 +177,9 @@ def add_game_to_accumulator(
     log_row: dict | None,
     weight: float,
     align: bool = False,
+    reb_chance_league_per_min: float = REB_CHANCE_LEAGUE_PER_MIN,
+    reb_chance_thin_per_min: float = REB_CHANCE_THIN_PER_MIN,
+    reb_chance_floor_since: date | None = REB_CHANCE_FLOOR_SINCE,
 ) -> None:
     if weight <= 0:
         return
@@ -169,8 +211,33 @@ def add_game_to_accumulator(
     acc["games"] += weight
     acc["fta"] += weight * float(rate_row.get("fta") or 0.0)
     acc["ftm"] += weight * float(rate_row.get("ftm") or 0.0)
-    acc["oreb_chances"] += weight * float(rate_row.get("oreb_chances") or 0.0)
-    acc["dreb_chances"] += weight * float(rate_row.get("dreb_chances") or 0.0)
+    played = float(log_row.get("minutes") or 0.0) if log_row is not None else 0.0
+    raw_oreb = float(rate_row.get("oreb_chances") or 0.0)
+    raw_dreb = float(rate_row.get("dreb_chances") or 0.0)
+    row_date = _as_date(rate_row.get("game_date"))
+    # A missing date is treated as current. A dated row before the floor is
+    # left alone so 2024-25 and 2025-26 projections do not move.
+    apply_floor = row_date is None or (
+        reb_chance_floor_since is not None and row_date >= reb_chance_floor_since
+    )
+    if apply_floor:
+        oreb_chances = stabilized_rebound_chances(
+            raw_oreb,
+            played,
+            league_per_min=reb_chance_league_per_min,
+            thin_per_min=reb_chance_thin_per_min,
+        )
+        dreb_chances = stabilized_rebound_chances(
+            raw_dreb,
+            played,
+            league_per_min=reb_chance_league_per_min,
+            thin_per_min=reb_chance_thin_per_min,
+        )
+    else:
+        oreb_chances = raw_oreb
+        dreb_chances = raw_dreb
+    acc["oreb_chances"] += weight * oreb_chances
+    acc["dreb_chances"] += weight * dreb_chances
     acc["ast_chances"] += weight * float(rate_row.get("ast_chances") or 0.0)
     for zone in ZONES:
         acc[f"{zone}_fga"] += weight * float(rate_row.get(f"{zone}_fga") or 0.0)

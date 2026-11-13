@@ -1,6 +1,22 @@
 # Progress
 
-Last updated 2026-11-11 — Budget lineups measured and reverted. Star busts fell from 37% to 20% against an actual 9%, and the holdout spread got worse. The top-30 comparison to season averages is a warning. The graded-slate gap is −23.5%, so a nightly slate still stops.
+Last updated 2026-11-13 — Center rebound rates from a collapsed chance count are floored for the current season only. Every slate prints a sanity report, and a post-sim play card reads a cached DraftKings board without feeding it to the sim.
+
+## Rebound chance floor (2026-11-13)
+
+The 20-rebound Wendell Carter line was not `reb_share_power` and not the team-rebound leak. Those stay at 1.55 and 0.115. His minutes are normal. The live feed recorded 0.22 defensive-rebound chances per minute against a 2025-26 league density of 0.975, so box boards divided by chances came out at 0.94. Clingan was 0.67 chances per minute and a 0.40 rate, against 0.98 and 0.26 in 2025-26. Hartenstein was 0.74 and 0.39, against 0.99 and 0.25. Power 1.55 then handed the inflated rate almost every board.
+
+Games on or after 2026-10-01 with chances under 0.80 per minute use 0.975 per minute as the denominator. Carter's season rate falls from 0.94 to about 0.21. A dated row before that, including the whole 2024-25 holdout and 2025-26, keeps the recorded chances. 2025-26 has no rotation player under 0.75 chances per minute, which is the season that set the share power. A paired 1,000-sim decision run would not move, because those inputs do not move. 2024-25 does have the same thin-chance pattern (GG Jackson 0.80, Hartenstein 0.41). That season is not rewritten here.
+
+The stored Nov 13 sims were run before this floor. The next slate rebuilds the rates. Until then the sanity check quarantines a median that is 40% off the player's last-10 or recent per-minute line, or above his career high per 36, unless a teammate absence or his own injury status explains it. Quarantine is points, rebounds, assists, and minutes. The player stays in the box with a warning and is off the play card.
+
+## Play card (2026-11-13)
+
+`outputs/edge_plays.py` runs after the sim. It reads `DATA_DIR/odds_cache/{date}/summary.json` if a pull was cached. It does not fetch, and the sim never sees the line. A top play needs a 5-point no-vig edge, the sim median plus the season average plus the last-10 average on the same side, a stat whose graded picks hit at or above the claimed rate over 30 or more picks, a clean sanity check, 24 or more projected minutes, not questionable, and not a top-30 usage player on a points prop. The line has to sit within 3 of the season average unless the injury report explains the gap. Points unders and big-man rebound overs are skipped unless that same-side gap is wide (4 points, 3 rebounds, 2 assists).
+
+Graded pick history through Nov 13: assists 116/167 hit against a claimed 62.0%, so assists qualify. Rebounds 20/44 against 50.9% do not. Points have 20 graded picks, under 30. Steals and blocks are under 30 and below the claimed rate.
+
+Top plays and leans are `row_kind` edge and lean on `prediction_history`. `pick_lo` is the line, `pick_hi` is the American price, `pick_confidence` is our side probability. After finals, hit rate is the side. Closing line value is filled when `odds_cache/{date}/close_summary.json` exists; it is how far the number moved toward the play. The season scorecard has an Edge report section.
 
 ## Budget lineups (2026-11-11) — REVERTED from sim
 
