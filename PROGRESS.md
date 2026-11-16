@@ -1,6 +1,26 @@
 # Progress
 
-Last updated 2026-11-13 — Center rebound rates from a collapsed chance count are floored for the current season only. Every slate prints a sanity report, and a post-sim play card reads a cached DraftKings board without feeding it to the sim.
+Last updated 2026-11-16 — Caught up 11/13–11/15. Live scorecard includes Friday only. Saturday and Sunday are a labeled backtest. The graded star gap is −24.1% and would stop `daily.py`. Reconcile passed.
+
+## Catch-up (2026-11-16)
+
+Incremental ingest of finals from 2026-11-13 through 2026-11-15 stored 23 games, skipped 0, failed 0. Nothing before 11/13 was rewritten. CommonTeamRoster for all 30 teams went from 523 to 525. Adds: Orlando Robinson (CHI), Carson Cooper (LAL), Johni Broome (MIN). Remove: Lawson Lovering (LAL). No player changed teams. That endpoint does not carry injury status. The 11/14 and 11/15 sims used that night's official PDF (61 and 98 rows).
+
+Friday's live slate, already stored on 11/13 before the rebound floor: 9 games, winners 6/9 (66.7%), spread MAE 13.22, total MAE 14.00, total bias −4.67. Minute CRPS 4.36, points CRPS 3.71, minute MAE 5.71, points MAE 5.30, rebound MAE 1.98, assist MAE 1.34, 10–90 coverage 85.8%. Confident picks 7/8 against a claimed 64.5%. The miss was Brandin Podziemski (0 assists). Double-doubles 6/8 against a claimed 59.9%. The misses were Wendell Carter Jr. and Giannis Antetokounmpo. Season live total is 177 games, winners 71.8%, spread 11.70, total 15.58, total bias −2.01.
+
+The Friday edge card was not in `prediction_history` (the slate was stored before the logger). The published tops and leans were written on this catch-up with `simulated_at` 2026-11-13 22:10 so the edge report grades that card and not a new one. Tops 1/5 (Darryn Peterson assists under 4.5). Misses: Damian Lillard 6, Jalen Johnson 10, James Harden 8, De'Andre Hunter 2. Leans 1/7 (Giannis assists under 5.5). Ajay Mitchell has no box row, so that lean was not logged and is not graded. No `close_summary.json` exists for 11/13, so closing line value is blank.
+
+Saturday and Sunday were not live. Pre-tip sims on 2026-11-16, 10,000 runs, seed 1, as-of the game date, are `game:backtest` / `player:backtest`. They are not in the live scorecard or the edge report. Detail is in `results/backtest_2026-11-14_15.md`. Saturday 3/5, spread 14.80, total 16.40, bias −12.40, points CRPS 3.42, coverage 84.0%. Sunday 8/9, spread 8.67, total 15.78, bias −11.56, points CRPS 3.78, coverage 86.9%.
+
+## Where the open items stand (2026-11-16)
+
+Star points are not fixed. The budget lineup and the tighter star noise were reverted on 2026-11-11 because the holdout spread got worse. The graded-slate gap, last 21 days through 11/13, 30 players, 149 games, 272 player-games: mean projection 17.89, median 16.25, actual 23.58, gap −24.1%. That is outside ±5%, so `daily.py` refuses a slate. The top-30 comparison to entering averages is still a warning only: points −26.3%, minutes −16.7%. It does not block.
+
+The center rebound floor is in the code for games on or after 2026-10-01. It was not in Friday's stored sim: Carter median 20 actual 8, Clingan 15 actual 11, Hartenstein 15 actual 16. The first sim after the floor, Hartenstein on 11/15, is a median of 14 against an actual 11. Carter and Clingan had no backtest row those two days. Reconcile on 2025-26 (the floor does not touch that season) passed: 80 games, 80 sims, skip 400, seed 1. No team or starter share outside ±3%. Largest moves were starter points −2.9% and team turnovers +2.2%.
+
+Sanity checks and the play selector are on. Friday's card is the first graded one: 2 of 12 hit against a claimed 73.5%, and assists are still the only stat over 30 graded picks at or above the claimed rate. A teammate absence still explains a high flag, which is why Carter's 20 was flagged and not quarantined. The selector skipped the rebound over anyway (season and last-10 were not over 9.5, rebounds are not calibrated, and it is a known big-man rebound bias).
+
+`daily.py` would stop on the star gap before producing 11/16. The slate after this note is from `run.py`, which does not run that check.
 
 ## Rebound chance floor (2026-11-13)
 
