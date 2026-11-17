@@ -235,6 +235,10 @@ def evaluate_seasons(
                     "play_brier_sum": item.get("play_brier_sum", 0.0),
                     "play_n": item.get("play_n", 0),
                     "play_bins": item.get("play_bins") or [],
+                    "star_bust": item.get("star_bust", 0),
+                    "star_bust_draws": item.get("star_bust_draws", 0),
+                    "star_actual_bust": item.get("star_actual_bust", 0),
+                    "star_n": item.get("star_n", 0),
                 }
             )
             crps_min_sum += float(item.get("crps_min_sum") or 0.0)

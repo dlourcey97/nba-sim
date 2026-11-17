@@ -1,6 +1,45 @@
 # Progress
 
-Last updated 2026-11-17 — Prop probabilities are calibrated before the DraftKings comparison. The star model is still the reverted one. The rebound floor is still 2026-27 only.
+Last updated 2026-11-17 — The top-30 star check warns instead of blocking. Lineup noise is the bust component. Scale 0.65 passed 2025-26 and is not turned on: the holdout has not confirmed it. Tonight's card is the current engine.
+
+## Star gap is a warning (2026-11-17)
+
+`daily.py` no longer refuses a slate when the last 21 days of graded star points sit outside ±5%. That line is printed in bold at the top of the slate. Reconcile still blocks on any league-total or starter-share flag over ±3%. Tonight's warning, 2026-10-24 through 2026-11-13, 30 players, 273 player-games: projection 18.1, actual 23.8, gap −23.8%. Reconcile passed, 80 games, 80 sims, skip 400, seed 1. Team rebounds +0.4%, starter rebounds −0.1%. The comparison to entering averages is still a warning only: points −26.3%, minutes −16.7%.
+
+## Bust tail (2026-11-17)
+
+The component that moves the star bust is the lineup draw. Everything else was turned off one at a time on 2025-26: every 16th final, 82 games, 400 sims, seed 1. A star has usage at least 0.24, a minutes mean of at least 20, and an entering average of at least 12 points from 8 prior games. That is 207 player-games. Actual bust 0.087, actual mean 22.78.
+
+| Component off | Bust | Mean |
+| --- | ---: | ---: |
+| None | 0.374 | 16.60 |
+| Shooting draw | 0.351 | 16.75 |
+| Usage draw | 0.356 | 16.60 |
+| Minutes draw | 0.371 | 16.61 |
+| Foul-trouble haircut | 0.368 | 16.82 |
+| Blowout lineup | 0.378 | 16.47 |
+| Lineup draw | 0.200 | 25.15 |
+| Play probability | 0.379 | 16.39 |
+
+The 30 highest-usage players in that sample, 109 player-games, actual bust 0.083, actual mean 25.74: baseline bust 0.376 and mean 18.32. Shooting 0.354 / 18.47. Usage 0.355 / 18.38. Minutes 0.370 / 18.34. Fouls 0.370 / 18.47. Blowouts 0.383 / 18.13. Lineup off 0.167 / 28.44. Play probability 0.380 / 18.10.
+
+Turning the lineup draw off for everyone cuts the bust from 0.37 to 0.20 and pushes the mean past the actual score, 25.15 against 22.78. The same overshoot is why the budget lineup was reverted. Shooting and usage each move the bust by about two points. Minutes, fouls, blowouts, and sit probability do not.
+
+The fix scales only the centered Gumbel deviation, and only for a player with usage at least 0.24 and a minutes mean of at least 20. Starters below that usage and the bench keep full lineup noise. Multiplying the raw Gumbel also shrinks its positive mean and benches the star; that version was measured and thrown out. The default scale is 1.0, so nothing changes until a value is set in config.
+
+A 23-game centered sweep, 400 sims, still leaves the stars short. Actual mean in that slice 24.00, actual bust 0.060. Scale 1.00 is bust 0.372 and mean 16.21. Scale 0.65 is 0.339 and 17.24. Scale 0.45 is 0.320 and 18.05. Scale 0.25 is 0.291 and 19.10. Scale 0.10 is 0.283 and 19.62. The gain flattens. It does not reach the games.
+
+Reconcile on the same 80-game window: scale 1.00 passes, star points −26.3%. Scale 0.65 passes, star points −21.1%, starter blocks +2.3%. Scale 0.45 fails on starter blocks +4.8%. Scale 0.25 fails on starter rebounds +3.5%, assists +3.0%, blocks +5.7%. Scale 0.10 fails on starter rebounds +4.4%, assists +4.0%, blocks +7.3%. 0.65 is the strongest scale the guardrail allows.
+
+Full 2025-26, 1,314 games, 1,000 sims, seed 1, four workers. Variant minus baseline. Points CRPS −0.0289 (−0.0323 to −0.0255). Bust rate −0.0322 (−0.0331 to −0.0313), from 0.373 to 0.341 against an actual 0.086. Star mean 16.34 to 17.33 against 22.02. Brier +0.0004 (−0.0006 to +0.0013). Spread −0.036 (−0.081 to +0.008). Total +0.025 (−0.012 to +0.062). Points CRPS and the bust rate improve and those intervals exclude zero. Spread, total, and Brier stay inside the noise. The 2024-25 holdout was stopped after it started so tonight's slate could have the machine. The scale stays at 1.0 until that holdout says the same thing.
+
+## Closing lines and tonight's card (2026-11-17)
+
+The open DraftKings board for 2026-11-17 is cached. After that pull the quota was 425 remaining and 75 used, 85% left. Five games matched. A second pull is waiting until 30 minutes before each tip, into `close_summary.json`. Tips in Central time: New York at Toronto 6:40, close 6:10. Detroit at San Antonio and Portland at Minnesota 7:10, close 6:40. Utah at the Clippers 9:40, close 9:10. Charlotte at the Lakers 10:10, close 9:40. Those close pulls are a few credits each. The stop is at 20% remaining, and the board is not close to that. Closing line value on tonight's card stays blank until those files exist and the games are graded.
+
+Tonight's slate ran through `daily.py` with the warning in place. Five games, 10,000 sims. The star warning did not block it. Top plays, calibrated: Ausar Thompson assists over 4.5 (63% vs 45%, +18.4), Jaden McDaniels assists over 3.5 (56% vs 42%, +14.6), RJ Barrett assists over 3.5 (63% vs 49%, +13.5), Kevin Huerter rebounds under 3.5 (60% vs 50%, +9.2), Ausar Thompson points over 9.5 (62% vs 53%, +8.8).
+
+
 
 ## Prop calibration (2026-11-17)
 
@@ -8,7 +47,7 @@ The 30-pick live gate is gone. It was why the card could only print assists: oth
 
 At that line the raw curve says the over is 31–39% and it actually lands 46–52%. That is the under bias the card has been betting. After the map, holdout bias is inside about 4 points and the Brier falls from the high 0.26–0.28s to about 0.25 for points, rebounds, assists, blocks, and PRA. Those cells need a 5-point edge. Points on the bench, and threes for starters and the bench, are weak and need 8. Steals are the cell whose map made the holdout worse (Brier 0.244 to 0.302, bias +0.13). That map is not applied. A steal still needs an 8-point edge on the raw probability.
 
-Star points, top tier, holdout: raw P(over) 0.325 against a 0.478 hit rate (gap −15.4 points). After the map, bias −1.9 points, Brier 0.280 to 0.252, which clears the bar, so a top-30 points prop is allowed once the calibrated edge is 5 points and the other checks pass. The sim mean is still light. This does not close the −24.1% graded gap and `daily.py` still refuses a slate. Points unders and big-man rebound overs still need the wide margin.
+Star points, top tier, holdout: raw P(over) 0.325 against a 0.478 hit rate (gap −15.4 points). After the map, bias −1.9 points, Brier 0.280 to 0.252, which clears the bar, so a top-30 points prop is allowed once the calibrated edge is 5 points and the other checks pass. The sim mean is still light. This does not close the graded gap. The gap is now a warning on the slate, not a block. Points unders and big-man rebound overs still need the wide margin.
 
 The card is ⭐ TOP PLAYS / LEANS / AVOID. Each row has the calibrated probability, the market, the edge, and that cell's holdout quality. If one stat is all that clears, the card says so. The scorecard edge report now splits hit rate, claimed probability, and closing line value by stat. The Friday card, which was logged before this map, is AST 2/8 claimed 70% and REB 0/4 claimed 80%. No close snapshot, so CLV is blank. 3PM, steals, blocks, and PRA are in the selector. The cached DraftKings board only has points, rebounds, and assists, so those other markets do not appear until a pull includes them.
 
@@ -32,7 +71,7 @@ Saturday and Sunday were not live. Pre-tip sims on 2026-11-16, 10,000 runs, seed
 
 ## Where the open items stand (2026-11-16)
 
-Star points are not fixed. The budget lineup and the tighter star noise were reverted on 2026-11-11 because the holdout spread got worse. The graded-slate gap, last 21 days through 11/13, 30 players, 149 games, 272 player-games: mean projection 17.89, median 16.25, actual 23.58, gap −24.1%. That is outside ±5%, so `daily.py` refuses a slate. The top-30 comparison to entering averages is still a warning only: points −26.3%, minutes −16.7%. It does not block.
+Star points are not fixed. The budget lineup and the tighter star noise were reverted on 2026-11-11 because the holdout spread got worse. The graded-slate gap, last 21 days through 11/13, 30 players, 149 games, 272 player-games: mean projection 17.89, median 16.25, actual 23.58, gap −24.1%. That was outside ±5%. As of 2026-11-17 that check warns at the top of the slate and does not block. The top-30 comparison to entering averages is still a warning only: points −26.3%, minutes −16.7%. It does not block.
 
 The center rebound floor is in the code for games on or after 2026-10-01. It was not in Friday's stored sim: Carter median 20 actual 8, Clingan 15 actual 11, Hartenstein 15 actual 16. The first sim after the floor, Hartenstein on 11/15, is a median of 14 against an actual 11. Carter and Clingan had no backtest row those two days. Reconcile on 2025-26 (the floor does not touch that season) passed: 80 games, 80 sims, skip 400, seed 1. No team or starter share outside ±3%. Largest moves were starter points −2.9% and team turnovers +2.2%.
 

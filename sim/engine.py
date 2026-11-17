@@ -117,8 +117,15 @@ def simulate_game(
         raise ValueError(f"no players to simulate for {projection.game_id}")
 
     minutes = np.zeros((n_players, n_runs), dtype=float)
+    freeze_minutes = bool(sim_cfg.get("freeze_minutes_sd"))
+    freeze_play = bool(sim_cfg.get("freeze_play_prob"))
     for index, player in enumerate(players):
-        minutes[index] = player.minutes.sample(rng, n_runs)
+        if freeze_minutes or freeze_play:
+            minutes[index] = _minutes_draw(
+                rng, player, n_runs, freeze_sd=freeze_minutes, freeze_play=freeze_play
+            )
+        else:
+            minutes[index] = player.minutes.sample(rng, n_runs)
 
     home_idx = np.array([i for i, p in enumerate(players) if p.home_away == "H"], dtype=np.int32)
     away_idx = np.array([i for i, p in enumerate(players) if p.home_away == "A"], dtype=np.int32)
@@ -200,6 +207,8 @@ def simulate_game(
     minutes_cfg = cfg.get("minutes", {})
     close_thr = float(minutes_cfg.get("close_margin_threshold", 6.0))
     blowout_thr = float(minutes_cfg.get("blowout_margin_threshold", 15.0))
+    if bool(sim_cfg.get("freeze_blowout")):
+        blowout_thr = 1.0e9
     expected_margin = float(getattr(projection, "expected_abs_margin", 8.0) or 8.0)
     rotation = getattr(projection, "rotation", None)
     minutes_model = str(
@@ -221,6 +230,9 @@ def simulate_game(
         flat=flat_lineups,
         substints=substints,
         budget_noise=budget_noise,
+        temperature=float(sim_cfg.get("lineup_temperature", 1.35)),
+        star_lineup_scale=float(sim_cfg.get("star_lineup_scale", 1.0)),
+        star_usage_min=float(sim_cfg.get("star_usage_min", 0.24)),
     )
     away_grid = _lineups_state_grid(
         rng,
@@ -231,6 +243,9 @@ def simulate_game(
         flat=flat_lineups,
         substints=substints,
         budget_noise=budget_noise,
+        temperature=float(sim_cfg.get("lineup_temperature", 1.35)),
+        star_lineup_scale=float(sim_cfg.get("star_lineup_scale", 1.0)),
+        star_usage_min=float(sim_cfg.get("star_usage_min", 0.24)),
     )
     if resume is not None:
         from sim.resume import pin_on_court
@@ -1048,6 +1063,30 @@ def _take_lineups(
     return grid[run_ids, period_idx, bucket_idx, sub]
 
 
+def _minutes_draw(
+    rng: np.random.Generator,
+    player: PlayerProjection,
+    n_runs: int,
+    *,
+    freeze_sd: bool,
+    freeze_play: bool,
+) -> np.ndarray:
+    """Same sit/minutes draw as MinutesProjection.sample, with one piece frozen."""
+    minutes = player.minutes
+    if minutes.out or minutes.mean <= 0 or (minutes.play_prob <= 0 and not freeze_play):
+        return np.zeros(n_runs, dtype=float)
+    sd = 0.0 if freeze_sd else float(minutes.sd)
+    if sd <= 0:
+        draws = np.full(n_runs, float(minutes.mean))
+    else:
+        draws = rng.normal(float(minutes.mean), sd, size=n_runs)
+        draws = np.clip(draws, float(minutes.min_minutes), float(minutes.max_minutes))
+    prob = 1.0 if freeze_play else float(minutes.play_prob)
+    if prob < 1.0 - 1e-12:
+        draws = np.where(rng.random(n_runs) < prob, draws, 0.0)
+    return draws
+
+
 def _lineups_state_grid(
     rng: np.random.Generator,
     pool: np.ndarray,
@@ -1058,6 +1097,9 @@ def _lineups_state_grid(
     flat: bool = False,
     substints: int = 1,
     budget_noise: float | None = None,
+    temperature: float = 1.35,
+    star_lineup_scale: float = 1.0,
+    star_usage_min: float = 0.24,
 ) -> np.ndarray:
     """Return player indexes for each run, period, and margin bucket.
 
@@ -1145,9 +1187,19 @@ def _lineups_state_grid(
             # temp≈1 → near hard top-5; temp≈3 → heavy bench rotation.
             # 1.35 keeps starter role shares near actual; elite REB/36 is
             # restored via reb_share_power on who-gets-it (not colder lineups).
-            temperature = 1.35
-            logits = np.log(np.maximum(weights, 1e-6)) / temperature
+            logits = np.log(np.maximum(weights, 1e-6)) / max(float(temperature), 0.05)
             gumbel = rng.gumbel(size=weights.shape)
+            if star_lineup_scale < 1.0 - 1e-9:
+                scale = np.ones(n_pool, dtype=float)
+                for local, player_index in enumerate(pool):
+                    player = players[int(player_index)]
+                    if float(player.rates.usage) >= star_usage_min and float(player.minutes.mean) >= 20.0:
+                        scale[local] = float(star_lineup_scale)
+                # Gumbel(0, 1) mean is euler_gamma. Scale the deviation only.
+                # Multiplying the raw draw also shrinks that mean and knocks
+                # stars down the lineup relative to everyone else.
+                centered = gumbel - np.euler_gamma
+                gumbel = np.euler_gamma + centered * scale[:, None]
             noisy = logits + gumbel
             zero_runs = weights.sum(axis=0) <= 0
             if np.any(zero_runs):

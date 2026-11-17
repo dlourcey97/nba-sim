@@ -19,6 +19,7 @@ def write_slate_report(
     injuries: Sequence[InjuryEntry],
     notes: Sequence[str],
     assumptions: Sequence[str],
+    banner: Sequence[str] = (),
     projections_started: dict[int, bool] | None = None,
     double_doubles: Sequence[ConfidentPick] = (),
     sanity_lines: Sequence[str] = (),
@@ -39,6 +40,9 @@ def write_slate_report(
         "A cached board, when present, is read after the sim and does not enter it."
     )
     lines.append("")
+    for row in banner:
+        lines.append(f"**{row}**")
+        lines.append("")
 
     lines.append("## 0. Sanity report")
     lines.append("")

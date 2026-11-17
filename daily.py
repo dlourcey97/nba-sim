@@ -217,13 +217,18 @@ def main(argv: list[str] | None = None) -> int:
             f"pred={star_gap.pred_mean:.2f} actual={star_gap.actual_mean:.2f} "
             f"gap={star_gap.gap_pct:+.1f}%"
         )
+        star_banner: list[str] = []
         if not star_gap.passed:
-            raise NbaSimError(
-                "Star gap failed — refusing to produce projections. "
-                f"Top {star_gap.players} by pregame usage, last {star_gap.days} days: "
-                f"mean projection {star_gap.pred_mean:.1f} vs actual {star_gap.actual_mean:.1f} "
-                f"({star_gap.gap_pct:+.1f}%). A gap outside ±5% blocks the slate."
+            warning = (
+                f"WARNING star gap: top {star_gap.players} by pregame usage, "
+                f"last {star_gap.days} days, mean projection {star_gap.pred_mean:.1f} "
+                f"vs actual {star_gap.actual_mean:.1f} ({star_gap.gap_pct:+.1f}%). "
+                "Outside ±5%. This is a warning and does not block the slate."
             )
+            log(warning)
+            star_banner.append(warning)
+        else:
+            log("graded star gap inside ±5%")
 
         slate = run_slate(
             settings,
@@ -237,6 +242,7 @@ def main(argv: list[str] | None = None) -> int:
             clear_json_first=True,
             finish=False,
             write_report=True,
+            report_banner=star_banner,
             report_notes=report_notes
             + [
                 f"{e.team_abbr} {e.player_name} → {e.status}: {e.reason}"

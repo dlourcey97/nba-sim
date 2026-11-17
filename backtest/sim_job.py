@@ -282,6 +282,57 @@ def _play_calibration(projection, logs: dict) -> tuple[float, int, list[dict]]:
 CALIBRATION_STATS = ("pts", "reb", "ast", "fg3m", "stl", "blk", "pra")
 
 
+def bust_probe(payload: dict) -> dict[str, list[dict]]:
+    """Star bust rows for several sim configs of one already-built projection."""
+    out: dict[str, list[dict]] = {}
+    for name, config, key in payload["jobs"]:
+        projection = payload[key]
+        sim = simulate_game(
+            projection,
+            runs=int(payload["runs"]),
+            seed=int(payload["seed"]),
+            config=config,
+        )
+        out[name] = _star_player_rows(payload, projection, sim)
+    return out
+
+
+def _star_player_rows(payload, projection, sim) -> list[dict]:
+    ppg_map = payload.get("season_ppg") or {}
+    cut = float((payload.get("config") or {}).get("simulation", {}).get("star_usage_min", 0.24))
+    logs = payload["logs"]
+    id_to_idx = {int(pid): index for index, pid in enumerate(sim.player_ids)}
+    rows = []
+    for player in projection.players:
+        if float(player.rates.usage) < cut or float(player.minutes.mean) < 20:
+            continue
+        pid = int(player.player_id)
+        rate = ppg_map.get(pid)
+        if rate is None or float(rate) < 12:
+            continue
+        idx = id_to_idx.get(pid)
+        if idx is None:
+            continue
+        pts = sim.pts[idx]
+        threshold = 0.5 * float(rate)
+        actual = logs.get(pid)
+        if actual is None:
+            actual = logs.get(str(pid))
+        scored = float(actual.get("pts") or 0.0) if actual else 0.0
+        rows.append(
+            {
+                "player_id": pid,
+                "usage": float(player.rates.usage),
+                "bust": int((pts < threshold).sum()),
+                "draws": int(pts.shape[0]),
+                "mean": float(pts.mean()),
+                "actual": scored,
+                "actual_bust": int(scored < threshold),
+            }
+        )
+    return rows
+
+
 def calibration_rows(payload: dict) -> list[dict]:
     """Percentile curve and the actual line for one game. No raw draws."""
     projection = payload["projection"]

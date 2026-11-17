@@ -1,6 +1,209 @@
-# NBA Sim Slate Report — 2026-11-02
+# NBA Sim Slate Report — 2026-11-17
 
-Predictions from the Monte Carlo engine only. No sportsbook lines, odds, or props.
+Predictions from the Monte Carlo engine only. A cached board, when present, is read after the sim and does not enter it.
+
+**WARNING star gap: top 30 by pregame usage, last 21 days, mean projection 18.1 vs actual 23.8 (-23.8%). Outside ±5%. This is a warning and does not block the slate.**
+
+## 0. Sanity report
+
+- QUARANTINE CHA Christian Anderson AST median 1.0: 41% below last-10 1.7; 49% below recent per-minute × minutes (2.0). no injury or role change explains it.
+- QUARANTINE CHA Christian Anderson PTS median 4.0: 43% below recent per-minute × minutes (7.1). no injury or role change explains it.
+- QUARANTINE CHA Christian Anderson REB median 1.0: 41% below last-10 1.7; 49% below recent per-minute × minutes (2.0). no injury or role change explains it.
+- QUARANTINE CHA Coby White AST median 4.0: 60% above last-10 2.5; 73% above recent per-minute × minutes (2.3). no injury or role change explains it.
+- QUARANTINE CHA Coby White REB median 1.0: 47% below last-10 1.9; 43% below recent per-minute × minutes (1.8). no injury or role change explains it.
+- QUARANTINE CHA Grayson Allen REB median 1.0: 69% below last-10 3.2; 66% below recent per-minute × minutes (2.9). no injury or role change explains it.
+- QUARANTINE CHA Liam McNeeley REB median 1.0: 41% below last-10 1.7. no injury or role change explains it.
+- QUARANTINE CHA Naz Reid AST median 1.0: 50% below last-10 2.0; 46% below recent per-minute × minutes (1.8). no injury or role change explains it.
+- QUARANTINE CHA PJ Hall MIN median 7.9: 43% below last-10 13.8. no injury or role change explains it.
+- QUARANTINE CHA PJ Hall PTS median 2.0: 60% below last-10 5.0. no injury or role change explains it.
+- QUARANTINE CHA Royce O'Neale PTS median 3.0: 43% below last-10 5.3; 40% below recent per-minute × minutes (5.0). no injury or role change explains it.
+- QUARANTINE CHA Royce O'Neale REB median 2.0: 41% below last-10 3.4. no injury or role change explains it.
+- QUARANTINE CHA Sion James AST median 4.0: 42% above recent per-minute × minutes (2.8). no injury or role change explains it.
+- QUARANTINE DET Chaz Lanier PTS median 0.0: 100% below last-10 2.0; 100% below recent per-minute × minutes (2.1). no injury or role change explains it.
+- QUARANTINE DET Daniss Jenkins REB median 2.0: 44% below last-10 3.6; 53% below recent per-minute × minutes (4.2). no injury or role change explains it.
+- QUARANTINE DET Elijah Harkless AST median 1.0: 74% below last-10 3.9; 59% below recent per-minute × minutes (2.5). no injury or role change explains it.
+- QUARANTINE DET Elijah Harkless PTS median 5.0: 47% below last-10 9.5. no injury or role change explains it.
+- QUARANTINE DET Elijah Harkless REB median 1.0: 63% below last-10 2.7; 41% below recent per-minute × minutes (1.7). no injury or role change explains it.
+- QUARANTINE DET Javonte Green REB median 1.0: 47% below last-10 1.9; 51% below recent per-minute × minutes (2.1). no injury or role change explains it.
+- QUARANTINE DET John Collins PTS median 14.0: 46% above last-10 9.6. no injury or role change explains it.
+- QUARANTINE DET Tolu Smith REB median 1.0: 62% below recent per-minute × minutes (2.6). no injury or role change explains it.
+- QUARANTINE LAC Baba Miller PTS median 2.0: 53% below last-10 4.3; 53% below recent per-minute × minutes (4.3). no injury or role change explains it.
+- QUARANTINE LAC Baba Miller REB median 1.0: 58% below last-10 2.4; 58% below recent per-minute × minutes (2.4). no injury or role change explains it.
+- QUARANTINE LAC Darius Garland REB median 1.0: 63% below last-10 2.7; 60% below recent per-minute × minutes (2.5). no injury or role change explains it.
+- QUARANTINE LAC Isaiah Jackson AST median 1.0: 57% below last-10 2.3; 47% below recent per-minute × minutes (1.9). no injury or role change explains it.
+- QUARANTINE LAC Jalen Pickett AST median 0.0: 100% below last-10 1.7. no injury or role change explains it.
+- QUARANTINE LAC Jalen Pickett MIN median 2.3: 76% below last-10 9.6. no injury or role change explains it.
+- QUARANTINE LAC Jalen Pickett PTS median 0.0: 100% below last-10 4.0. no injury or role change explains it.
+- QUARANTINE LAC Max Strus AST median 2.0: 43% below last-10 3.5. no injury or role change explains it.
+- QUARANTINE LAC Nick Martinelli PTS median 0.0: 100% below last-10 3.4. no injury or role change explains it.
+- QUARANTINE LAL Carson Cooper AST median 0.0: 100% below last-10 1.0. no injury or role change explains it.
+- QUARANTINE LAL Carson Cooper REB median 0.0: 100% below last-10 2.0; 100% below recent per-minute × minutes (1.8). no injury or role change explains it.
+- QUARANTINE LAL Collin Sexton REB median 1.0: 44% below last-10 1.8; 52% below recent per-minute × minutes (2.1). no injury or role change explains it.
+- QUARANTINE LAL Jaden Hardy AST median 0.0: 100% below last-10 1.1. no injury or role change explains it.
+- QUARANTINE LAL Jaden Hardy MIN median 3.3: 59% below last-10 8.0. no injury or role change explains it.
+- QUARANTINE LAL Jaden Hardy PTS median 0.0: 100% below last-10 4.4. no injury or role change explains it.
+- QUARANTINE LAL Luka Dončić AST median 5.0: 40% below recent per-minute × minutes (8.4). no injury or role change explains it.
+- QUARANTINE LAL Luka Dončić PTS median 24.0: 42% below last-10 41.7; 46% below recent per-minute × minutes (44.1). no injury or role change explains it.
+- QUARANTINE LAL Sandro Mamukelashvili AST median 1.0: 44% below last-10 1.8; 49% below recent per-minute × minutes (2.0). no injury or role change explains it.
+- QUARANTINE LAL Ziaire Williams AST median 1.0: 47% below last-10 1.9; 47% below recent per-minute × minutes (1.9). no injury or role change explains it.
+- QUARANTINE MIN Ayo Dosunmu REB median 3.0: 44% below recent per-minute × minutes (5.4). no injury or role change explains it.
+- QUARANTINE MIN Cody Williams AST median 0.0: 100% below last-10 1.1. no injury or role change explains it.
+- QUARANTINE MIN Cody Williams MIN median 3.6: 66% below last-10 10.5. no injury or role change explains it.
+- QUARANTINE MIN Cody Williams PTS median 0.0: 100% below last-10 2.8. no injury or role change explains it.
+- QUARANTINE MIN Terrence Shannon Jr AST median 2.0: 47% below recent per-minute × minutes (3.8). no injury or role change explains it.
+- QUARANTINE NYK Jalen Brunson REB median 1.0: 62% below last-10 2.6; 59% below recent per-minute × minutes (2.4). no injury or role change explains it.
+- QUARANTINE NYK James Wiseman MIN median 2.6: 71% below last-10 8.7. no injury or role change explains it.
+- QUARANTINE NYK James Wiseman PTS median 0.0: 100% below last-10 2.1. no injury or role change explains it.
+- QUARANTINE NYK James Wiseman REB median 0.0: 100% below last-10 2.3. no injury or role change explains it.
+- QUARANTINE NYK Jordan Clarkson REB median 1.0: 44% below last-10 1.8; 42% below recent per-minute × minutes (1.7). no injury or role change explains it.
+- QUARANTINE NYK Jose Alvarado AST median 0.0: 100% below last-10 1.5. no injury or role change explains it.
+- QUARANTINE NYK Jose Alvarado MIN median 3.7: 65% below last-10 10.3. no injury or role change explains it.
+- QUARANTINE NYK Jose Alvarado PTS median 0.0: 100% below last-10 2.4. no injury or role change explains it.
+- QUARANTINE NYK Jose Alvarado REB median 0.0: 100% below last-10 1.5. no injury or role change explains it.
+- QUARANTINE NYK Landry Shamet AST median 1.0: 47% below last-10 1.9; 42% below recent per-minute × minutes (1.7). no injury or role change explains it.
+- QUARANTINE NYK Landry Shamet REB median 1.0: 41% below last-10 1.7. no injury or role change explains it.
+- QUARANTINE NYK Mikal Bridges REB median 2.0: 44% below last-10 3.6; 44% below recent per-minute × minutes (3.5). no injury or role change explains it.
+- QUARANTINE NYK Miles McBride REB median 0.0: 100% below last-10 1.5. no injury or role change explains it.
+- QUARANTINE NYK Mohamed Diawara AST median 0.0: 100% below last-10 1.3; 100% below recent per-minute × minutes (1.3). no injury or role change explains it.
+- QUARANTINE NYK Mohamed Diawara REB median 1.0: 44% below last-10 1.8; 46% below recent per-minute × minutes (1.8). no injury or role change explains it.
+- QUARANTINE NYK OG Anunoby REB median 3.0: 42% below last-10 5.2. no injury or role change explains it.
+- QUARANTINE POR Branden Carlson PTS median 3.0: 57% below last-10 6.9. no injury or role change explains it.
+- QUARANTINE POR Branden Carlson REB median 2.0: 55% below last-10 4.4. no injury or role change explains it.
+- QUARANTINE POR Deni Avdija AST median 3.0: 50% below last-10 6.0; 41% below recent per-minute × minutes (5.1). no injury or role change explains it.
+- QUARANTINE POR Deni Avdija PTS median 10.0: 60% below last-10 24.7; 52% below recent per-minute × minutes (20.9). no injury or role change explains it.
+- QUARANTINE POR Deni Avdija REB median 3.0: 50% below last-10 6.0; 41% below recent per-minute × minutes (5.1). no injury or role change explains it.
+- QUARANTINE POR Donovan Clingan AST median 2.0: 43% above last-10 1.4. no injury or role change explains it.
+- QUARANTINE POR Jrue Holiday REB median 2.0: 44% below last-10 3.6; 48% below recent per-minute × minutes (3.8). no injury or role change explains it.
+- QUARANTINE POR Micah Potter MIN median 5.8: 56% below last-10 13.4. no injury or role change explains it.
+- QUARANTINE POR Micah Potter PTS median 0.0: 100% below last-10 6.6; 100% below recent per-minute × minutes (2.9). no injury or role change explains it.
+- QUARANTINE POR Micah Potter REB median 1.0: 81% below last-10 5.2; 56% below recent per-minute × minutes (2.3). no injury or role change explains it.
+- QUARANTINE POR Scoot Henderson AST median 2.0: 67% above last-10 1.2; 60% above recent per-minute × minutes (1.2). no injury or role change explains it.
+- QUARANTINE POR Scoot Henderson REB median 1.0: 47% below last-10 1.9; 49% below recent per-minute × minutes (2.0). no injury or role change explains it.
+- QUARANTINE POR Sidy Cissoko REB median 2.0: 41% below last-10 3.4; 47% below recent per-minute × minutes (3.8). no injury or role change explains it.
+- QUARANTINE POR Toumani Camara AST median 2.0: 67% above last-10 1.2; 61% above recent per-minute × minutes (1.2). no injury or role change explains it.
+- QUARANTINE POR Toumani Camara REB median 2.0: 43% below last-10 3.5; 45% below recent per-minute × minutes (3.6). no injury or role change explains it.
+- QUARANTINE POR Yang Hansen REB median 1.0: 55% below last-10 2.2; 55% below recent per-minute × minutes (2.2). no injury or role change explains it.
+- QUARANTINE SAS De'Aaron Fox REB median 2.0: 53% below last-10 4.3; 45% below recent per-minute × minutes (3.7). no injury or role change explains it.
+- QUARANTINE SAS Devin Vassell REB median 2.0: 49% below last-10 3.9; 43% below recent per-minute × minutes (3.5). no injury or role change explains it.
+- QUARANTINE SAS Dylan Harper AST median 3.0: 41% below last-10 5.1. no injury or role change explains it.
+- QUARANTINE SAS Dylan Harper REB median 3.0: 46% below last-10 5.6; 41% below recent per-minute × minutes (5.1). no injury or role change explains it.
+- QUARANTINE SAS Jordan McLaughlin REB median 1.0: 47% below last-10 1.9; 47% below recent per-minute × minutes (1.9). no injury or role change explains it.
+- QUARANTINE SAS Julian Champagnie REB median 2.0: 57% below last-10 4.6; 53% below recent per-minute × minutes (4.3). no injury or role change explains it.
+- QUARANTINE SAS Keldon Johnson AST median 1.0: 64% below last-10 2.8; 63% below recent per-minute × minutes (2.7). no injury or role change explains it.
+- QUARANTINE SAS Tarris Reed Jr. PTS median 0.0: 100% below last-10 2.0. no injury or role change explains it.
+- QUARANTINE SAS Victor Wembanyama AST median 2.0: 46% below last-10 3.7; 42% below recent per-minute × minutes (3.4). no injury or role change explains it.
+- QUARANTINE TOR Alijah Martin AST median 0.0: 100% below last-10 1.1; 100% below recent per-minute × minutes (1.2). no injury or role change explains it.
+- QUARANTINE TOR Collin Murray-Boyles AST median 1.0: 44% below last-10 1.8; 50% below recent per-minute × minutes (2.0). no injury or role change explains it.
+- QUARANTINE TOR Jamal Shead REB median 1.0: 57% below last-10 2.3; 56% below recent per-minute × minutes (2.3). no injury or role change explains it.
+- QUARANTINE TOR Scottie Barnes AST median 3.0: 41% below last-10 5.1. no injury or role change explains it.
+- QUARANTINE TOR Scottie Barnes PTS median 10.0: 59% below last-10 24.2; 47% below recent per-minute × minutes (18.8). no injury or role change explains it.
+- QUARANTINE UTA Isaiah Collier REB median 2.0: 44% below last-10 3.6; 54% below recent per-minute × minutes (4.3). no injury or role change explains it.
+- QUARANTINE UTA Kyle Filipowski AST median 1.0: 44% below recent per-minute × minutes (1.8). no injury or role change explains it.
+- QUARANTINE UTA Kyle Filipowski MIN median 17.9: 98% above last-10 9.0. no injury or role change explains it.
+- QUARANTINE UTA Kyle Filipowski PTS median 6.0: 67% above last-10 3.6. no injury or role change explains it.
+- QUARANTINE UTA Kyle Filipowski REB median 4.0: 100% above last-10 2.0. no injury or role change explains it.
+- FLAG CHA Brandon Miller STL median 0.0: 100% below last-10 1.2; 100% below recent per-minute × minutes (0.9). no injury or role change explains it.
+- FLAG CHA Grant Williams FG3M median 1.0: 41% below last-10 1.7. no injury or role change explains it.
+- FLAG CHA Grayson Allen STL median 0.0: 100% below last-10 1.0; 100% below recent per-minute × minutes (0.9). no injury or role change explains it.
+- FLAG CHA Moussa Diabaté BLK median 0.0: 100% below last-10 1.2; 100% below recent per-minute × minutes (1.1). no injury or role change explains it.
+- FLAG CHA Moussa Diabaté STL median 0.0: 100% below last-10 0.9; 100% below recent per-minute × minutes (0.8). no injury or role change explains it.
+- FLAG CHA Naz Reid FG3M median 1.0: 47% below last-10 1.9; 43% below recent per-minute × minutes (1.8). no injury or role change explains it.
+- FLAG CHA Naz Reid STL median 0.0: 100% below last-10 1.0; 100% below recent per-minute × minutes (0.9). no injury or role change explains it.
+- FLAG CHA Ryan Kalkbrenner BLK median 0.0: 100% below last-10 1.1; 100% below recent per-minute × minutes (1.1). no injury or role change explains it.
+- FLAG DET Cade Cunningham STL median 1.0: 43% below recent per-minute × minutes (1.8). no injury or role change explains it.
+- FLAG DET Elijah Harkless FG3M median 0.0: 100% below last-10 1.1. no injury or role change explains it.
+- FLAG DET Elijah Harkless STL median 0.0: 100% below last-10 1.4; 100% below recent per-minute × minutes (0.9). no injury or role change explains it.
+- FLAG DET Kevin Huerter FG3M median 1.0: 41% below last-10 1.7; 52% below recent per-minute × minutes (2.1). no injury or role change explains it.
+- FLAG LAC Derrick Jones Jr. BLK median 0.0: 100% below last-10 1.2; 100% below recent per-minute × minutes (1.1). no injury or role change explains it.
+- FLAG LAC Derrick Jones Jr. FG3M median 1.0: 57% below last-10 2.3; 51% below recent per-minute × minutes (2.0). no injury or role change explains it.
+- FLAG LAC Isaiah Jackson BLK median 0.0: 100% below last-10 1.0; 100% below recent per-minute × minutes (0.8). no injury or role change explains it.
+- FLAG LAC Isaiah Jackson STL median 0.0: 100% below last-10 1.2; 100% below recent per-minute × minutes (1.0). no injury or role change explains it.
+- FLAG LAC Kobe Sanders FG3M median 1.0: 41% below last-10 1.7. no injury or role change explains it.
+- FLAG LAC Kris Dunn STL median 1.0: 47% below last-10 1.9. no injury or role change explains it.
+- FLAG LAC Max Strus FG3M median 1.0: 52% below last-10 2.1; 46% below recent per-minute × minutes (1.8). no injury or role change explains it.
+- FLAG LAC Max Strus STL median 0.0: 100% below last-10 0.9. no injury or role change explains it.
+- FLAG LAC Rui Hachimura FG3M median 1.0: 47% below last-10 1.9. no injury or role change explains it.
+- FLAG LAL Jaden Hardy FG3M median 0.0: 100% below last-10 1.0. no injury or role change explains it.
+- FLAG LAL Jake LaRavia BLK median 0.0: 100% below last-10 1.0; 100% below recent per-minute × minutes (1.1). no injury or role change explains it.
+- FLAG LAL Luka Dončić FG3M median 3.0: 48% below last-10 5.8; 51% below recent per-minute × minutes (6.1). no injury or role change explains it.
+- FLAG LAL Luka Dončić STL median 1.0: 50% below last-10 2.0; 53% below recent per-minute × minutes (2.1). no injury or role change explains it.
+- FLAG LAL Matisse Thybulle BLK median 0.0: 100% below last-10 1.0; 100% below recent per-minute × minutes (1.1). no injury or role change explains it.
+- FLAG LAL Matisse Thybulle STL median 1.0: 60% below last-10 2.5; 63% below recent per-minute × minutes (2.7). no injury or role change explains it.
+- FLAG LAL Sandro Mamukelashvili FG3M median 1.0: 43% below recent per-minute × minutes (1.8). no injury or role change explains it.
+- FLAG LAL Ziaire Williams FG3M median 1.0: 47% below last-10 1.9; 47% below recent per-minute × minutes (1.9). no injury or role change explains it.
+- FLAG MIN Ayo Dosunmu FG3M median 1.0: 52% below last-10 2.1; 57% below recent per-minute × minutes (2.3). no injury or role change explains it.
+- FLAG MIN Ayo Dosunmu STL median 1.0: 43% below recent per-minute × minutes (1.8). no injury or role change explains it.
+- FLAG MIN LaMelo Ball STL median 1.0: 50% below last-10 2.0; 55% below recent per-minute × minutes (2.2). no injury or role change explains it.
+- FLAG MIN Terrence Shannon Jr FG3M median 1.0: 43% below recent per-minute × minutes (1.8). no injury or role change explains it.
+- FLAG NYK Josh Hart STL median 1.0: 41% below last-10 1.7. no injury or role change explains it.
+- FLAG NYK Miles McBride FG3M median 1.0: 50% below last-10 2.0; 47% below recent per-minute × minutes (1.9). no injury or role change explains it.
+- FLAG NYK Miles McBride STL median 0.0: 100% below last-10 0.8. no injury or role change explains it.
+- FLAG NYK OG Anunoby BLK median 0.0: 100% below last-10 0.8. no injury or role change explains it.
+- FLAG POR Branden Carlson BLK median 0.0: 100% below last-10 1.1. no injury or role change explains it.
+- FLAG POR Branden Carlson FG3M median 0.0: 100% below last-10 1.0. no injury or role change explains it.
+- FLAG POR Deni Avdija FG3M median 1.0: 50% below last-10 2.0; 41% below recent per-minute × minutes (1.7). no injury or role change explains it.
+- FLAG POR Deni Avdija STL median 0.0: 100% below last-10 1.0; 100% below recent per-minute × minutes (0.8). no injury or role change explains it.
+- FLAG POR Donovan Clingan BLK median 1.0: 63% below last-10 2.7; 64% below recent per-minute × minutes (2.8). no injury or role change explains it.
+- FLAG POR Jrue Holiday FG3M median 1.0: 60% below last-10 2.5; 62% below recent per-minute × minutes (2.6). no injury or role change explains it.
+- FLAG POR Micah Potter FG3M median 0.0: 100% below last-10 0.9. no injury or role change explains it.
+- FLAG POR Robert Williams III BLK median 0.0: 100% below last-10 1.1; 100% below recent per-minute × minutes (1.2). no injury or role change explains it.
+- FLAG POR Robert Williams III STL median 0.0: 100% below last-10 0.9; 100% below recent per-minute × minutes (1.0). no injury or role change explains it.
+- FLAG SAS Carter Bryant FG3M median 0.0: 100% below last-10 1.2; 100% below recent per-minute × minutes (1.1). no injury or role change explains it.
+- FLAG SAS Devin Vassell STL median 1.0: 41% below last-10 1.7. no injury or role change explains it.
+- FLAG SAS Julian Champagnie FG3M median 1.0: 52% below last-10 2.1; 49% below recent per-minute × minutes (1.9). no injury or role change explains it.
+- FLAG SAS Victor Wembanyama BLK median 1.0: 77% below last-10 4.3; 75% below recent per-minute × minutes (4.0). no injury or role change explains it.
+- FLAG SAS Victor Wembanyama FG3M median 1.0: 57% below last-10 2.3; 53% below recent per-minute × minutes (2.1). no injury or role change explains it.
+- FLAG TOR Jamison Battle FG3M median 1.0: 55% below last-10 2.2; 56% below recent per-minute × minutes (2.3). no injury or role change explains it.
+- FLAG TOR RJ Barrett FG3M median 1.0: 44% below last-10 1.8; 42% below recent per-minute × minutes (1.7). no injury or role change explains it.
+- FLAG TOR Scottie Barnes BLK median 0.0: 100% below last-10 0.8. no injury or role change explains it.
+- FLAG TOR Scottie Barnes FG3M median 0.0: 100% below last-10 0.9. no injury or role change explains it.
+- FLAG TOR Scottie Barnes STL median 0.0: 100% below last-10 1.9; 100% below recent per-minute × minutes (1.5). no injury or role change explains it.
+- FLAG UTA Ace Bailey BLK median 0.0: 100% below last-10 1.0; 100% below recent per-minute × minutes (0.9). no injury or role change explains it.
+- FLAG UTA Brice Sensabaugh FG3M median 2.0: 54% above last-10 1.3. no injury or role change explains it.
+- FLAG UTA Darryn Peterson BLK median 0.0: 100% below last-10 1.0; 100% below recent per-minute × minutes (1.0). no injury or role change explains it.
+- FLAG UTA Mo Bamba BLK median 1.0: 44% below last-10 1.8; 49% below recent per-minute × minutes (2.0). no injury or role change explains it.
+
+## 0b. Play card
+
+Probabilities are calibrated before the DraftKings comparison. A strong holdout cell needs 5 points of edge. A weak cell, or one whose map failed the holdout, needs 8 and the failed map is not applied. Strong cells: PTS TOP, PTS STARTER, REB TOP, REB STARTER, REB BENCH, AST TOP, AST STARTER, AST BENCH, 3PM TOP, BLK TOP, BLK STARTER, BLK BENCH, PRA TOP, PRA STARTER, PRA BENCH.
+
+### ⭐ TOP PLAYS
+
+| Player | Prop | Odds | Calibrated | Market % | Edge | Sim | Season | Last 10 | Holdout |
+| --- | --- | ---: | ---: | ---: | ---: | --- | ---: | ---: | --- |
+| Ausar Thompson | DET AST over 4.5 | +110 | 63% | 45% | +18.4pp | 5.0 (5.7) | 5.1 | 5.1 | top strong |
+| Jaden McDaniels | MIN AST over 3.5 | +124 | 56% | 42% | +14.6pp | 4.0 (4.2) | 3.7 | 4.1 | starter strong |
+| RJ Barrett | TOR AST over 3.5 | -112 | 63% | 49% | +13.5pp | 4.0 (4.4) | 4.2 | 4.6 | top strong |
+| Kevin Huerter | DET REB under 3.5 | -117 | 60% | 50% | +9.2pp | 2.0 (2.4) | 2.5 | 2.1 | starter strong |
+| Ausar Thompson | DET PTS over 9.5 | -128 | 62% | 53% | +8.8pp | 13.0 (14.6) | 10.1 | 10.0 | top strong |
+
+### LEANS
+
+| Player | Prop | Odds | Calibrated | Market % | Edge | Sim | Season | Last 10 | Holdout  | Failed |
+| --- | --- | ---: | ---: | ---: | ---: | --- | ---: | ---: | ---  --- |
+| Landry Shamet | NYK REB under 2.5 | -181 | 98% | 60% | +37.6pp | 1.0 (0.9) | 1.8 | 1.7 | starter strong  d sanity quarantine |
+| Kris Dunn | LAC AST over 3.5 | +128 | 56% | 41% | +15.3pp | 4.0 (4.4) | 4.2 | 3.8 | starter strong  d 23 minutes |
+| Jakob Poeltl | TOR PTS over 6.5 | -118 | 61% | 51% | +9.6pp | 9.0 (10.5) | 8.5 | 9.1 | starter strong  d 23 minutes |
+| Luka Dončić | LAL AST under 8.5 | -143 | 64% | 55% | +9.3pp | 5.0 (5.4) | 7.8 | 7.9 | top strong  d sanity quarantine |
+| Jamal Shead | TOR AST over 4.5 | -102 | 56% | 47% | +9.2pp | 5.0 (5.7) | 6.5 | 7.5 | starter strong  d sanity quarantine |
+| Ausar Thompson | DET REB over 6.5 | -148 | 65% | 56% | +9.0pp | 9.0 (9.6) | 8.6 | 8.4 | top strong  f same direction as a known bias |
+| Grayson Allen | CHA AST under 3.5 | -118 | 59% | 51% | +8.3pp | 2.0 (2.4) | 3.3 | 3.1 | starter strong  d sanity quarantine |
+| Coby White | CHA REB under 2.5 | -113 | 57% | 50% | +7.5pp | 1.0 (1.6) | 1.8 | 1.9 | top strong  d sanity quarantine, 17 minutes |
+
+### AVOID
+
+| Player | Prop | Odds | Calibrated | Market % | Edge | Sim | Season | Last 10 | Holdout  | Failed |
+| --- | --- | ---: | ---: | ---: | ---: | --- | ---: | ---: | ---  --- |
+| Ryan Kalkbrenner | CHA REB over 4.5 | -121 | 68% | 51% | +16.8pp | 6.0 (6.1) | 5.4 | 5.3 | bench strong  d 19 minutes; f same direction as a known bias |
+| Jalen Brunson | NYK REB under 2.5 | +107 | 60% | 45% | +14.7pp | 1.0 (1.3) | 2.8 | 2.6 | top strong  b sim, season, and last-10 are not on the same side; d sanity quarantine |
+| Mikal Bridges | NYK AST over 2.5 | +121 | 56% | 42% | +14.0pp | 3.0 (3.0) | 2.2 | 2.3 | starter strong  b sim, season, and last-10 are not on the same side; d sanity quarantine, 24 minutes |
+| Scottie Barnes | TOR PTS under 21.5 | -105 | 61% | 48% | +13.1pp | 10.0 (11.8) | 24.2 | 24.2 | top strong  b sim, season, and last-10 are not on the same side; d sanity quarantine; f same direction as a known bias |
+| John Collins | DET PTS over 11.5 | -102 | 60% | 48% | +12.7pp | 14.0 (15.1) | 10.4 | 9.6 | top strong  b sim, season, and last-10 are not on the same side; d sanity quarantine |
+| Coby White | CHA AST over 3.5 | -118 | 62% | 51% | +11.6pp | 4.0 (4.1) | 3.2 | 2.5 | top strong  b sim, season, and last-10 are not on the same side; d sanity quarantine, 17 minutes |
+| Deni Avdija | POR PTS under 24.5 | -118 | 63% | 51% | +11.5pp | 10.0 (12.6) | 24.2 | 24.7 | top strong  b sim, season, and last-10 are not on the same side; d sanity quarantine; f same direction as a known bias |
+| Victor Wembanyama | SAS AST under 2.5 | +127 | 52% | 41% | +11.1pp | 2.0 (2.7) | 3.3 | 3.7 | top strong  b sim, season, and last-10 are not on the same side; d sanity quarantine |
+
+Correlated risk: AST over ×3 share a side. A miss on that stat moves them together.
 
 ## 1. Injury / lineup notes (changes that affected sims)
 
@@ -9,725 +212,253 @@ Predictions from the Monte Carlo engine only. No sportsbook lines, odds, or prop
 
 ## 2. Games
 
-### OKC @ CLE (`0022600158`)
+### NYK @ TOR (`0022600253`)
 
-- **Winner:** CLE (72.9%)
-- **Median score:** OKC 104 – CLE 117
-- **Projected spread (median margin, home−away):** +13.0 (CLE favored)
+- **Winner:** NYK (52.4%)
+- **Median score:** NYK 110 – TOR 109
+- **Projected spread (median margin, home−away):** -2.0 (TOR underdog)
+- **Projected total (median):** 220.0
+- **Runs:** 10000
+
+#### Projected box score
+
+Each cell is the median, with the mean in parentheses.
+
+**NYK (Away)**
+
+| Role | Player | MIN | PTS | REB | AST | STL | BLK |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Starter | ⚠️ OG Anunoby | 31.9 (31.7) | 14.0 (15.7) | 3.0 (3.7) | 2.0 (2.1) | 1.0 (1.0) | 0.0 (0.5) |
+| Starter | ⚠️ Jalen Brunson | 31.8 (31.7) | 17.0 (18.4) | 1.0 (1.3) | 5.0 (5.0) | 1.0 (0.8) | 0.0 (0.3) |
+| Starter | Karl-Anthony Towns | 31.2 (31.1) | 19.0 (20.4) | 13.0 (13.0) | 3.0 (3.5) | 1.0 (0.9) | 0.0 (0.5) |
+| Starter | ⚠️ Josh Hart | 25.3 (24.7) | 6.0 (6.9) | 5.0 (5.3) | 3.0 (3.8) | 1.0 (0.9) | 0.0 (0.3) |
+| Starter | ⚠️ Mikal Bridges | 23.5 (23.5) | 7.0 (8.6) | 2.0 (2.4) | 3.0 (3.0) | 1.0 (0.9) | 0.0 (0.4) |
+| Bench | ⚠️ Landry Shamet | 24.5 (24.4) | 8.0 (9.0) | 1.0 (0.9) | 1.0 (1.3) | 0.0 (0.7) | 0.0 (0.3) |
+| Bench | ⚠️ Miles McBride | 17.7 (17.6) | 5.0 (6.2) | 0.0 (0.6) | 1.0 (1.2) | 0.0 (0.6) | 0.0 (0.3) |
+| Bench | Tyler Kolek | 14.2 (14.1) | 5.0 (6.1) | 2.0 (2.3) | 4.0 (4.9) | 0.0 (0.7) | 0.0 (0.2) |
+| Bench | Andre Drummond | 12.3 (12.3) | 4.0 (5.3) | 7.0 (8.3) | 0.0 (0.7) | 0.0 (0.5) | 0.0 (0.4) |
+| Bench | ⚠️ Mohamed Diawara | 10.1 (9.4) | 2.0 (3.6) | 1.0 (1.5) | 0.0 (0.9) | 0.0 (0.3) | 0.0 (0.2) |
+| Bench | ⚠️ Jordan Clarkson | 9.7 (9.1) | 4.0 (5.7) | 1.0 (1.6) | 0.0 (0.8) | 0.0 (0.3) | 0.0 (0.1) |
+| Bench | ⚠️ Jose Alvarado | 3.7 (3.7) | 0.0 (0.8) | 0.0 (0.6) | 0.0 (1.3) | 0.0 (0.3) | 0.0 (0.1) |
+| Bench | ⚠️ James Wiseman | 2.6 (2.7) | 0.0 (0.9) | 0.0 (1.3) | 0.0 (0.1) | 0.0 (0.1) | 0.0 (0.2) |
+| Bench | Tyler Nickel | 2.0 (4.2) | 0.0 (3.0) | 0.0 (1.2) | 0.0 (0.4) | 0.0 (0.2) | 0.0 (0.1) |
+
+**TOR (Home)**
+
+| Role | Player | MIN | PTS | REB | AST | STL | BLK |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Starter | ⚠️ RJ Barrett | 33.1 (32.9) | 17.0 (18.7) | 6.0 (6.5) | 4.0 (4.4) | 1.0 (0.9) | 0.0 (0.5) |
+| Starter | Immanuel Quickley | 30.8 (30.1) | 14.0 (15.5) | 3.0 (3.6) | 5.0 (5.2) | 1.0 (1.1) | 0.0 (0.3) |
+| Starter | Ja'Kobe Walter | 30.7 (30.6) | 10.0 (11.6) | 3.0 (3.3) | 2.0 (1.9) | 1.0 (1.2) | 0.0 (0.5) |
+| Starter | ⚠️ Scottie Barnes | 26.5 (19.4) | 10.0 (11.8) | 5.0 (5.2) | 3.0 (3.5) | 0.0 (0.8) | 0.0 (0.4) |
+| Starter | ⚠️ Jamal Shead | 24.7 (24.6) | 7.0 (7.8) | 1.0 (1.4) | 5.0 (5.7) | 1.0 (1.0) | 0.0 (0.4) |
+| Starter | Jakob Poeltl | 23.0 (22.5) | 9.0 (10.5) | 8.0 (8.8) | 2.0 (1.8) | 1.0 (0.9) | 0.0 (0.6) |
+| Starter | ⚠️ Jamison Battle | 21.0 (21.0) | 7.0 (8.3) | 2.0 (1.8) | 0.0 (0.5) | 0.0 (0.7) | 0.0 (0.3) |
+| Bench | ⚠️ Collin Murray-Boyles | 28.0 (27.4) | 10.0 (11.6) | 6.0 (6.2) | 1.0 (1.8) | 1.0 (1.1) | 1.0 (0.8) |
+| Bench | ⚠️ Alijah Martin | 15.6 (15.0) | 6.0 (7.8) | 2.0 (2.2) | 0.0 (0.7) | 0.0 (0.7) | 0.0 (0.3) |
+| Bench | Allen Graves | 15.5 (15.4) | 4.0 (5.0) | 3.0 (3.0) | 0.0 (0.6) | 0.0 (0.7) | 0.0 (0.4) |
+
+### POR @ MIN (`0022600254`)
+
+- **Winner:** POR (52.2%)
+- **Median score:** POR 111 – MIN 110
+- **Projected spread (median margin, home−away):** -2.0 (MIN underdog)
 - **Projected total (median):** 221.0
 - **Runs:** 10000
 
 #### Projected box score
 
-**OKC (Away)**
-
-| Role | Player | MIN | PTS | REB | AST | STL | BLK |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Starter | Shai Gilgeous-Alexander | 32.6 | 19.0 | 2.0 | 4.0 | 1.0 | 0.0 |
-| Starter | Isaiah Hartenstein | 26.6 | 11.0 | 14.0 | 3.0 | 1.0 | 0.0 |
-| Bench | Jared McCain | 28.2 | 12.0 | 2.0 | 2.0 | 1.0 | 0.0 |
-| Bench | Ajay Mitchell | 27.6 | 14.0 | 3.0 | 3.0 | 1.0 | 0.0 |
-| Bench | Jaylin Williams | 23.4 | 5.0 | 5.0 | 2.0 | 0.0 | 0.0 |
-| Bench | Bennett Stirtz | 22.8 | 6.0 | 0.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Aday Mara | 22.5 | 8.0 | 6.0 | 1.0 | 0.0 | 1.0 |
-| Bench | Kenrich Williams | 19.7 | 6.0 | 4.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Micah Peavy | 18.8 | 4.0 | 1.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Josh Dix | 17.7 | 3.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Brooks Barnhizer | 5.8 | 0.0 | 1.0 | 0.0 | 0.0 | 0.0 |
-
-**CLE (Home)**
-
-| Role | Player | MIN | PTS | REB | AST | STL | BLK |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Starter | James Harden | 31.4 | 13.0 | 3.0 | 5.0 | 1.0 | 0.0 |
-| Starter | Evan Mobley | 30.2 | 14.0 | 8.0 | 4.0 | 1.0 | 1.0 |
-| Starter | Donovan Mitchell | 30.2 | 16.0 | 3.0 | 4.0 | 1.0 | 0.0 |
-| Starter | Jarrett Allen | 27.5 | 11.0 | 8.0 | 2.0 | 1.0 | 1.0 |
-| Starter | Peyton Watson | 18.8 | 4.0 | 1.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Sam Merrill | 23.2 | 7.0 | 1.0 | 2.0 | 1.0 | 0.0 |
-| Bench | Meleek Thomas | 21.1 | 8.0 | 1.0 | 0.0 | 1.0 | 0.0 |
-| Bench | Mario Hezonja | 18.4 | 6.0 | 6.0 | 2.0 | 1.0 | 0.0 |
-| Bench | Tyrese Proctor | 12.3 | 3.0 | 1.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Tristan Enaruna | 10.7 | 3.0 | 2.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Riley Minix | 8.7 | 2.0 | 1.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Craig Porter Jr. | 8.4 | 2.0 | 1.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Ernest Udeh, Jr. | 3.9 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Thomas Bryant | 2.1 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-
-### DET @ CHA (`0022600159`)
-
-- **Winner:** DET (63.6%)
-- **Median score:** DET 108 – CHA 100
-- **Projected spread (median margin, home−away):** -8.0 (CHA underdog)
-- **Projected total (median):** 208.0
-- **Runs:** 10000
-
-#### Projected box score
-
-**DET (Away)**
-
-| Role | Player | MIN | PTS | REB | AST | STL | BLK |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Starter | Cade Cunningham | 32.4 | 18.0 | 6.0 | 7.0 | 1.0 | 1.0 |
-| Starter | Duncan Robinson | 28.5 | 12.0 | 1.0 | 2.0 | 1.0 | 0.0 |
-| Starter | Ausar Thompson | 26.2 | 9.0 | 7.0 | 4.0 | 1.0 | 0.0 |
-| Starter | John Collins | 24.8 | 9.0 | 6.0 | 0.0 | 1.0 | 0.0 |
-| Bench | Paul Reed | 28.7 | 12.0 | 7.0 | 2.0 | 1.0 | 1.0 |
-| Bench | Daniss Jenkins | 25.5 | 9.0 | 2.0 | 4.0 | 1.0 | 0.0 |
-| Bench | Kevin Huerter | 19.7 | 5.0 | 1.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Javonte Green | 18.6 | 5.0 | 2.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Ronald Holland II | 16.7 | 5.0 | 3.0 | 1.0 | 1.0 | 0.0 |
-| Bench | Taurean Prince | 14.1 | 4.0 | 2.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Tolu Smith | 4.0 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Chaz Lanier | 2.2 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Ebuka Okorie | 1.6 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Isaac Jones | 1.2 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-
-**CHA (Home)**
-
-| Role | Player | MIN | PTS | REB | AST | STL | BLK |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Starter | Brandon Miller | 31.0 | 16.0 | 4.0 | 3.0 | 1.0 | 0.0 |
-| Starter | Dennis Schröder | 28.3 | 10.0 | 2.0 | 3.0 | 0.0 | 0.0 |
-| Starter | Naz Reid | 26.5 | 10.0 | 6.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Moussa Diabaté | 27.2 | 8.0 | 8.0 | 2.0 | 1.0 | 0.0 |
-| Bench | Grayson Allen | 24.2 | 9.0 | 1.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Sion James | 21.6 | 4.0 | 2.0 | 2.0 | 0.0 | 0.0 |
-| Bench | Coby White | 20.4 | 10.0 | 1.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Royce O'Neale | 17.9 | 3.0 | 2.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Ryan Kalkbrenner | 15.9 | 4.0 | 4.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Tidjane Salaün | 10.4 | 3.0 | 3.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Christian Anderson | 7.8 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | PJ Hall | 3.2 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Kylan Boswell | 2.8 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Michael Ajayi | 2.4 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Hannes Steinbach | 2.3 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Liam McNeeley | 2.3 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-
-### ATL @ IND (`0022600160`)
-
-- **Winner:** ATL (59.5%)
-- **Median score:** ATL 112 – IND 107
-- **Projected spread (median margin, home−away):** -6.0 (IND underdog)
-- **Projected total (median):** 219.0
-- **Runs:** 10000
-
-#### Projected box score
-
-**ATL (Away)**
-
-| Role | Player | MIN | PTS | REB | AST | STL | BLK |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Starter | Nickeil Alexander-Walker | 36.4 | 17.0 | 3.0 | 3.0 | 1.0 | 0.0 |
-| Starter | Onyeka Okongwu | 35.6 | 13.0 | 12.0 | 3.0 | 1.0 | 0.0 |
-| Starter | Dyson Daniels | 34.7 | 10.0 | 6.0 | 5.0 | 1.0 | 0.0 |
-| Starter | CJ McCollum | 31.9 | 16.0 | 3.0 | 3.0 | 1.0 | 0.0 |
-| Bench | Luguentz Dort | 30.3 | 9.0 | 4.0 | 1.0 | 1.0 | 0.0 |
-| Bench | Aaron Wiggins | 28.2 | 11.0 | 4.0 | 1.0 | 1.0 | 0.0 |
-| Bench | RayJ Dennis | 16.1 | 6.0 | 2.0 | 2.0 | 1.0 | 0.0 |
-| Bench | Asa Newell | 13.5 | 7.0 | 3.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Corey Kispert | 8.0 | 5.0 | 1.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Dorian Finney-Smith | 4.7 | 0.0 | 1.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Zuby Ejiofor | 3.9 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-
-**IND (Home)**
-
-| Role | Player | MIN | PTS | REB | AST | STL | BLK |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Starter | Kelly Oubre Jr. | 38.7 | 18.0 | 6.0 | 1.0 | 1.0 | 1.0 |
-| Starter | Jalen Slawson | 37.0 | 12.0 | 8.0 | 2.0 | 1.0 | 1.0 |
-| Starter | Kobe Brown | 36.6 | 12.0 | 7.0 | 2.0 | 1.0 | 0.0 |
-| Bench | Jarace Walker | 38.6 | 14.0 | 8.0 | 3.0 | 1.0 | 1.0 |
-| Bench | Quenton Jackson | 38.5 | 19.0 | 5.0 | 6.0 | 1.0 | 0.0 |
-| Bench | Jay Huff | 35.0 | 17.0 | 10.0 | 2.0 | 1.0 | 1.0 |
-| Bench | Braden Smith | 20.5 | 6.0 | 0.0 | 1.0 | 1.0 | 0.0 |
-
-### BKN @ NYK (`0022600161`)
-
-- **Winner:** NYK (67.8%)
-- **Median score:** BKN 104 – NYK 114
-- **Projected spread (median margin, home−away):** +10.0 (NYK favored)
-- **Projected total (median):** 218.0
-- **Runs:** 10000
-
-#### Projected box score
-
-**BKN (Away)**
-
-| Role | Player | MIN | PTS | REB | AST | STL | BLK |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Starter | Julius Randle | 28.1 | 13.0 | 5.0 | 3.0 | 1.0 | 0.0 |
-| Starter | Michael Porter Jr. | 27.0 | 13.0 | 5.0 | 1.0 | 1.0 | 0.0 |
-| Starter | Nolan Traore | 21.0 | 8.0 | 1.0 | 3.0 | 0.0 | 0.0 |
-| Starter | Noah Clowney | 20.0 | 6.0 | 3.0 | 1.0 | 0.0 | 0.0 |
-| Starter | Terance Mann | 18.9 | 5.0 | 2.0 | 2.0 | 0.0 | 0.0 |
-| Starter | Danny Wolf | 18.5 | 6.0 | 4.0 | 2.0 | 0.0 | 0.0 |
-| Starter | Drake Powell | 16.2 | 4.0 | 1.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Chaney Johnson | 21.2 | 5.0 | 3.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Mikel Brown Jr. | 20.0 | 6.0 | 1.0 | 2.0 | 0.0 | 0.0 |
-| Bench | Day'Ron Sharpe | 19.4 | 8.0 | 8.0 | 2.0 | 0.0 | 0.0 |
-| Bench | Keon Ellis | 18.9 | 3.0 | 1.0 | 1.0 | 1.0 | 0.0 |
-| Bench | Moritz Wagner | 16.9 | 8.0 | 4.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Josh Minott | 3.8 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-
-**NYK (Home)**
-
-| Role | Player | MIN | PTS | REB | AST | STL | BLK |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Starter | Jalen Brunson | 33.0 | 17.0 | 1.0 | 5.0 | 1.0 | 0.0 |
-| Starter | OG Anunoby | 31.4 | 13.0 | 4.0 | 2.0 | 1.0 | 0.0 |
-| Starter | Josh Hart | 30.2 | 7.0 | 6.0 | 4.0 | 1.0 | 0.0 |
-| Starter | Karl-Anthony Towns | 30.2 | 19.0 | 15.0 | 3.0 | 1.0 | 0.0 |
-| Starter | Mikal Bridges | 25.0 | 7.0 | 2.0 | 3.0 | 1.0 | 0.0 |
-| Bench | Landry Shamet | 22.3 | 7.0 | 1.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Miles McBride | 18.8 | 5.0 | 1.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Jose Alvarado | 10.9 | 3.0 | 1.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Tyler Kolek | 10.7 | 2.0 | 1.0 | 2.0 | 0.0 | 0.0 |
-| Bench | Andre Drummond | 10.2 | 2.0 | 5.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Jordan Clarkson | 8.9 | 3.0 | 1.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Dalton Knecht | 2.8 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Tyler Nickel | 2.2 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-
-### WAS @ ORL (`0022600162`)
-
-- **Winner:** ORL (75.0%)
-- **Median score:** WAS 102 – ORL 116
-- **Projected spread (median margin, home−away):** +15.0 (ORL favored)
-- **Projected total (median):** 218.0
-- **Runs:** 10000
-
-#### Projected box score
-
-**WAS (Away)**
-
-| Role | Player | MIN | PTS | REB | AST | STL | BLK |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Starter | Trae Young | 34.1 | 14.0 | 2.0 | 7.0 | 1.0 | 0.0 |
-| Starter | Anthony Davis | 33.3 | 14.0 | 10.0 | 2.0 | 1.0 | 1.0 |
-| Starter | Kyshawn George | 31.1 | 12.0 | 5.0 | 5.0 | 1.0 | 1.0 |
-| Starter | Bilal Coulibaly | 25.7 | 7.0 | 3.0 | 1.0 | 1.0 | 0.0 |
-| Starter | Bub Carrington | 22.4 | 5.0 | 1.0 | 3.0 | 0.0 | 0.0 |
-| Starter | Tre Johnson | 22.2 | 7.0 | 1.0 | 1.0 | 0.0 | 0.0 |
-| Starter | Khris Middleton | 20.3 | 6.0 | 2.0 | 1.0 | 0.0 | 0.0 |
-| Bench | AJ Dybantsa | 28.7 | 11.0 | 2.0 | 1.0 | 1.0 | 0.0 |
-| Bench | Deandre Ayton | 15.7 | 4.0 | 6.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Will Riley | 7.4 | 3.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Felix Okpara | 1.9 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Tre Mann | 1.8 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-
-**ORL (Home)**
-
-| Role | Player | MIN | PTS | REB | AST | STL | BLK |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Starter | Desmond Bane | 39.0 | 18.0 | 3.0 | 5.0 | 1.0 | 0.0 |
-| Starter | Franz Wagner | 38.9 | 19.0 | 5.0 | 6.0 | 1.0 | 0.0 |
-| Starter | Wendell Carter Jr. | 37.6 | 20.0 | 21.0 | 4.0 | 1.0 | 1.0 |
-| Starter | Jamal Cain | 24.2 | 9.0 | 2.0 | 1.0 | 1.0 | 0.0 |
-| Bench | Tristan da Silva | 32.5 | 11.0 | 2.0 | 2.0 | 1.0 | 0.0 |
-| Bench | Jase Richardson | 24.9 | 8.0 | 1.0 | 2.0 | 1.0 | 0.0 |
-| Bench | Jevon Carter | 16.6 | 5.0 | 1.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Goga Bitadze | 12.1 | 4.0 | 3.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Nikola Vučević | 11.6 | 6.0 | 3.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Alex Morales | 4.6 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Colin Castleton | 3.7 | 0.0 | 1.0 | 0.0 | 0.0 | 0.0 |
-
-### CHI @ PHI (`0022600163`)
-
-- **Winner:** PHI (55.6%)
-- **Median score:** CHI 111 – PHI 114
-- **Projected spread (median margin, home−away):** +4.0 (PHI favored)
-- **Projected total (median):** 226.0
-- **Runs:** 10000
-
-#### Projected box score
-
-**CHI (Away)**
-
-| Role | Player | MIN | PTS | REB | AST | STL | BLK |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Starter | Caleb Wilson | 29.0 | 14.0 | 6.0 | 2.0 | 1.0 | 1.0 |
-| Starter | Patrick Williams | 26.9 | 7.0 | 3.0 | 1.0 | 1.0 | 0.0 |
-| Starter | Norman Powell | 26.3 | 14.0 | 1.0 | 1.0 | 1.0 | 0.0 |
-| Starter | Josh Giddey | 23.6 | 9.0 | 5.0 | 6.0 | 0.0 | 0.0 |
-| Starter | Matas Buzelis | 22.2 | 10.0 | 3.0 | 1.0 | 0.0 | 0.0 |
-| Starter | Tre Jones | 18.6 | 9.0 | 2.0 | 3.0 | 1.0 | 0.0 |
-| Starter | Isaac Okoro | 18.5 | 5.0 | 1.0 | 1.0 | 0.0 | 0.0 |
-| Starter | Leonard Miller | 18.1 | 7.0 | 4.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Jalen Smith | 22.0 | 10.0 | 9.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Buddy Hield | 10.3 | 2.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Noa Essengue | 10.1 | 1.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Jordan Hawkins | 8.8 | 2.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Tobe Awaka | 3.8 | 0.0 | 1.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Dailyn Swain | 3.6 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Zach Collins | 3.1 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Jaylin Sellers | 2.9 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-
-**PHI (Home)**
-
-| Role | Player | MIN | PTS | REB | AST | STL | BLK |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Starter | Tyrese Maxey | 32.8 | 20.0 | 3.0 | 5.0 | 1.0 | 0.0 |
-| Starter | Jaylen Brown | 32.0 | 16.0 | 5.0 | 3.0 | 1.0 | 0.0 |
-| Starter | VJ Edgecombe | 29.8 | 10.0 | 6.0 | 3.0 | 1.0 | 0.0 |
-| Starter | LeBron James | 29.6 | 15.0 | 7.0 | 5.0 | 1.0 | 0.0 |
-| Starter | Joel Embiid | 24.6 | 7.0 | 4.0 | 2.0 | 0.0 | 0.0 |
-| Starter | Dean Wade | 24.0 | 4.0 | 3.0 | 1.0 | 1.0 | 0.0 |
-| Starter | Justin Edwards | 14.8 | 5.0 | 2.0 | 1.0 | 0.0 | 0.0 |
-| Starter | Adem Bona | 4.8 | 0.0 | 1.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Anfernee Simons | 23.3 | 10.0 | 1.0 | 2.0 | 1.0 | 0.0 |
-| Bench | Kentavious Caldwell-Pope | 19.3 | 5.0 | 1.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Rayan Rupert | 9.2 | 0.0 | 1.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Jabari Walker | 3.4 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Labaron Philon Jr. | 2.6 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Tacko Fall | 2.2 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Caleb Love | 1.5 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-
-### SAC @ DAL (`0022600164`)
-
-- **Winner:** DAL (77.5%)
-- **Median score:** SAC 104 – DAL 120
-- **Projected spread (median margin, home−away):** +17.0 (DAL favored)
-- **Projected total (median):** 224.0
-- **Runs:** 10000
-
-#### Projected box score
-
-**SAC (Away)**
-
-| Role | Player | MIN | PTS | REB | AST | STL | BLK |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Starter | Darius Acuff Jr. | 34.4 | 17.0 | 3.0 | 4.0 | 1.0 | 0.0 |
-| Starter | Domantas Sabonis | 34.2 | 15.0 | 15.0 | 6.0 | 1.0 | 0.0 |
-| Starter | De'Andre Hunter | 29.4 | 12.0 | 3.0 | 1.0 | 0.0 | 0.0 |
-| Starter | Precious Achiuwa | 27.6 | 9.0 | 7.0 | 1.0 | 1.0 | 0.0 |
-| Starter | Zach LaVine | 21.6 | 8.0 | 1.0 | 1.0 | 0.0 | 0.0 |
-| Starter | Daeqwon Plowden | 19.0 | 5.0 | 1.0 | 0.0 | 0.0 | 0.0 |
-| Starter | Nique Clifford | 17.9 | 4.0 | 1.0 | 2.0 | 0.0 | 0.0 |
-| Bench | Emanuel Sharp | 19.4 | 3.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Jonathan Mogbo | 17.3 | 4.0 | 4.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Malik Monk | 12.4 | 5.0 | 1.0 | 2.0 | 0.0 | 0.0 |
-| Bench | Alex Karaban | 9.9 | 3.0 | 1.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Leaky Black | 9.3 | 2.0 | 1.0 | 0.0 | 0.0 | 0.0 |
-
-**DAL (Home)**
-
-| Role | Player | MIN | PTS | REB | AST | STL | BLK |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Starter | Cooper Flagg | 32.2 | 18.0 | 4.0 | 5.0 | 1.0 | 0.0 |
-| Starter | P.J. Washington | 32.0 | 12.0 | 6.0 | 2.0 | 1.0 | 0.0 |
-| Starter | Naji Marshall | 26.1 | 11.0 | 3.0 | 3.0 | 1.0 | 0.0 |
-| Starter | Daniel Gafford | 25.1 | 12.0 | 10.0 | 2.0 | 1.0 | 1.0 |
-| Bench | Zaccharie Risacher | 27.6 | 10.0 | 4.0 | 1.0 | 1.0 | 0.0 |
-| Bench | Max Christie | 23.4 | 8.0 | 3.0 | 2.0 | 1.0 | 0.0 |
-| Bench | Caleb Martin | 17.3 | 5.0 | 2.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Morez Johnson Jr. | 16.6 | 7.0 | 3.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Marcus Sasser | 15.5 | 6.0 | 1.0 | 2.0 | 0.0 | 0.0 |
-| Bench | Walter Clayton Jr. | 11.5 | 4.0 | 1.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Sergio de Larrea | 10.9 | 4.0 | 1.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Moussa Cissé | 6.4 | 2.0 | 2.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Tobi Lawal | 1.7 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Jett Howard | 1.1 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-
-### NOP @ MEM (`0022600165`)
-
-- **Winner:** MEM (57.2%)
-- **Median score:** NOP 114 – MEM 118
-- **Projected spread (median margin, home−away):** +5.0 (MEM favored)
-- **Projected total (median):** 232.0
-- **Runs:** 10000
-
-#### Projected box score
-
-**NOP (Away)**
-
-| Role | Player | MIN | PTS | REB | AST | STL | BLK |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Starter | Trey Murphy III | 29.0 | 11.0 | 3.0 | 3.0 | 1.0 | 0.0 |
-| Starter | Zion Williamson | 28.7 | 15.0 | 3.0 | 3.0 | 1.0 | 0.0 |
-| Starter | Jeremiah Fears | 26.3 | 11.0 | 3.0 | 4.0 | 1.0 | 0.0 |
-| Starter | Saddiq Bey | 24.2 | 11.0 | 3.0 | 2.0 | 1.0 | 0.0 |
-| Starter | Derik Queen | 23.0 | 9.0 | 7.0 | 3.0 | 1.0 | 0.0 |
-| Starter | Herbert Jones | 22.2 | 6.0 | 2.0 | 2.0 | 1.0 | 0.0 |
-| Bench | Karlo Matković | 17.6 | 6.0 | 4.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Bennedict Mathurin | 17.2 | 7.0 | 1.0 | 1.0 | 0.0 | 0.0 |
-| Bench | DeAndre Jordan | 15.6 | 4.0 | 6.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Julian Reese | 14.2 | 6.0 | 5.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Trendon Watford | 12.2 | 4.0 | 1.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Bryce McGowens | 11.3 | 3.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | AJ Johnson | 8.3 | 2.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-
-**MEM (Home)**
-
-| Role | Player | MIN | PTS | REB | AST | STL | BLK |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Starter | Cameron Boozer | 24.2 | 10.0 | 5.0 | 2.0 | 0.0 | 0.0 |
-| Starter | Ty Jerome | 23.4 | 14.0 | 1.0 | 4.0 | 1.0 | 0.0 |
-| Starter | Cedric Coward | 22.1 | 9.0 | 4.0 | 2.0 | 0.0 | 0.0 |
-| Starter | Jaylen Wells | 21.7 | 8.0 | 1.0 | 1.0 | 0.0 | 0.0 |
-| Starter | Zach Edey | 18.2 | 11.0 | 10.0 | 1.0 | 0.0 | 1.0 |
-| Starter | Javon Small | 18.2 | 7.0 | 1.0 | 3.0 | 0.0 | 0.0 |
-| Starter | GG Jackson | 18.0 | 8.0 | 2.0 | 1.0 | 0.0 | 0.0 |
-| Starter | Olivier-Maxence Prosper | 16.6 | 6.5 | 2.0 | 1.0 | 0.0 | 0.0 |
-| Starter | Taylor Hendricks | 16.3 | 5.0 | 2.0 | 0.0 | 0.0 | 0.0 |
-| Starter | Jahmai Mashack | 15.8 | 4.0 | 1.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Jerami Grant | 20.0 | 7.0 | 1.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Cam Spencer | 17.9 | 6.0 | 2.0 | 4.0 | 0.0 | 0.0 |
-| Bench | Isaiah Stewart | 5.2 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Quinten Post | 4.0 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Kris Murray | 3.8 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Karim López | 1.6 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Carson Cooper | 1.5 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-
-### MIL @ MIN (`0022600166`)
-
-- **Winner:** MIN (75.8%)
-- **Median score:** MIL 109 – MIN 125
-- **Projected spread (median margin, home−away):** +16.0 (MIN favored)
-- **Projected total (median):** 234.0
-- **Runs:** 10000
-
-#### Projected box score
-
-**MIL (Away)**
-
-| Role | Player | MIN | PTS | REB | AST | STL | BLK |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Starter | Tyler Herro | 24.9 | 12.0 | 3.0 | 2.0 | 0.0 | 0.0 |
-| Starter | Jaime Jaquez Jr. | 22.6 | 10.0 | 4.0 | 2.0 | 0.0 | 0.0 |
-| Starter | Myles Turner | 21.3 | 8.0 | 4.0 | 1.0 | 0.0 | 1.0 |
-| Starter | Kyle Kuzma | 21.1 | 9.0 | 4.0 | 2.0 | 0.0 | 0.0 |
-| Starter | Gary Trent Jr. | 17.0 | 6.0 | 0.0 | 1.0 | 0.0 | 0.0 |
-| Starter | Ousmane Dieng | 16.0 | 4.0 | 1.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Ryan Rollins | 22.1 | 9.0 | 3.0 | 3.0 | 0.0 | 0.0 |
-| Bench | Cormac Ryan | 22.0 | 10.0 | 1.0 | 1.0 | 0.0 | 0.0 |
-| Bench | AJ Green | 19.0 | 5.0 | 1.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Kel'el Ware | 18.0 | 8.0 | 7.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Pete Nance | 16.9 | 4.0 | 2.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Kasparas Jakučionis | 5.8 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Caris LeVert | 5.6 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Brayden Burries | 4.8 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Nate Ament | 4.7 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Kam Jones | 2.8 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Bogoljub Marković | 1.8 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Jericho Sims | 1.8 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-
-**MIN (Home)**
-
-| Role | Player | MIN | PTS | REB | AST | STL | BLK |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Starter | Jaden McDaniels | 35.0 | 16.0 | 5.0 | 4.0 | 1.0 | 1.0 |
-| Starter | Ayo Dosunmu | 31.8 | 14.0 | 3.0 | 4.0 | 1.0 | 0.0 |
-| Starter | Jonathan Kuminga | 31.4 | 14.0 | 5.0 | 2.0 | 1.0 | 0.0 |
-| Starter | Rudy Gobert | 28.7 | 10.0 | 13.0 | 2.0 | 1.0 | 1.0 |
-| Starter | LaMelo Ball | 18.5 | 9.0 | 2.0 | 3.0 | 0.0 | 0.0 |
-| Bench | Joan Beringer | 23.1 | 10.0 | 7.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Trey Lyles | 17.7 | 6.0 | 3.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Bones Hyland | 15.2 | 8.0 | 1.0 | 3.0 | 0.0 | 0.0 |
-| Bench | Jaylen Clark | 13.7 | 4.0 | 1.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Enrique Freeman | 13.6 | 4.0 | 2.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Rocco Zikarsky | 11.5 | 6.0 | 5.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Cody Williams | 3.5 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Isaiah Evans | 2.8 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Zyon Pullin | 2.0 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-
-### BOS @ HOU (`0022600167`)
-
-- **Winner:** HOU (51.5%)
-- **Median score:** BOS 110 – HOU 111
-- **Projected spread (median margin, home−away):** +2.0 (HOU favored)
-- **Projected total (median):** 222.0
-- **Runs:** 10000
-
-#### Projected box score
-
-**BOS (Away)**
-
-| Role | Player | MIN | PTS | REB | AST | STL | BLK |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Starter | Jayson Tatum | 33.9 | 17.0 | 5.0 | 4.0 | 1.0 | 0.0 |
-| Starter | Derrick White | 29.2 | 14.0 | 4.0 | 5.0 | 1.0 | 0.0 |
-| Starter | Mitchell Robinson | 21.1 | 9.0 | 8.0 | 0.0 | 1.0 | 0.0 |
-| Bench | Payton Pritchard | 28.2 | 12.0 | 2.0 | 4.0 | 1.0 | 0.0 |
-| Bench | Neemias Queta | 21.8 | 8.0 | 4.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Baylor Scheierman | 20.5 | 5.0 | 2.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Sam Hauser | 20.3 | 6.0 | 1.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Jordan Walsh | 16.2 | 4.0 | 3.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Luka Garza | 13.5 | 7.0 | 2.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Hugo González | 13.3 | 2.0 | 1.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Mike Conley | 9.3 | 2.0 | 0.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Dillon Mitchell | 8.1 | 2.0 | 1.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Ron Harper Jr. | 4.3 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Chris Cenac Jr. | 1.1 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-
-**HOU (Home)**
-
-| Role | Player | MIN | PTS | REB | AST | STL | BLK |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Starter | Jabari Smith Jr. | 31.2 | 12.0 | 5.0 | 2.0 | 1.0 | 0.0 |
-| Starter | Alperen Sengun | 31.1 | 17.5 | 10.0 | 6.0 | 1.0 | 0.0 |
-| Starter | Amen Thompson | 30.4 | 11.0 | 5.0 | 4.0 | 1.0 | 0.0 |
-| Starter | Kevin Durant | 29.2 | 15.0 | 3.0 | 3.0 | 1.0 | 1.0 |
-| Starter | Fred VanVleet | 29.0 | 9.0 | 2.0 | 4.0 | 1.0 | 0.0 |
-| Bench | Marcus Smart | 25.1 | 8.0 | 1.0 | 2.0 | 1.0 | 0.0 |
-| Bench | Tari Eason | 23.5 | 7.0 | 5.0 | 1.0 | 1.0 | 0.0 |
-| Bench | Reed Sheppard | 17.1 | 3.0 | 1.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Bogdan Bogdanović | 14.6 | 6.0 | 1.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Oscar Tshiebwe | 9.8 | 4.0 | 4.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Isaiah Crawford | 3.1 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Jae'Sean Tate | 2.2 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Bruce Thornton | 2.0 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-
-### UTA @ SAS (`0022600168`)
-
-- **Winner:** SAS (71.4%)
-- **Median score:** UTA 108 – SAS 120
-- **Projected spread (median margin, home−away):** +13.0 (SAS favored)
-- **Projected total (median):** 228.0
-- **Runs:** 10000
-
-#### Projected box score
-
-**UTA (Away)**
-
-| Role | Player | MIN | PTS | REB | AST | STL | BLK |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Starter | Ace Bailey | 29.9 | 9.0 | 5.0 | 2.0 | 0.0 | 0.0 |
-| Starter | Keyonte George | 27.9 | 13.0 | 2.0 | 5.0 | 1.0 | 0.0 |
-| Starter | Darryn Peterson | 27.1 | 11.0 | 4.0 | 2.0 | 1.0 | 0.0 |
-| Starter | Lauri Markkanen | 23.6 | 11.0 | 3.0 | 1.0 | 0.0 | 0.0 |
-| Starter | Jaxson Hayes | 22.3 | 9.0 | 7.0 | 1.0 | 1.0 | 1.0 |
-| Starter | Isaiah Collier | 19.5 | 7.0 | 2.0 | 5.0 | 0.0 | 0.0 |
-| Starter | Kyle Filipowski | 17.6 | 7.0 | 4.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Brice Sensabaugh | 15.6 | 7.0 | 2.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Josh Okogie | 15.5 | 2.0 | 1.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Svi Mykhailiuk | 15.1 | 3.0 | 1.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Mo Bamba | 13.8 | 4.0 | 5.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Josh Green | 9.1 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Tony Bradley | 6.6 | 0.0 | 1.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Kobe Bufkin | 4.4 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-
-**SAS (Home)**
-
-| Role | Player | MIN | PTS | REB | AST | STL | BLK |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Starter | Victor Wembanyama | 30.2 | 20.0 | 10.0 | 3.0 | 1.0 | 1.0 |
-| Starter | De'Aaron Fox | 29.9 | 14.0 | 3.0 | 5.0 | 1.0 | 0.0 |
-| Starter | Devin Vassell | 29.8 | 10.0 | 3.0 | 3.0 | 1.0 | 0.0 |
-| Starter | Stephon Castle | 25.9 | 12.0 | 4.0 | 5.0 | 1.0 | 0.0 |
-| Starter | Julian Champagnie | 25.4 | 8.0 | 3.0 | 1.0 | 1.0 | 0.0 |
-| Starter | Harrison Barnes | 16.6 | 7.0 | 1.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Dylan Harper | 31.2 | 14.0 | 4.0 | 4.0 | 1.0 | 0.0 |
-| Bench | Keldon Johnson | 21.5 | 8.0 | 3.0 | 1.0 | 1.0 | 0.0 |
-| Bench | Luke Kornet | 14.1 | 4.0 | 5.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Carter Bryant | 10.1 | 3.0 | 1.0 | 0.0 | 0.0 | 0.0 |
-
-### POR @ DEN (`0022600169`)
-
-- **Winner:** POR (55.1%)
-- **Median score:** POR 120 – DEN 117
-- **Projected spread (median margin, home−away):** -3.0 (DEN underdog)
-- **Projected total (median):** 236.0
-- **Runs:** 10000
-
-#### Projected box score
+Each cell is the median, with the mean in parentheses.
 
 **POR (Away)**
 
 | Role | Player | MIN | PTS | REB | AST | STL | BLK |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Starter | Deni Avdija | 31.4 | 18.0 | 6.0 | 5.0 | 1.0 | 0.0 |
-| Starter | Damian Lillard | 28.1 | 16.0 | 2.0 | 3.0 | 1.0 | 0.0 |
-| Starter | Toumani Camara | 27.9 | 10.0 | 2.0 | 2.0 | 1.0 | 0.0 |
-| Starter | Jrue Holiday | 25.7 | 10.0 | 2.0 | 4.0 | 1.0 | 0.0 |
-| Starter | Scoot Henderson | 24.0 | 10.0 | 1.0 | 2.0 | 1.0 | 0.0 |
-| Starter | Donovan Clingan | 22.4 | 10.0 | 12.0 | 2.0 | 0.0 | 1.0 |
-| Bench | Sidy Cissoko | 19.9 | 5.0 | 3.0 | 2.0 | 0.0 | 0.0 |
-| Bench | Robert Williams III | 17.9 | 6.0 | 6.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Vít Krejčí | 14.3 | 5.0 | 1.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Branden Carlson | 13.8 | 5.0 | 2.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Micah Potter | 9.6 | 3.0 | 2.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Yang Hansen | 8.4 | 2.0 | 1.0 | 0.0 | 0.0 | 0.0 |
+| Starter | ⚠️ Toumani Camara | 31.1 (31.0) | 9.0 (10.6) | 2.0 (2.4) | 2.0 (2.1) | 1.0 (0.9) | 0.0 (0.6) |
+| Starter | Damian Lillard | 30.0 (29.9) | 17.0 (18.5) | 2.0 (2.3) | 3.0 (3.4) | 1.0 (0.8) | 0.0 (0.5) |
+| Starter | ⚠️ Jrue Holiday | 27.9 (27.8) | 9.0 (10.1) | 2.0 (2.3) | 3.0 (3.7) | 1.0 (0.8) | 0.0 (0.5) |
+| Starter | ⚠️ Deni Avdija | 27.7 (19.4) | 10.0 (12.6) | 3.0 (3.6) | 3.0 (3.4) | 0.0 (0.6) | 0.0 (0.4) |
+| Starter | ⚠️ Donovan Clingan | 27.0 (26.9) | 12.0 (13.8) | 12.0 (12.8) | 2.0 (2.0) | 1.0 (0.8) | 1.0 (1.3) |
+| Starter | ⚠️ Scoot Henderson | 24.1 (24.0) | 9.0 (10.3) | 1.0 (1.2) | 2.0 (2.1) | 0.0 (0.7) | 0.0 (0.4) |
+| Bench | ⚠️ Sidy Cissoko | 26.3 (26.3) | 6.0 (7.6) | 2.0 (2.7) | 2.0 (2.1) | 0.0 (0.7) | 0.0 (0.5) |
+| Bench | ⚠️ Robert Williams III | 17.4 (16.0) | 5.0 (6.1) | 5.0 (6.0) | 1.0 (0.9) | 0.0 (0.6) | 0.0 (0.7) |
+| Bench | ⚠️ Branden Carlson | 10.3 (9.8) | 3.0 (4.2) | 2.0 (2.7) | 0.0 (0.4) | 0.0 (0.3) | 0.0 (0.5) |
+| Bench | Jayson Kent | 8.0 (7.9) | 2.0 (4.0) | 1.0 (1.6) | 0.0 (0.1) | 0.0 (0.4) | 0.0 (0.3) |
+| Bench | ⚠️ Yang Hansen | 7.7 (7.7) | 2.0 (3.9) | 1.0 (2.2) | 0.0 (0.6) | 0.0 (0.3) | 0.0 (0.3) |
+| Bench | John Tonje | 7.4 (7.4) | 3.0 (5.3) | 1.0 (1.7) | 0.0 (1.0) | 0.0 (0.3) | 0.0 (0.2) |
+| Bench | ⚠️ Micah Potter | 5.8 (6.3) | 0.0 (3.9) | 1.0 (2.2) | 0.0 (0.3) | 0.0 (0.2) | 0.0 (0.2) |
 
-**DEN (Home)**
+**MIN (Home)**
 
 | Role | Player | MIN | PTS | REB | AST | STL | BLK |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Starter | Jamal Murray | 33.0 | 19.0 | 4.0 | 5.0 | 1.0 | 0.0 |
-| Starter | Nikola Jokić | 32.2 | 16.0 | 8.0 | 8.0 | 1.0 | 0.0 |
-| Starter | Aaron Gordon | 25.9 | 12.0 | 6.0 | 3.0 | 1.0 | 0.0 |
-| Starter | Cameron Johnson | 23.8 | 10.0 | 3.0 | 2.0 | 1.0 | 0.0 |
-| Bench | Christian Braun | 31.3 | 10.0 | 3.0 | 2.0 | 1.0 | 0.0 |
-| Bench | DeMar DeRozan | 22.3 | 11.0 | 1.0 | 2.0 | 1.0 | 0.0 |
-| Bench | Trevon Brazile | 19.6 | 6.0 | 4.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Bryce Hopkins | 15.8 | 3.0 | 1.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Alpha Diallo | 15.1 | 2.0 | 0.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Marvin Bagley III | 10.2 | 3.0 | 2.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Ryan Nembhard | 10.1 | 3.0 | 1.0 | 2.0 | 0.0 | 0.0 |
-| Bench | Cam Whitmore | 3.5 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Tyus Jones | 3.3 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Zeke Nnaji | 2.0 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | DaRon Holmes II | 1.6 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
+| Starter | Jaden McDaniels | 37.7 (37.2) | 13.0 (14.7) | 5.0 (5.0) | 4.0 (4.2) | 1.0 (1.1) | 1.0 (0.8) |
+| Starter | ⚠️ Ayo Dosunmu | 36.2 (36.0) | 14.0 (15.7) | 3.0 (3.0) | 4.0 (4.0) | 1.0 (1.1) | 0.0 (0.6) |
+| Starter | Rudy Gobert | 32.8 (31.8) | 11.0 (11.9) | 14.0 (14.0) | 2.0 (2.6) | 1.0 (0.9) | 1.0 (0.9) |
+| Starter | ⚠️ LaMelo Ball | 31.7 (31.7) | 17.0 (18.9) | 3.0 (3.7) | 5.0 (5.2) | 1.0 (1.4) | 0.0 (0.5) |
+| Bench | ⚠️ Terrence Shannon Jr | 28.8 (28.1) | 13.0 (14.6) | 3.0 (3.0) | 2.0 (2.7) | 1.0 (0.8) | 0.0 (0.4) |
+| Bench | Trey Lyles | 23.4 (23.3) | 6.0 (7.5) | 3.0 (3.5) | 1.0 (0.9) | 0.0 (0.7) | 0.0 (0.5) |
+| Bench | Bones Hyland | 19.0 (19.0) | 10.0 (11.3) | 1.0 (1.1) | 3.0 (3.4) | 1.0 (0.8) | 0.0 (0.4) |
+| Bench | Joan Beringer | 19.0 (18.9) | 6.0 (7.8) | 6.0 (6.4) | 0.0 (0.6) | 0.0 (0.6) | 1.0 (0.8) |
+| Bench | Johni Broome | 3.9 (4.5) | 0.0 (2.5) | 1.0 (2.6) | 0.0 (0.4) | 0.0 (0.3) | 0.0 (0.2) |
+| Bench | ⚠️ Cody Williams | 3.6 (4.5) | 0.0 (1.3) | 0.0 (0.6) | 0.0 (0.2) | 0.0 (0.3) | 0.0 (0.1) |
+| Bench | Isaiah Evans | 2.4 (3.3) | 0.0 (1.8) | 0.0 (0.5) | 0.0 (0.4) | 0.0 (0.2) | 0.0 (0.1) |
 
-### PHX @ GSW (`0022600170`)
+### DET @ SAS (`0022600255`)
 
-- **Winner:** GSW (66.9%)
-- **Median score:** PHX 106 – GSW 115
-- **Projected spread (median margin, home−away):** +10.0 (GSW favored)
-- **Projected total (median):** 221.0
+- **Winner:** SAS (57.3%)
+- **Median score:** DET 107 – SAS 111
+- **Projected spread (median margin, home−away):** +5.0 (SAS favored)
+- **Projected total (median):** 218.0
 - **Runs:** 10000
 
 #### Projected box score
 
-**PHX (Away)**
+Each cell is the median, with the mean in parentheses.
+
+**DET (Away)**
 
 | Role | Player | MIN | PTS | REB | AST | STL | BLK |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Starter | Devin Booker | 32.7 | 17.0 | 2.0 | 5.0 | 1.0 | 0.0 |
-| Starter | Miles Bridges | 29.5 | 12.0 | 5.0 | 2.0 | 1.0 | 0.0 |
-| Starter | Dillon Brooks | 25.4 | 11.0 | 2.0 | 1.0 | 1.0 | 0.0 |
-| Starter | Jalen Green | 25.1 | 12.0 | 3.0 | 2.0 | 1.0 | 0.0 |
-| Starter | Ryan Dunn | 18.0 | 5.0 | 4.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Collin Gillespie | 25.8 | 8.0 | 2.0 | 4.0 | 1.0 | 0.0 |
-| Bench | Oso Ighodaro | 19.9 | 4.0 | 3.0 | 2.0 | 0.0 | 0.0 |
-| Bench | Jordan Goodwin | 18.9 | 5.0 | 3.0 | 1.0 | 1.0 | 0.0 |
-| Bench | Khaman Maluach | 18.1 | 6.0 | 6.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Luke Kennard | 15.4 | 5.0 | 1.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Pat Spencer | 8.1 | 2.0 | 1.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Duop Reath | 2.7 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Rasheer Fleming | 2.6 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Jamaree Bouyea | 2.1 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Koa Peat | 2.0 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
+| Starter | ⚠️ Cade Cunningham | 38.8 (37.6) | 19.0 (20.7) | 4.0 (4.8) | 9.0 (9.5) | 1.0 (1.4) | 1.0 (0.9) |
+| Starter | Ausar Thompson | 31.2 (30.4) | 13.0 (14.6) | 9.0 (9.6) | 5.0 (5.7) | 1.0 (1.5) | 1.0 (0.9) |
+| Starter | ⚠️ John Collins | 29.2 (29.1) | 14.0 (15.1) | 7.0 (6.9) | 1.0 (0.8) | 1.0 (1.1) | 1.0 (0.9) |
+| Bench | ⚠️ Daniss Jenkins | 35.1 (34.3) | 12.0 (13.0) | 2.0 (2.6) | 5.0 (5.0) | 1.0 (1.2) | 0.0 (0.6) |
+| Bench | ⚠️ Kevin Huerter | 31.3 (31.1) | 10.0 (10.8) | 2.0 (2.4) | 2.0 (2.5) | 1.0 (1.2) | 1.0 (0.8) |
+| Bench | Paul Reed | 30.8 (30.7) | 12.0 (13.5) | 9.0 (9.1) | 2.0 (2.4) | 1.0 (1.3) | 1.0 (0.9) |
+| Bench | ⚠️ Javonte Green | 18.6 (18.5) | 5.0 (6.1) | 1.0 (1.7) | 0.0 (0.7) | 1.0 (1.0) | 0.0 (0.5) |
+| Bench | ⚠️ Elijah Harkless | 16.7 (14.4) | 5.0 (6.1) | 1.0 (1.2) | 1.0 (1.2) | 0.0 (0.8) | 0.0 (0.4) |
+| Bench | ⚠️ Tolu Smith | 6.1 (5.9) | 2.0 (2.8) | 1.0 (2.4) | 0.0 (0.3) | 0.0 (0.3) | 0.0 (0.3) |
+| Bench | Isaac Jones | 4.2 (4.4) | 0.0 (2.4) | 1.0 (2.5) | 0.0 (0.3) | 0.0 (0.2) | 0.0 (0.3) |
+| Bench | ⚠️ Chaz Lanier | 3.6 (4.0) | 0.0 (2.5) | 0.0 (0.4) | 0.0 (0.3) | 0.0 (0.3) | 0.0 (0.1) |
 
-**GSW (Home)**
+**SAS (Home)**
 
 | Role | Player | MIN | PTS | REB | AST | STL | BLK |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Starter | Yaxel Lendeborg | 31.6 | 15.0 | 6.0 | 2.0 | 1.0 | 0.0 |
-| Starter | Draymond Green | 30.7 | 7.0 | 6.0 | 7.0 | 1.0 | 0.0 |
-| Starter | Stephen Curry | 30.1 | 20.0 | 4.0 | 5.0 | 1.0 | 0.0 |
-| Bench | Brandin Podziemski | 34.2 | 11.0 | 4.0 | 5.0 | 1.0 | 0.0 |
-| Bench | De'Anthony Melton | 24.3 | 10.0 | 3.0 | 3.0 | 1.0 | 0.0 |
-| Bench | Georges Niang | 20.9 | 7.0 | 3.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Will Richard | 18.3 | 4.0 | 1.0 | 1.0 | 1.0 | 0.0 |
-| Bench | Gary Payton II | 14.5 | 5.0 | 2.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Brandon Williams | 14.3 | 5.0 | 1.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Graham Ike | 10.0 | 6.0 | 6.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Charles Bassey | 10.0 | 3.0 | 3.0 | 0.0 | 0.0 | 0.0 |
-| Bench | LJ Cryer | 4.9 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Malevy Leons | 4.6 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
+| Starter | Stephon Castle | 27.6 (27.5) | 12.0 (14.0) | 4.0 (4.1) | 5.0 (5.0) | 1.0 (1.0) | 0.0 (0.5) |
+| Starter | ⚠️ Victor Wembanyama | 27.3 (27.2) | 19.0 (20.1) | 10.0 (10.4) | 2.0 (2.7) | 1.0 (0.9) | 1.0 (1.5) |
+| Starter | ⚠️ Devin Vassell | 26.2 (25.6) | 8.0 (9.6) | 2.0 (2.4) | 2.0 (2.5) | 1.0 (1.0) | 0.0 (0.5) |
+| Starter | ⚠️ De'Aaron Fox | 23.7 (23.1) | 10.0 (11.2) | 2.0 (2.5) | 4.0 (3.9) | 1.0 (0.9) | 0.0 (0.4) |
+| Starter | ⚠️ Julian Champagnie | 23.5 (23.5) | 6.0 (7.7) | 2.0 (2.8) | 1.0 (1.4) | 1.0 (0.8) | 0.0 (0.5) |
+| Starter | Harrison Barnes | 18.5 (18.1) | 6.0 (7.7) | 1.0 (1.1) | 1.0 (0.9) | 0.0 (0.6) | 0.0 (0.4) |
+| Bench | ⚠️ Dylan Harper | 28.8 (28.7) | 13.0 (14.5) | 3.0 (3.8) | 3.0 (3.5) | 1.0 (0.9) | 0.0 (0.4) |
+| Bench | ⚠️ Keldon Johnson | 24.8 (24.7) | 7.0 (8.5) | 4.0 (4.2) | 1.0 (1.8) | 1.0 (0.8) | 0.0 (0.4) |
+| Bench | Luke Kornet | 15.0 (14.9) | 4.0 (4.8) | 4.0 (4.9) | 1.0 (1.1) | 0.0 (0.5) | 0.0 (0.5) |
+| Bench | ⚠️ Carter Bryant | 11.0 (10.7) | 3.0 (4.7) | 0.0 (0.9) | 0.0 (0.8) | 0.0 (0.4) | 0.0 (0.3) |
+| Bench | ⚠️ Jordan McLaughlin | 9.2 (8.7) | 2.0 (3.4) | 1.0 (1.4) | 1.0 (1.2) | 0.0 (0.5) | 0.0 (0.2) |
+| Bench | ⚠️ Tarris Reed Jr. | 5.1 (5.3) | 0.0 (3.1) | 2.0 (4.5) | 0.0 (0.5) | 0.0 (0.3) | 0.0 (0.2) |
+| Bench | David Jones Garcia | 1.3 (2.4) | 0.0 (1.7) | 0.0 (0.6) | 0.0 (0.4) | 0.0 (0.2) | 0.0 (0.1) |
 
-### TOR @ LAC (`0022600171`)
+### CHA @ LAL (`0022600256`)
 
-- **Winner:** TOR (61.2%)
-- **Median score:** TOR 110 – LAC 104
-- **Projected spread (median margin, home−away):** -7.0 (LAC underdog)
-- **Projected total (median):** 214.0
-- **Runs:** 10000
-
-#### Projected box score
-
-**TOR (Away)**
-
-| Role | Player | MIN | PTS | REB | AST | STL | BLK |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Starter | RJ Barrett | 34.0 | 17.0 | 5.0 | 4.0 | 1.0 | 0.0 |
-| Starter | Immanuel Quickley | 32.4 | 13.0 | 3.0 | 5.0 | 1.0 | 0.0 |
-| Starter | Ja'Kobe Walter | 31.8 | 10.0 | 3.0 | 2.0 | 1.0 | 0.0 |
-| Starter | Scottie Barnes | 28.0 | 10.0 | 4.0 | 3.0 | 0.0 | 0.0 |
-| Starter | Jamal Shead | 25.6 | 6.0 | 1.0 | 5.0 | 1.0 | 0.0 |
-| Starter | Jamison Battle | 22.6 | 7.0 | 2.0 | 1.0 | 1.0 | 0.0 |
-| Starter | Jakob Poeltl | 17.4 | 4.0 | 5.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Collin Murray-Boyles | 22.2 | 8.0 | 5.0 | 1.0 | 1.0 | 0.0 |
-| Bench | Allen Graves | 12.2 | 5.0 | 3.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Alijah Martin | 8.6 | 3.0 | 1.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Trayce Jackson-Davis | 8.5 | 3.0 | 4.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Jaden Bradley | 4.8 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Kyle Anderson | 4.3 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-
-**LAC (Home)**
-
-| Role | Player | MIN | PTS | REB | AST | STL | BLK |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Starter | Darius Garland | 35.7 | 17.0 | 1.0 | 5.0 | 1.0 | 0.0 |
-| Starter | Kris Dunn | 33.6 | 8.0 | 3.0 | 5.0 | 1.0 | 0.0 |
-| Starter | Brook Lopez | 25.6 | 10.0 | 4.0 | 1.0 | 1.0 | 1.0 |
-| Bench | Max Strus | 32.4 | 9.0 | 5.0 | 2.0 | 1.0 | 0.0 |
-| Bench | Kobe Sanders | 29.0 | 9.0 | 3.0 | 2.0 | 1.0 | 0.0 |
-| Bench | Keaton Wagler | 27.4 | 13.0 | 5.0 | 3.0 | 1.0 | 0.0 |
-| Bench | Isaiah Jackson | 24.6 | 9.0 | 9.0 | 2.0 | 1.0 | 1.0 |
-| Bench | Gradey Dick | 12.5 | 4.0 | 1.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Cam Christie | 6.7 | 2.0 | 1.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Baba Miller | 5.7 | 0.0 | 1.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Nick Martinelli | 4.2 | 0.0 | 1.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Jalen Pickett | 3.3 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Blake Wesley | 2.6 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-
-### MIA @ LAL (`0022600172`)
-
-- **Winner:** LAL (65.6%)
-- **Median score:** MIA 111 – LAL 119
+- **Winner:** LAL (64.4%)
+- **Median score:** CHA 107 – LAL 115
 - **Projected spread (median margin, home−away):** +9.0 (LAL favored)
-- **Projected total (median):** 230.0
+- **Projected total (median):** 222.0
 - **Runs:** 10000
 
 #### Projected box score
 
-**MIA (Away)**
+Each cell is the median, with the mean in parentheses.
+
+**CHA (Away)**
 
 | Role | Player | MIN | PTS | REB | AST | STL | BLK |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Starter | Davion Mitchell | 30.3 | 9.0 | 1.0 | 6.0 | 1.0 | 0.0 |
-| Starter | Bam Adebayo | 29.0 | 14.0 | 8.0 | 3.0 | 1.0 | 0.0 |
-| Starter | Giannis Antetokounmpo | 27.9 | 19.0 | 9.0 | 4.0 | 1.0 | 0.0 |
-| Starter | Andrew Wiggins | 26.0 | 9.0 | 2.0 | 2.0 | 1.0 | 0.0 |
-| Starter | Klay Thompson | 19.7 | 8.0 | 1.0 | 1.0 | 0.0 | 0.0 |
-| Starter | Nikola Jović | 17.8 | 5.0 | 2.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Pelle Larsson | 25.7 | 8.0 | 1.0 | 3.0 | 1.0 | 0.0 |
-| Bench | Bobby Portis Jr. | 19.3 | 7.0 | 4.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Keshad Johnson | 15.9 | 5.0 | 2.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Tim Hardaway Jr. | 15.4 | 5.0 | 1.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Tre Donaldson | 7.8 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Dru Smith | 3.2 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Nick Richards | 2.7 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Ryan Conwell | 1.9 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Vladislav Goldin | 1.9 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Myron Gardner | 1.8 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Simone Fontecchio | 1.5 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
+| Starter | ⚠️ Naz Reid | 26.9 (26.8) | 12.0 (13.2) | 6.0 (6.6) | 1.0 (1.8) | 0.0 (0.7) | 0.0 (0.5) |
+| Starter | ⚠️ Grayson Allen | 24.5 (24.5) | 10.0 (11.7) | 1.0 (1.8) | 2.0 (2.4) | 0.0 (0.7) | 0.0 (0.4) |
+| Starter | ⚠️ Brandon Miller | 23.1 (22.5) | 12.0 (13.8) | 3.0 (3.0) | 2.0 (2.6) | 0.0 (0.7) | 0.0 (0.4) |
+| Starter | ⚠️ Grant Williams | 18.3 (17.8) | 6.0 (7.4) | 3.0 (3.4) | 1.0 (1.3) | 0.0 (0.6) | 0.0 (0.4) |
+| Bench | ⚠️ Sion James | 26.4 (26.4) | 5.0 (6.6) | 3.0 (3.1) | 4.0 (3.8) | 1.0 (0.8) | 0.0 (0.3) |
+| Bench | ⚠️ Moussa Diabaté | 25.5 (25.0) | 7.0 (8.2) | 8.0 (8.5) | 2.0 (2.0) | 0.0 (0.8) | 0.0 (0.6) |
+| Bench | ⚠️ Royce O'Neale | 19.5 (19.5) | 3.0 (5.2) | 2.0 (2.5) | 1.0 (0.8) | 0.0 (0.6) | 0.0 (0.3) |
+| Bench | ⚠️ Ryan Kalkbrenner | 18.7 (18.7) | 6.0 (6.8) | 6.0 (6.1) | 1.0 (1.6) | 0.0 (0.5) | 0.0 (0.8) |
+| Bench | ⚠️ Coby White | 17.2 (15.9) | 10.0 (11.8) | 1.0 (1.6) | 4.0 (4.1) | 0.0 (0.4) | 0.0 (0.3) |
+| Bench | ⚠️ Christian Anderson | 15.1 (14.4) | 4.0 (5.9) | 1.0 (1.0) | 1.0 (1.3) | 0.0 (0.5) | 0.0 (0.3) |
+| Bench | Tidjane Salaün | 13.7 (13.7) | 5.0 (5.9) | 2.0 (3.0) | 0.0 (0.5) | 0.0 (0.5) | 0.0 (0.3) |
+| Bench | ⚠️ Liam McNeeley | 8.1 (7.7) | 3.0 (5.7) | 1.0 (1.4) | 1.0 (1.3) | 0.0 (0.3) | 0.0 (0.1) |
+| Bench | ⚠️ PJ Hall | 7.9 (7.5) | 2.0 (4.8) | 3.0 (3.9) | 0.0 (0.4) | 0.0 (0.2) | 0.0 (0.3) |
 
 **LAL (Home)**
 
 | Role | Player | MIN | PTS | REB | AST | STL | BLK |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Starter | Austin Reaves | 30.2 | 18.0 | 2.0 | 4.0 | 1.0 | 0.0 |
-| Starter | Luka Dončić | 29.4 | 19.0 | 4.0 | 5.0 | 1.0 | 0.0 |
-| Starter | Walker Kessler | 25.0 | 11.0 | 10.0 | 1.0 | 1.0 | 1.0 |
-| Starter | Ziaire Williams | 23.0 | 9.0 | 3.0 | 1.0 | 1.0 | 0.0 |
-| Starter | Matisse Thybulle | 21.2 | 6.0 | 1.0 | 1.0 | 1.0 | 0.0 |
-| Bench | Quentin Grimes | 22.1 | 7.0 | 1.0 | 2.0 | 1.0 | 0.0 |
-| Bench | Jake LaRavia | 20.4 | 6.0 | 2.0 | 1.0 | 1.0 | 0.0 |
-| Bench | Lawson Lovering | 19.7 | 5.0 | 5.0 | 0.0 | 1.0 | 0.0 |
-| Bench | Sandro Mamukelashvili | 18.8 | 7.0 | 3.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Collin Sexton | 15.1 | 8.0 | 1.0 | 1.0 | 0.0 | 0.0 |
-| Bench | Jarred Vanderbilt | 9.6 | 0.0 | 1.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Cameron Carr | 3.4 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Arthur Kaluma | 2.6 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Kevon Looney | 2.6 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Jaden Hardy | 1.9 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Bronny James | 1.6 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| Bench | Chris Mañon | 1.4 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
+| Starter | ⚠️ Luka Dončić | 38.5 (37.1) | 24.0 (25.7) | 7.0 (6.8) | 5.0 (5.4) | 1.0 (1.2) | 0.0 (0.5) |
+| Starter | ⚠️ Matisse Thybulle | 27.1 (27.0) | 8.0 (9.5) | 2.0 (2.5) | 1.0 (1.2) | 1.0 (1.5) | 0.0 (0.7) |
+| Bench | Quentin Grimes | 31.1 (30.1) | 9.0 (10.1) | 2.0 (2.4) | 2.0 (2.1) | 1.0 (1.0) | 0.0 (0.4) |
+| Bench | ⚠️ Jake LaRavia | 29.5 (29.4) | 8.0 (9.3) | 4.0 (4.4) | 3.0 (2.9) | 1.0 (1.2) | 0.0 (0.6) |
+| Bench | ⚠️ Sandro Mamukelashvili | 26.0 (25.9) | 9.0 (10.5) | 5.0 (5.0) | 1.0 (1.7) | 1.0 (0.9) | 0.0 (0.5) |
+| Bench | ⚠️ Ziaire Williams | 23.4 (21.6) | 9.0 (10.3) | 2.0 (2.6) | 1.0 (1.6) | 1.0 (1.1) | 0.0 (0.3) |
+| Bench | ⚠️ Collin Sexton | 21.7 (21.6) | 14.0 (15.4) | 1.0 (1.7) | 3.0 (3.0) | 1.0 (0.9) | 0.0 (0.3) |
+| Bench | Jarred Vanderbilt | 13.0 (12.5) | 2.0 (3.4) | 3.0 (3.9) | 1.0 (1.1) | 0.0 (0.6) | 0.0 (0.3) |
+| Bench | Adou Thiero | 9.5 (8.6) | 2.0 (4.2) | 2.0 (3.2) | 0.0 (0.6) | 0.0 (0.5) | 0.0 (0.2) |
+| Bench | Arthur Kaluma | 9.3 (8.3) | 2.0 (5.4) | 1.0 (2.6) | 0.0 (0.7) | 0.0 (0.4) | 0.0 (0.2) |
+| Bench | ⚠️ Jaden Hardy | 3.3 (3.7) | 0.0 (3.0) | 0.0 (0.8) | 0.0 (0.5) | 0.0 (0.3) | 0.0 (0.1) |
+| Bench | Cameron Carr | 3.0 (4.6) | 0.0 (1.0) | 0.0 (0.4) | 0.0 (0.1) | 0.0 (0.2) | 0.0 (0.1) |
+| Bench | ⚠️ Carson Cooper | 2.9 (3.4) | 0.0 (3.7) | 0.0 (2.3) | 0.0 (0.4) | 0.0 (0.2) | 0.0 (0.1) |
+| Bench | Bronny James | 2.5 (3.0) | 0.0 (2.2) | 0.0 (0.1) | 0.0 (0.3) | 0.0 (0.2) | 0.0 (0.1) |
+
+### UTA @ LAC (`0022600257`)
+
+- **Winner:** LAC (72.8%)
+- **Median score:** UTA 106 – LAC 119
+- **Projected spread (median margin, home−away):** +13.0 (LAC favored)
+- **Projected total (median):** 226.0
+- **Runs:** 10000
+
+#### Projected box score
+
+Each cell is the median, with the mean in parentheses.
+
+**UTA (Away)**
+
+| Role | Player | MIN | PTS | REB | AST | STL | BLK |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Starter | Keyonte George | 31.7 (30.7) | 16.0 (17.4) | 3.0 (3.6) | 6.0 (6.3) | 1.0 (0.8) | 0.0 (0.4) |
+| Starter | ⚠️ Darryn Peterson | 30.9 (30.8) | 15.0 (16.1) | 4.0 (3.9) | 3.0 (3.6) | 1.0 (1.0) | 0.0 (0.7) |
+| Starter | ⚠️ Ace Bailey | 30.1 (30.0) | 11.0 (12.4) | 5.0 (5.7) | 2.0 (2.1) | 1.0 (0.8) | 0.0 (0.7) |
+| Starter | Josh Green | 20.6 (20.5) | 4.0 (5.1) | 1.0 (1.6) | 1.0 (0.9) | 0.0 (0.7) | 0.0 (0.3) |
+| Starter | ⚠️ Isaiah Collier | 19.5 (19.0) | 7.0 (8.1) | 2.0 (2.8) | 4.0 (4.1) | 0.0 (0.6) | 0.0 (0.3) |
+| Starter | ⚠️ Kyle Filipowski | 17.9 (17.5) | 6.0 (7.8) | 4.0 (4.4) | 1.0 (1.4) | 0.0 (0.6) | 0.0 (0.3) |
+| Bench | Josh Okogie | 21.9 (21.9) | 5.0 (6.1) | 3.0 (3.4) | 1.0 (1.0) | 1.0 (0.8) | 0.0 (0.4) |
+| Bench | ⚠️ Mo Bamba | 21.3 (20.8) | 8.0 (9.3) | 7.0 (7.9) | 1.0 (0.9) | 0.0 (0.6) | 1.0 (0.9) |
+| Bench | ⚠️ Brice Sensabaugh | 21.0 (20.9) | 11.0 (12.2) | 4.0 (4.1) | 1.0 (1.8) | 0.0 (0.7) | 0.0 (0.4) |
+| Bench | Svi Mykhailiuk | 16.8 (16.8) | 3.0 (4.9) | 1.0 (1.2) | 1.0 (1.4) | 0.0 (0.6) | 0.0 (0.2) |
+| Bench | Tony Bradley | 7.8 (7.7) | 2.0 (3.5) | 2.0 (3.0) | 0.0 (0.2) | 0.0 (0.3) | 0.0 (0.2) |
+| Bench | Jonas Aidoo | 1.9 (3.7) | 0.0 (3.4) | 0.0 (2.6) | 0.0 (0.4) | 0.0 (0.2) | 0.0 (0.2) |
+
+**LAC (Home)**
+
+| Role | Player | MIN | PTS | REB | AST | STL | BLK |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Starter | ⚠️ Darius Garland | 30.6 (30.5) | 16.0 (18.0) | 1.0 (1.7) | 6.0 (6.3) | 1.0 (0.9) | 0.0 (0.3) |
+| Starter | ⚠️ Rui Hachimura | 25.4 (24.8) | 11.0 (12.2) | 5.0 (5.1) | 1.0 (1.3) | 1.0 (0.8) | 0.0 (0.3) |
+| Starter | Brook Lopez | 24.3 (24.4) | 11.0 (12.7) | 5.0 (5.4) | 2.0 (2.3) | 1.0 (0.8) | 0.0 (0.7) |
+| Starter | ⚠️ Kris Dunn | 22.7 (22.7) | 7.0 (7.8) | 3.0 (3.4) | 4.0 (4.4) | 1.0 (1.2) | 0.0 (0.4) |
+| Bench | ⚠️ Derrick Jones Jr. | 25.7 (25.1) | 9.0 (10.0) | 4.0 (4.4) | 1.0 (1.4) | 1.0 (0.9) | 0.0 (0.6) |
+| Bench | Keaton Wagler | 21.3 (21.2) | 11.0 (12.9) | 3.0 (3.2) | 3.0 (3.0) | 1.0 (0.8) | 0.0 (0.3) |
+| Bench | ⚠️ Max Strus | 21.1 (19.3) | 6.0 (7.8) | 3.0 (3.6) | 2.0 (2.1) | 0.0 (0.7) | 0.0 (0.2) |
+| Bench | ⚠️ Kobe Sanders | 20.9 (20.9) | 7.0 (8.5) | 2.0 (2.5) | 2.0 (2.5) | 1.0 (0.8) | 0.0 (0.3) |
+| Bench | ⚠️ Isaiah Jackson | 16.5 (15.6) | 7.0 (8.6) | 6.0 (6.5) | 1.0 (1.8) | 0.0 (0.8) | 0.0 (0.6) |
+| Bench | Gradey Dick | 16.2 (16.2) | 8.0 (9.3) | 3.0 (3.0) | 0.0 (0.7) | 0.0 (0.7) | 0.0 (0.2) |
+| Bench | ⚠️ Baba Miller | 9.8 (9.6) | 2.0 (4.2) | 1.0 (2.0) | 0.0 (0.7) | 0.0 (0.5) | 0.0 (0.4) |
+| Bench | ⚠️ Jalen Pickett | 2.3 (3.6) | 0.0 (2.2) | 0.0 (1.0) | 0.0 (0.7) | 0.0 (0.2) | 0.0 (0.1) |
+| Bench | Cam Christie | 2.2 (3.4) | 0.0 (2.0) | 0.0 (0.7) | 0.0 (0.2) | 0.0 (0.2) | 0.0 (0.1) |
+| Bench | ⚠️ Nick Martinelli | 2.2 (3.1) | 0.0 (3.3) | 0.0 (2.0) | 0.0 (0.5) | 0.0 (0.1) | 0.0 (0.1) |
 
 ## 3. Top confident stat lines
 
 | # | Player | Matchup | Stat | Pred | Range | Conf | Proj MIN |
 | --- | --- | --- | --- | ---: | --- | ---: | ---: |
-| 1 | Wendell Carter Jr. | ORL vs WAS | AST | 4 | 2-6 assists | 70.3% | 37.6 |
-| 2 | RJ Barrett | TOR vs LAC | AST | 4 | 2-6 assists | 66.9% | 34.0 |
-| 3 | Quenton Jackson | IND vs ATL | REB | 5 | 3-7 rebounds | 66.3% | 38.5 |
-| 4 | Amen Thompson | HOU vs BOS | AST | 4 | 2-6 assists | 65.9% | 30.4 |
-| 5 | Shai Gilgeous-Alexander | OKC vs CLE | AST | 4 | 2-6 assists | 65.7% | 32.6 |
-| 6 | Ayo Dosunmu | MIN vs MIL | AST | 4 | 2-6 assists | 65.2% | 31.8 |
-| 7 | Josh Hart | NYK vs BKN | AST | 4 | 2-6 assists | 65.1% | 30.2 |
-| 8 | Jaden McDaniels | MIN vs MIL | AST | 4 | 2-6 assists | 65.1% | 35.0 |
+| 1 | Ayo Dosunmu | MIN vs POR | AST | 4 | 2-6 assists | 69.6% | 36.2 |
+| 2 | Jaden McDaniels | MIN vs POR | AST | 4 | 2-6 assists | 68.6% | 37.7 |
+| 3 | RJ Barrett | TOR vs NYK | AST | 4 | 2-6 assists | 65.6% | 33.1 |
+| 4 | Sion James | CHA vs LAL | AST | 4 | 2-6 assists | 62.1% | 26.4 |
+| 5 | Daniss Jenkins | DET vs SAS | AST | 5 | 3-7 assists | 61.9% | 35.1 |
+| 6 | Jaden McDaniels | MIN vs POR | REB | 5 | 3-7 rebounds | 59.6% | 37.7 |
+| 7 | Immanuel Quickley | TOR vs NYK | AST | 5 | 3-7 assists | 58.6% | 30.8 |
+| 8 | Jalen Brunson | NYK vs TOR | AST | 5 | 3-7 assists | 58.1% | 31.8 |
 
 ## 3b. Double-double candidates
 
@@ -735,14 +466,14 @@ P(two of PTS/REB/AST/STL/BLK reach 10) from the same sims. QUESTIONABLE players 
 
 | # | Player | Matchup | P(DD) | Pair | Median MIN |
 | --- | --- | --- | ---: | --- | ---: |
-| 1 | Wendell Carter Jr. | ORL vs WAS | 83.2% | PTS+REB | 37.6 |
-| 2 | Karl-Anthony Towns | NYK vs BKN | 69.3% | PTS+REB | 30.2 |
-| 3 | Domantas Sabonis | SAC vs DAL | 64.2% | PTS+REB | 34.2 |
-| 4 | Onyeka Okongwu | ATL vs IND | 52.7% | PTS+REB | 35.6 |
-| 5 | Isaiah Hartenstein | OKC vs CLE | 52.4% | PTS+REB | 26.6 |
-| 6 | Victor Wembanyama | SAS vs UTA | 52.0% | PTS+REB | 30.2 |
-| 7 | Alperen Sengun | HOU vs BOS | 51.3% | PTS+REB | 31.1 |
-| 8 | Jay Huff | IND vs ATL | 50.5% | PTS+REB | 35.0 |
+| 1 | Karl-Anthony Towns | NYK vs TOR | 62.9% | PTS+REB | 31.2 |
+| 2 | Donovan Clingan | POR vs MIN | 50.5% | PTS+REB | 27.0 |
+| 3 | Rudy Gobert | MIN vs POR | 49.9% | PTS+REB | 32.8 |
+| 4 | Victor Wembanyama | SAS vs DET | 49.9% | PTS+REB | 27.3 |
+| 5 | Cade Cunningham | DET vs SAS | 45.1% | PTS+AST | 38.8 |
+| 6 | Ausar Thompson | DET vs SAS | 43.9% | PTS+REB | 31.2 |
+| 7 | Paul Reed | DET vs SAS | 34.5% | PTS+REB | 30.8 |
+| 8 | Luka Dončić | LAL vs CHA | 28.5% | PTS+REB | 38.5 |
 
 ## 4. Assumptions
 
@@ -750,132 +481,49 @@ P(two of PTS/REB/AST/STL/BLK reach 10) from the same sims. QUESTIONABLE players 
 
 ## Appendix: injury inputs used
 
-- ATL Henri Veesaar: Out (injury_report) — Injury/Illness - Right ACL Tear
-- ATL Jalen Johnson: Out (injury_report) — Injury/Illness - Left Ankle Sprain
-- ATL Jalen Wilson: Out (injury_report) — G League - Two-Way
-- ATL Jock Landale: Out (injury_report) — Injury/Illness - Left Hip Strain
-- ATL Keshon Gilbert: Out (injury_report) — G League - Two-Way
-- ATL Kingston Flemings: Out (injury_report) — League Suspension
-- ATL Mouhamed Gueye: Out (injury_report) — Injury/Illness - Left Foot Fracture
-- BKN Ben Saraf: Out (injury_report) — G League - On Assignment
-- BKN Egor Demin: Out (injury_report) — Injury/Illness - Right Bone Bruise
-- BKN Grant Nelson: Out (injury_report) — G League - Two-Way
-- BKN Joshua Jefferson: Out (injury_report) — G League - On Assignment
-- BKN Tyler Bilodeau: Out (injury_report) — G League - Two-Way
-- BOS Devin Carter: Out (injury_report) — Injury/Illness - Illness
-- BOS Paul George: Out (injury_report) — Rest
-- CHA Grant Williams: Out (injury_report) — Injury/Illness - Right Hamstring Strain
+- CHA Dennis Schroder: Out (injury_report) — Injury/Illness - Left Hamstring Strain
+- CHA Hannes Steinbach: Out (injury_report) — G League - On Assignment
 - CHA Kon Knueppel: Out (injury_report) — Injury/Illness - Left Hamstring Strain
-- CHI Jalen Smith: Available (injury_report) — 
-- CHI Nic Claxton: Out (injury_report) — Injury/Illness - Left Hamstring Strain
-- CHI Tobe Awaka: Available (injury_report) — 
-- CLE Ernest Jr.: Out (injury_report) — G League - Two-Way
-- CLE Jaylon Tyson: Out (injury_report) — Injury/Illness - Right Ankle Sprain Udeh,
-- CLE Khalifa Diop: Out (injury_report) — G League - On Assignment
-- CLE Nae'Qwan Tomlin: Out (injury_report) — Injury/Illness - Low Back Stress Reaction
-- CLE Peyton Watson: Questionable (injury_report) — Injury/Illness - Right Hamstring Tightness / Soreness 07:30 (ET)
-- DAL Caleb Martin: Available (injury_report) — Injury/Illness - Right Thumb Splint 08:30 (ET)
-- DAL Dereck Lively II: Out (injury_report) — Injury/Illness - Right Surgery
-- DAL Kyrie Irving: Doubtful (injury_report) — Injury/Illness - Left Knee Injury Management
-- DAL Santi Aldama: Doubtful (injury_report) — Injury/Illness - Right Knee Surgery
-- DAL Sergio Larrea: Out (injury_report) — Injury/Illness - Right Knee Sprain
-- DAL Tarik Biberovic: Out (injury_report) — Injury/Illness - Right Heel Bursitis de
-- DEN Alpha Diallo: Questionable (injury_report) — Injury/Illness - Right Wrist Sprain
-- DEN Julian Strawther: Out (injury_report) — Injury/Illness - Left Knee Sprain 10:00 (ET)
-- DEN Spencer Jones: Out (injury_report) — Injury/Illness - Bilateral Hamstring Injury Management
-- DET Elijah Harkless: Out (injury_report) — G League - Two-Way
-- DET Isaac Jones: Available (injury_report) — G League - Two-Way
+- CHA Kylan Boswell: Out (injury_report) — G League - Two-Way
+- CHA Michael Ajayi: Out (injury_report) — G League - Two-Way
+- DET Duncan Robinson: Out (injury_report) — Injury/Illness - Left Quadriceps Strain
+- DET Ebuka Okorie: Out (injury_report) — G League - On Assignment
 - DET Isaiah Joe: Out (injury_report) — Injury/Illness - Right Hip Contusion
 - DET Jalen Duren: Out (injury_report) — Injury/Illness - Right Hamstring Strain
+- DET Ronald Holland II: Out (injury_report) — Injury/Illness - Left Knee Contusion / Bone Bruise
+- DET Taurean Prince: Out (injury_report) — Injury/Illness - Right Knee Soreness
 - DET Ugonna Onyenso: Out (injury_report) — G League - Two-Way
-- GSW Al Horford: Out (injury_report) — Injury/Illness - Bilateral Low Back Injury Management
-- GSW Brandon Williams: Questionable (injury_report) — Injury/Illness - Left Quadriceps Contusion
-- GSW Gui Santos: Out (injury_report) — Injury/Illness - Left Knee Tendinitis
-- GSW Jimmy Butler III: Out (injury_report) — Injury/Illness - Right ACL Repair / Surgery
-- GSW Kristaps Porzingis: Out (injury_report) — Not With Team
-- GSW Moses Moody: Out (injury_report) — Injury/Illness - Left Patellar Tendon Repair / Surgery
-- HOU Clint Capela: Out (injury_report) — Injury/Illness - Right Ankle Sprain
-- HOU Julian Phillips: Out (injury_report) — G League - Two-Way
-- HOU Quadir Copeland: Out (injury_report) — G League - Two-Way
-- HOU Reed Sheppard: Questionable (injury_report) — Injury/Illness - Low Back Strain
-- HOU Steven Adams: Out (injury_report) — Injury/Illness - Right Soleus Strain
-- IND Aaron Nesmith: Out (injury_report) — Injury/Illness - Left Hamstring Injury Management
-- IND Andrew Nembhard: Out (injury_report) — Injury/Illness - Cervical Injury Management
-- IND Ben Sheppard: Out (injury_report) — Injury/Illness - Left Meniscus Surgery
-- IND Ivica Zubac: Out (injury_report) — Injury/Illness - Left Ankle Sprain
-- IND Johnny Furphy: Out (injury_report) — Injury/Illness - Right ACL Repair / Surgery
-- IND Larry Nance Jr.: Out (injury_report) — Injury/Illness - Illness
-- IND Obi Toppin: Out (injury_report) — Injury/Illness - Lumbar Sprain
-- IND Pascal Siakam: Out (injury_report) — Rest
-- IND T.J. McConnell: Out (injury_report) — Injury/Illness - Right Hamstring Strain
-- IND Tyrese Haliburton: Out (injury_report) — Injury/Illness - Left Hamstring Strain
 - LAC Bradley Beal: Out (injury_report) — Injury/Illness - Right Knee Injury Management
 - LAC Brandon Ingram: Out (injury_report) — Injury/Illness - Right Heel Surgery
-- LAC Derrick Jones Jr.: Out (injury_report) — Injury/Illness - Right Knee Soreness
 - LAC Jordan Miller: Out (injury_report) — Injury/Illness - Left Rotator Cuff Surgery
-- LAC Rui Hachimura: Out (injury_report) — Injury/Illness - Left Quadriceps Soreness
-- LAC Yanic Konan Niederhauser: Out (injury_report) — Injury/Illness - Right Lisfranc Surgery
-- LAL Adou Thiero: Out (injury_report) — Injury/Illness - Left Knee Injury Management
-- LAL Walker Kessler: Available (injury_report) — Injury/Illness - Left Finger Splint
-- MEM Quinten Post: Questionable (injury_report) — Injury/Illness - Right Ankle Sprain
-- MEM Scotty Pippen Jr.: Doubtful (injury_report) — Injury/Illness - Low Back Soreness
-- MIA Tim Hardaway Jr.: Available (injury_report) — Personal Reasons
-- MIA Tre Donaldson: Available (injury_report) — G League - Two-Way
-- MIA Vladislav Goldin: Available (injury_report) — G League - Two-Way
+- LAC Yanic Konan Niederhauser: Out (injury_report) — Injury/Illness - Right Lisfranc Surgery 11:00 (ET)
+- LAL Austin Reaves: Out (injury_report) — Injury/Illness - Left Heel Contusion / Bone Bruise 11/18/2026 07:00 (ET)
+- LAL Quentin Grimes: Available (injury_report) — Injury/Illness - Right Finger Splint
+- LAL Walker Kessler: Out (injury_report) — Injury/Illness - Right Lower Leg Soreness
 - MIN Anthony Edwards: Out (injury_report) — Injury/Illness - Right Knee Arthroscopy
 - MIN Donte DiVincenzo: Out (injury_report) — Injury/Illness - Right Achilles Tendon Repair / Surgery
-- MIN LaMelo Ball: Questionable (injury_report) — Injury/Illness - Right Wrist Contusion
-- MIN Terrence Shannon Jr: Out (injury_report) — Injury/Illness - Left Hip Contusion
-- NOP Dejounte Murray: Out (injury_report) — Personal Reasons
-- NOP Jaron Pierre Jr.: Out (injury_report) — G League - Two-Way
-- NOP Jordan Poole: Out (injury_report) — Injury/Illness - Left Ankle Tendinopathy
-- NOP Julian Reese: Available (injury_report) — G League - Two-Way
-- NOP Malik Dia: Out (injury_report) — G League - Two-Way
-- NOP Trey Murphy III: Available (injury_report) — Injury/Illness - Bilateral Patella Tendinopathy
-- NOP Yves Missi: Out (injury_report) — Injury/Illness - Left Knee Contusion / Bone Bruise
-- NYK Jose Alvarado: Available (injury_report) — Injury/Illness - Left Ankle Sprain
-- OKC Alex Caruso: Out (injury_report) — Injury/Illness - Right Ankle Sprain
-- OKC Cason Wallace: Out (injury_report) — Injury/Illness - Left Shoulder/ Surgery
-- OKC Chet Holmgren: Out (injury_report) — Injury/Illness - Right Knee/ Injury Recovery
-- OKC Jalen Williams: Out (injury_report) — Injury/Illness - Left Ankle/ Surgery
-- OKC Nikola Topic: Out (injury_report) — Injury/Illness - Low back/ Surgery
-- OKC Thomas Sorber: Out (injury_report) — Injury/Illness - Right Knee/ Surgery
-- ORL Anthony Black: Out (injury_report) — Injury/Illness - Right Ankle Injury Management
-- ORL Izaiyah Nelson: Out (injury_report) — Injury/Illness - Left Ankle Injury Recovery
-- ORL Jalen Suggs: Out (injury_report) — Injury/Illness - Right Knee Contusion / Bone Bruise 08:00 (ET)
-- ORL Jonathan Isaac: Out (injury_report) — Injury/Illness - Left Knee Injury Management
-- ORL Noah Penda: Out (injury_report) — Injury/Illness - Right Partially Torn Hamstring
-- ORL Paolo Banchero: Out (injury_report) — Injury/Illness - Right High Ankle Sprain
-- PHI Ariel Hukporti: Out (injury_report) — Injury/Illness - Right Achilles Tendon Rupture / Tear
-- PHI Dominick Barlow: Out (injury_report) — Injury/Illness - Low Back Stress Reaction
-- PHI Joel Embiid: Questionable (injury_report) — Injury/Illness - Right Foot Plantar Fascia Injury Management
-- PHX Drew Timme: Out (injury_report) — G League - Two-Way
-- PHX Mark Williams: Out (injury_report) — Injury/Illness - Left Shoulder Surgery
+- MIN Jaylen Clark: Out (injury_report) — Injury/Illness - Right Hamstring Strain
+- MIN Joan Beringer: Available (injury_report) — Injury/Illness - Face Mask
+- MIN Jonathan Kuminga: Out (injury_report) — Injury/Illness - Right Shoulder Contusion
+- MIN Zyon Pullin: Out (injury_report) — Injury/Illness - Right Quadriceps Contusion 10:30 (ET)
+- POR Branden Carlson: Available (injury_report) — Injury/Illness - Face Mask
+- POR Chris Youngblood: Out (injury_report) — Injury/Illness - Right Heel Contusion / Bone Bruise
+- POR Deni Avdija: Questionable (injury_report) — Injury/Illness - Left Foot Inflammation / Soreness
 - POR Ja Morant: Out (injury_report) — Injury/Illness - Left Hamstring Strain
-- POR Jayson Kent: Out (injury_report) — G League - Two-Way
-- POR John Tonje: Out (injury_report) — G League - Two-Way
 - POR Shaedon Sharpe: Out (injury_report) — Injury/Illness - Right Meniscus Surgery
-- SAC Ben Simmons: Out (injury_report) — Injury/Illness - Right Achilles Tendon Repair / Surgery
-- SAC Dylan Cardwell: Out (injury_report) — Injury/Illness - Left Calf Strain
-- SAC Keegan Murray: Out (injury_report) — Injury/Illness - Left Ankle Capsulitis
-- SAC Maxime Raynaud: Out (injury_report) — Injury/Illness - Right Patella Subluxation
-- SAC Sean Pedulla: Out (injury_report) — G League - Two-Way
-- SAC Zach LaVine: Questionable (injury_report) — Injury/Illness - Right Elbow Inflammation / Soreness
-- SAS Jayden Quaintance: Out (injury_report) — Injury/Illness - Right Knee Surgery 09:00 (ET)
+- POR Vit Krejci: Out (injury_report) — Injury/Illness - Left Ankle Fracture
+- SAS Ja'Kobi Gillespie: Out (injury_report) — G League - Two-Way
+- SAS Jayden Quaintance: Out (injury_report) — Injury/Illness - Right Knee Surgery
+- SAS Maliq Brown: Out (injury_report) — G League - Two-Way
 - SAS Tobias Harris: Out (injury_report) — Injury/Illness - Left Calf Strain
-- TOR Jakob Poeltl: Questionable (injury_report) — Injury/Illness - Left Shoulder Bursitis
 - TOR Kawhi Leonard: Out (injury_report) — Injury/Illness - Left Knee Injury Management
-- TOR Malachi Smith: Out (injury_report) — G League - Two-Way
-- TOR Nate Bittle: Out (injury_report) — Injury/Illness - Right Avulsion Fracture
-- TOR Scottie Barnes: Questionable (injury_report) — Injury/Illness - Left Hip Soreness / Tightness
+- TOR Kevin McCullar Jr.: Out (injury_report) — G League - Two-Way
+- TOR Malachi Smith: Out (injury_report) — G League - Two-Way 08:00 (ET)
+- TOR Nate Bittle: Out (injury_report) — Injury/Illness - Right Foot Avulsion Fracture
+- TOR Scottie Barnes: Questionable (injury_report) — Injury/Illness - Illness
 - UTA Harrison Ingram: Out (injury_report) — G League - Two-Way
 - UTA Jaren Jackson Jr.: Out (injury_report) — Injury/Illness - Right MCL Tear
-- UTA Jusuf Nurkic: Out (injury_report) — Injury/Illness - Right 2nd Plantar Plate Tear
-- UTA Kobe Bufkin: Available (injury_report) — G League - Two-Way
-- UTA Trey Alexander: Out (injury_report) — G League - Two-Way
-- WAS Alex Sarr: Out (injury_report) — Injury/Illness - Left Knee Soreness
-- WAS Anthony Gill: Out (injury_report) — Injury/Illness - Low Back Spasms
-- WAS Jamir Watkins: Out (injury_report) — Injury/Illness - Left ACL Repair / Surgery
-- WAS Justin Champagnie: Out (injury_report) — Injury/Illness - Right Foot Surgery
-- WAS Reece Beekman: Out (injury_report) — Injury/Illness - Right AC Joint Injury
-- WAS Tristan Vukcevic: Out (injury_report) — Injury/Illness - Left Hip Impingement
+- UTA Jaxson Hayes: Out (injury_report) — Injury/Illness - Left Knee Strain
+- UTA Jusuf Nurkic: Out (injury_report) — Injury/Illness - Right Right Foot; 2nd Plantar Plate Tear
+- UTA Kobe Bufkin: Out (injury_report) — G League - Two-Way
+- UTA Lauri Markkanen: Out (injury_report) — Injury/Illness - Right Hand Fracture
