@@ -8,14 +8,17 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from outputs.calibration import CalibrationTable, load_calibration
 from outputs.sanity import SanityReport, StatBenchmark
 from outputs.summarize import GameSummary, StatSummary
 from projections.build import GameProjection
 
-PROP_STATS = ("pts", "reb", "ast")
-# A points prop on a top-30 usage player waits until the star gap is fixed.
+PROP_STATS = ("pts", "reb", "ast", "fg3m", "stl", "blk", "pra")
+STAT_LABEL = {"pts": "PTS", "reb": "REB", "ast": "AST", "fg3m": "3PM", "stl": "STL", "blk": "BLK", "pra": "PRA"}
+# A points prop on a top-30 usage player waits until that cell's holdout fit
+# shows the under-projection is gone.
 STAR_USAGE_N = 30
-WIDE_MARGIN = {"pts": 4.0, "reb": 3.0, "ast": 2.0}
+WIDE_MARGIN = {"pts": 4.0, "reb": 3.0, "ast": 2.0, "fg3m": 1.5, "stl": 1.0, "blk": 1.0, "pra": 5.0}
 LINE_GAP = 3.0
 
 
@@ -41,8 +44,9 @@ class EdgePlay:
     last10: float | None
     minutes: float
     failed: str
-    stat_hit_rate: float | None
-    stat_claimed: float | None
+    calibration: str
+    stat_hit_rate: float | None = None
+    stat_claimed: float | None = None
 
 
 @dataclass
@@ -54,26 +58,34 @@ class PlayCard:
     qualified_stats: tuple[str, ...] = ()
 
     def lines(self) -> list[str]:
+        strong = [stat for stat in self.qualified_stats]
         out = [
-            f"Qualified stats (hit rate at or above claimed, 30+ graded picks): "
-            f"{', '.join(s.upper() for s in self.qualified_stats) or 'none'}."
+            "Probabilities are calibrated before the DraftKings comparison. "
+            "A strong holdout cell needs 5 points of edge. A weak cell, or one whose "
+            "map failed the holdout, needs 8 and the failed map is not applied. "
+            f"Strong cells: {', '.join(STAT_LABEL.get(stat, stat.upper()) for stat in strong) or 'none'}."
         ]
         out.append("")
-        out.append("### Top plays")
+        out.append("### ⭐ TOP PLAYS")
         out.append("")
         if not self.tops:
             out.append("None passed every check.")
         else:
             out.extend(_table(self.tops))
+            kinds = {row.stat for row in self.tops}
+            if len(kinds) == 1:
+                label = STAT_LABEL.get(next(iter(kinds)), next(iter(kinds)).upper())
+                out.append("")
+                out.append(f"Only {label} cleared the bar tonight.")
         out.append("")
-        out.append("### Leans")
+        out.append("### LEANS")
         out.append("")
         if not self.leans:
             out.append("None.")
         else:
             out.extend(_table(self.leans, failed=True))
         out.append("")
-        out.append("### Avoid")
+        out.append("### AVOID")
         out.append("")
         if not self.avoids:
             out.append("No large raw edge was skipped.")
@@ -87,9 +99,9 @@ class PlayCard:
 
 def _table(rows: list[EdgePlay], *, failed: bool = False) -> list[str]:
     header = (
-        "| Player | Prop | Odds | Our % | Market % | Edge | Sim | Season | Last 10 | Stat hit |"
+        "| Player | Prop | Odds | Calibrated | Market % | Edge | Sim | Season | Last 10 | Holdout |"
     )
-    rule = "| --- | --- | ---: | ---: | ---: | ---: | --- | ---: | ---: | ---: |"
+    rule = "| --- | --- | ---: | ---: | ---: | ---: | --- | ---: | ---: | --- |"
     if failed:
         header = header[:-1] + " | Failed |"
         rule = rule[:-1] + " --- |"
@@ -98,11 +110,10 @@ def _table(rows: list[EdgePlay], *, failed: bool = False) -> list[str]:
         sim = f"{row.sim_p50:.1f} ({row.sim_mean:.1f})"
         season = "—" if row.season_avg is None else f"{row.season_avg:.1f}"
         last = "—" if row.last10 is None else f"{row.last10:.1f}"
-        hit = "—" if row.stat_hit_rate is None else f"{100 * row.stat_hit_rate:.0f}%"
         base = (
-            f"| {row.player_name} | {row.team_abbr} {row.stat.upper()} {row.side} {row.line:g} "
+            f"| {row.player_name} | {row.team_abbr} {STAT_LABEL.get(row.stat, row.stat.upper())} {row.side} {row.line:g} "
             f"| {row.odds:+d} | {100 * row.our_p:.0f}% | {100 * row.market_p:.0f}% "
-            f"| {100 * row.edge:+.1f}pp | {sim} | {season} | {last} | {hit} |"
+            f"| {100 * row.edge:+.1f}pp | {sim} | {season} | {last} | {row.calibration} |"
         )
         if failed:
             base = base[:-1] + f" {row.failed} |"
@@ -237,6 +248,14 @@ def _same_side(line: float, sim: float, season: float | None, last10: float | No
     return None
 
 
+def _player_tier(player_id: int, stars: set[int], proj) -> str:
+    if player_id in stars:
+        return "top"
+    if proj is not None and (bool(proj.started) or int(getattr(proj, "depth_rank", 99)) <= 5):
+        return "starter"
+    return "bench"
+
+
 def select_plays(
     summaries: list[GameSummary],
     projections: list[GameProjection],
@@ -248,8 +267,15 @@ def select_plays(
     history_rows: list[dict],
     sanity: SanityReport,
     questionable_ids: set[int],
+    calibration: CalibrationTable | None = None,
 ) -> PlayCard:
-    qualified = calibrated_stats(history_rows)
+    table = calibration if calibration is not None else load_calibration()
+    strong = tuple(
+        f"{STAT_LABEL.get(stat, stat.upper())} {tier}"
+        for stat in PROP_STATS
+        for tier in ("top", "starter", "bench")
+        if table.cell(stat, tier).quality == "strong"
+    )
     stars = _top_usage(projections)
     by_id = {}
     proj_by_id = {}
@@ -283,6 +309,8 @@ def select_plays(
                 continue
             bench = benchmarks.get(match.player_id, {})
             for stat in PROP_STATS:
+                if stat not in match.stats:
+                    continue
                 offer = markets.get(stat)
                 if not offer or offer.get("point") is None:
                     continue
@@ -292,7 +320,10 @@ def select_plays(
                 over_price = int(offer["over"])
                 under_price = int(offer["under"])
                 over_m, under_m = no_vig(over_price, under_price)
-                our_over = p_over(line, match.stats[stat])
+                raw_over = p_over(line, match.stats[stat])
+                proj = proj_by_id.get(match.player_id)
+                player_tier = _player_tier(match.player_id, stars, proj)
+                our_over = table.adjust(stat, player_tier, raw_over)
                 our_under = 1.0 - our_over
                 sim = float(match.stats[stat].p50)
                 mean = float(match.stats[stat].mean)
@@ -300,34 +331,35 @@ def select_plays(
                 last10 = None if bench.get(stat) is None else bench[stat].last10
                 minutes = float(match.stats["min"].p50)
                 agreed = _same_side(line, sim, season_avg, last10)
-                # Raw side follows the sim median. Agreed side is the card side.
+                # Side follows the sim median. The probability compared to the
+                # book is the calibrated one.
                 raw_side = "over" if sim >= line else "under"
                 side = agreed or raw_side
                 our_p = our_over if side == "over" else our_under
                 market_p = over_m if side == "over" else under_m
                 odds = over_price if side == "over" else under_price
                 edge = our_p - market_p
-                proj = proj_by_id.get(match.player_id)
                 is_big = _is_big(proj, _season_avg(logs, match.player_id, "reb", season)) if proj else False
+                quality = table.cell(stat, player_tier).quality
                 failed = _failed_checks(
                     stat=stat,
                     side=side,
                     agreed=agreed,
                     edge=edge,
+                    edge_floor=table.edge_floor(stat, player_tier),
                     line=line,
                     season_avg=season_avg,
                     last10=last10,
                     sim=sim,
                     minutes=minutes,
                     player_id=match.player_id,
-                    qualified=qualified,
                     stars=stars,
+                    star_points_ok=table.star_points_ok(),
                     quarantined=quarantined,
                     questionable=match.player_id in questionable_ids,
                     is_big=is_big,
                     explanation=_line_explanation(sanity, match.player_id, stat),
                 )
-                hit = qualified.get(stat)
                 candidates.append(
                     EdgePlay(
                         tier="",
@@ -350,8 +382,7 @@ def select_plays(
                         last10=last10,
                         minutes=minutes,
                         failed=failed,
-                        stat_hit_rate=None if hit is None else hit[0],
-                        stat_claimed=None if hit is None else hit[1],
+                        calibration=f"{player_tier} {quality}",
                     )
                 )
     tops = [row for row in candidates if row.failed == ""]
@@ -390,7 +421,7 @@ def select_plays(
         leans=leans,
         avoids=avoids,
         note=note,
-        qualified_stats=tuple(sorted(qualified)),
+        qualified_stats=strong,
     )
 
 
@@ -407,26 +438,25 @@ def _failed_checks(
     side: str,
     agreed: str | None,
     edge: float,
+    edge_floor: float,
     line: float,
     season_avg: float | None,
     last10: float | None,
     sim: float,
     minutes: float,
     player_id: int,
-    qualified: dict[str, tuple[float, float, int]],
     stars: set[int],
+    star_points_ok: bool,
     quarantined: set[int],
     questionable: bool,
     is_big: bool,
     explanation: str | None,
 ) -> str:
     failures: list[str] = []
-    if edge < 0.05:
-        failures.append(f"a edge {100 * edge:+.1f}pp")
+    if edge < edge_floor:
+        failures.append(f"a edge {100 * edge:+.1f}pp, need {100 * edge_floor:.0f}")
     if agreed is None:
         failures.append("b sim, season, and last-10 are not on the same side")
-    if stat not in qualified:
-        failures.append("c stat is not calibrated on 30+ graded picks")
     gates = []
     if player_id in quarantined:
         gates.append("sanity quarantine")
@@ -434,8 +464,8 @@ def _failed_checks(
         gates.append("questionable")
     if minutes < 24.0:
         gates.append(f"{minutes:.0f} minutes")
-    if stat == "pts" and player_id in stars:
-        gates.append("top-30 usage, star points still light")
+    if stat == "pts" and player_id in stars and not star_points_ok:
+        gates.append("top-30 points, holdout has not cleared the under-projection")
     if gates:
         failures.append("d " + ", ".join(gates))
     if season_avg is None or abs(line - season_avg) > LINE_GAP:

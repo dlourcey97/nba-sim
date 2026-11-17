@@ -279,6 +279,57 @@ def _play_calibration(projection, logs: dict) -> tuple[float, int, list[dict]]:
     return brier, n, bins
 
 
+CALIBRATION_STATS = ("pts", "reb", "ast", "fg3m", "stl", "blk", "pra")
+
+
+def calibration_rows(payload: dict) -> list[dict]:
+    """Percentile curve and the actual line for one game. No raw draws."""
+    projection = payload["projection"]
+    sim = simulate_game(
+        projection,
+        runs=int(payload["runs"]),
+        seed=int(payload["seed"]),
+        config=payload["config"],
+    )
+    summary = summarize_game(projection, sim)
+    logs = payload["logs"]
+    entering = payload.get("entering") or {}
+    rows: list[dict] = []
+    for player in summary.players:
+        actual = logs.get(int(player.player_id))
+        if actual is None or float(actual.get("minutes") or 0.0) <= 0.0:
+            continue
+        if float(player.stats["min"].mean) < 12.0:
+            continue
+        prior = entering.get(int(player.player_id)) or {}
+        row = {
+            "season": payload["season"],
+            "game_id": payload["game_id"],
+            "game_date": payload["game_date"],
+            "player_id": int(player.player_id),
+            "usage": float(payload["usage"].get(int(player.player_id), 0.0)),
+            "started": bool(payload["started"].get(int(player.player_id), False)),
+            "depth_rank": int(payload["depth"].get(int(player.player_id), 99)),
+            "prior_games": int(prior.get("games") or 0),
+        }
+        for stat in CALIBRATION_STATS:
+            curve = player.stats[stat]
+            row[f"{stat}_p10"] = float(curve.p10)
+            row[f"{stat}_p25"] = float(curve.p25)
+            row[f"{stat}_p50"] = float(curve.p50)
+            row[f"{stat}_p75"] = float(curve.p75)
+            row[f"{stat}_p90"] = float(curve.p90)
+            row[f"{stat}_mean"] = float(curve.mean)
+            if stat == "pra":
+                row["pra_actual"] = float(actual.get("pts") or 0.0) + float(actual.get("reb") or 0.0) + float(actual.get("ast") or 0.0)
+            else:
+                row[f"{stat}_actual"] = float(actual.get(stat) or 0.0)
+            raw_prior = prior.get(stat)
+            row[f"{stat}_prior"] = float("nan") if raw_prior is None else float(raw_prior)
+        rows.append(row)
+    return rows
+
+
 def _actual_poss(sim_poss: list[float], home_tr: dict | None, away_tr: dict | None) -> list[float]:
     home = float(home_tr["pace"]) if home_tr is not None and home_tr.get("pace") is not None else float(sim_poss[0])
     away = float(away_tr["pace"]) if away_tr is not None and away_tr.get("pace") is not None else float(sim_poss[1])

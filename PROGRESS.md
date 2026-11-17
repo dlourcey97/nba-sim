@@ -1,6 +1,24 @@
 # Progress
 
-Last updated 2026-11-16 — Caught up 11/13–11/15. Live scorecard includes Friday only. Saturday and Sunday are a labeled backtest. The graded star gap is −24.1% and would stop `daily.py`. Reconcile passed.
+Last updated 2026-11-17 — Prop probabilities are calibrated before the DraftKings comparison. The star model is still the reverted one. The rebound floor is still 2026-27 only.
+
+## Prop calibration (2026-11-17)
+
+The 30-pick live gate is gone. It was why the card could only print assists: other stats never got 30 graded picks. Every stat is eligible. The probability compared to DraftKings is an isotonic map fit on the 2025-26 walk-forward and checked on the 2024-25 holdout. Pre-tip projections, 1,000 sims, seed 1, both seasons (1,314 and 1,313 games). The line is the half-point nearest that player's average entering the game. Tiers are the top 30 usages that night, then starters, then the bench. Raw draws are not saved.
+
+At that line the raw curve says the over is 31–39% and it actually lands 46–52%. That is the under bias the card has been betting. After the map, holdout bias is inside about 4 points and the Brier falls from the high 0.26–0.28s to about 0.25 for points, rebounds, assists, blocks, and PRA. Those cells need a 5-point edge. Points on the bench, and threes for starters and the bench, are weak and need 8. Steals are the cell whose map made the holdout worse (Brier 0.244 to 0.302, bias +0.13). That map is not applied. A steal still needs an 8-point edge on the raw probability.
+
+Star points, top tier, holdout: raw P(over) 0.325 against a 0.478 hit rate (gap −15.4 points). After the map, bias −1.9 points, Brier 0.280 to 0.252, which clears the bar, so a top-30 points prop is allowed once the calibrated edge is 5 points and the other checks pass. The sim mean is still light. This does not close the −24.1% graded gap and `daily.py` still refuses a slate. Points unders and big-man rebound overs still need the wide margin.
+
+The card is ⭐ TOP PLAYS / LEANS / AVOID. Each row has the calibrated probability, the market, the edge, and that cell's holdout quality. If one stat is all that clears, the card says so. The scorecard edge report now splits hit rate, claimed probability, and closing line value by stat. The Friday card, which was logged before this map, is AST 2/8 claimed 70% and REB 0/4 claimed 80%. No close snapshot, so CLV is blank. 3PM, steals, blocks, and PRA are in the selector. The cached DraftKings board only has points, rebounds, and assists, so those other markets do not appear until a pull includes them.
+
+Assist picks, last two weeks against the two weeks before, minutes at least 15: median error 0.00 both windows, mean error −0.48 then −0.52. The engine is a little low and it did not get worse. Confident assist windows were 60/87 (69%) against 76/108 (70%). The published edge card is the miss: Friday tops 1/5, all unders, and the four misses finished over the number (Lillard 6, Johnson 10, Harden 8, Hunter 2). Dunks weights are still 0.30 / 0.25 / 0.20, the point-line usage scale is still on, and the assist-rate pull is unchanged. Box files stop at 2026-11-07, so the last week had no new Dunks box to blend. The slump is the selector taking the under on a curve that understates the over, not a new assist projection.
+
+## Where the star and rebound fixes stand (2026-11-17)
+
+The star model change is still open. The budget lineup and the usage rebase stay reverted. 2025-26 star mean 16.34 against 22.02, bust 0.373 against 0.086. The budget try moved the mean to 18.53 and the bust to 0.196, and the holdout spread got worse (+0.092, +0.012 to +0.171), so it was not kept. Graded slates through 11/13 are still −24.1% (17.89 vs 23.58). No new sim change was kept. The calibration above is the fallback that lets star points onto the card.
+
+The rebound floor is unchanged: games on or after 2026-10-01, chances under 0.80 per minute use 0.975. 2024-25 is not rewritten. 2025-26 has no rotation player under 0.75 chances per minute, so a paired decision run on that season would not move, and rebound error is not one of the keep metrics. Holdout top-tier rebounds were raw P(over) 0.344 against a 0.467 hit rate; after the map the bias is −0.001. The live floor still stands for the thin-chance boards. Hartenstein's first post-floor sim was a median of 14 against an actual 11.
 
 ## Catch-up (2026-11-16)
 

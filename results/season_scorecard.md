@@ -23,10 +23,15 @@ Graded from `prediction_history` after finals. No sportsbook lines or odds. Play
 
 ## Edge report
 
-Post-sim play card. Lines are not an input to the engine. Hit rate is the side landing. Claimed is our no-vig probability. Closing line value is how far the number moved toward the play before tip, when a close snapshot exists.
+Post-sim play card. Lines are not an input to the engine. Hit rate is the side landing. Claimed is the side probability we published (calibrated, once a holdout map exists). Closing line value is how far the number moved toward the play before tip, when a close snapshot exists. The stat table is the live record by prop.
 
 Graded plays: 2/12 hit, claimed 73.5%.
 Closing line value: no pre-tip close snapshot saved yet.
+
+| Stat | Hit | Claimed | CLV |
+| --- | --- | ---: | ---: |
+| AST | 2/8 | 70% | — |
+| REB | 0/4 | 80% | — |
 
 | Tier | Player | Prop | Claimed | Hit | CLV |
 | --- | --- | --- | ---: | --- | ---: |
@@ -72,6 +77,21 @@ Closing line value: no pre-tip close snapshot saved yet.
 | 2026-11-13 | 9 | 66.7% | 13.22 | 14.00 | -4.67 | 4.36 | 3.71 | 5.71 | 5.30 | 1.98 | 1.34 | 0.66 | 0.48 | 85.8% | 7/8 (87.5%) | 64.5% | 6/8 (75.0%) | 59.9% |
 | Season | 177 | 71.8% | 11.70 | 15.58 | -2.01 | 4.59 | 3.61 | 5.88 | 4.98 | 2.03 | 1.31 | 0.62 | 0.43 | 85.9% | 159/255 (62.4%) | 57.7% | 60/139 (43.2%) | 42.5% |
 
+## Pending predictions
+
+Simulated games with no final yet. These rows are not in the graded totals.
+
+| Date | Matchup | Winner | Win % | Median score | Spread | Total |
+| --- | --- | --- | ---: | --- | --- | ---: |
+| 2026-11-16 | ORL @ BOS | BOS | 69.1% | ORL 100–BOS 110 | BOS by 11 | 210.0 |
+| 2026-11-16 | CHI @ CLE | CLE | 71.5% | CHI 112–CLE 125 | CLE by 13 | 236.0 |
+| 2026-11-16 | MEM @ WAS | MEM | 72.0% | MEM 120–WAS 107 | MEM by 13 | 227.0 |
+| 2026-11-16 | PHI @ BKN | PHI | 50.6% | PHI 111–BKN 110 | PHI by 1 | 221.0 |
+| 2026-11-16 | HOU @ MIA | HOU | 59.1% | HOU 114–MIA 109 | HOU by 6 | 223.0 |
+| 2026-11-16 | POR @ MIN | POR | 51.4% | POR 115–MIN 114 | POR by 2 | 229.0 |
+| 2026-11-16 | GSW @ NOP | NOP | 51.3% | GSW 114–NOP 115 | NOP by 1 | 228.0 |
+| 2026-11-16 | PHX @ DEN | DEN | 66.1% | PHX 108–DEN 117 | DEN by 9 | 225.0 |
+
 ## Notes
 
 - 2026-10-20: no Top confident picks were produced that night (feature landed with the 2026-10-21 slate).
@@ -82,7 +102,7 @@ Separate from the season grade. These are healthy players we had at 0 minutes wh
 
 | Rows | Graded | Played 8+ | Minute MAE |
 | ---: | ---: | ---: | ---: |
-| 2296 | 1220 | 775 | 8.87 |
+| 3402 | 1821 | 1185 | 9.13 |
 
 ## Dunks minutes vs the sim
 

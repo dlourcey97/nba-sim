@@ -780,9 +780,10 @@ def _edge_report_lines(nights: Sequence[NightGrade]) -> list[str]:
     lines = ["## Edge report", ""]
     lines.append(
         "Post-sim play card. Lines are not an input to the engine. "
-        "Hit rate is the side landing. Claimed is our no-vig probability. "
+        "Hit rate is the side landing. Claimed is the side probability we published "
+        "(calibrated, once a holdout map exists). "
         "Closing line value is how far the number moved toward the play before tip, "
-        "when a close snapshot exists."
+        "when a close snapshot exists. The stat table is the live record by prop."
     )
     lines.append("")
     graded = [item for item in rows if item.get("hit") is not None]
@@ -801,6 +802,21 @@ def _edge_report_lines(nights: Sequence[NightGrade]) -> list[str]:
         )
     else:
         lines.append("Closing line value: no pre-tip close snapshot saved yet.")
+    lines.append("")
+    lines.append("| Stat | Hit | Claimed | CLV |")
+    lines.append("| --- | --- | ---: | ---: |")
+    by_stat: dict[str, list[dict]] = {}
+    for item in graded:
+        by_stat.setdefault(str(item["stat"]), []).append(item)
+    for stat in sorted(by_stat):
+        group = by_stat[stat]
+        group_hits = sum(1 for item in group if item["hit"])
+        group_claimed = sum(float(item["confidence"]) for item in group) / len(group)
+        group_clv = [float(item["clv"]) for item in group if item.get("clv") is not None]
+        clv_cell = "—" if not group_clv else f"{sum(group_clv) / len(group_clv):+.2f}"
+        lines.append(
+            f"| {stat} | {group_hits}/{len(group)} | {100 * group_claimed:.0f}% | {clv_cell} |"
+        )
     lines.append("")
     lines.append("| Tier | Player | Prop | Claimed | Hit | CLV |")
     lines.append("| --- | --- | --- | ---: | --- | ---: |")
