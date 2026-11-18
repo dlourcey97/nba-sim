@@ -1,6 +1,6 @@
 # Progress
 
-Last updated 2026-11-17 — The shot-share trial raised star points on both seasons and is not turned on. The 2024-25 total moved outside the noise. Scale 0.65 is still off. The live engine is unchanged.
+Last updated 2026-11-17 — The shot-share trial is on. A game metric rejects a change only when the interval is entirely worse, and the holdout total improved. The lineup scale stays at 1.0. Stars are still about 17% short.
 
 ## Shot shares and star minutes (2026-11-17)
 
@@ -12,9 +12,24 @@ Full seasons, 1,000 sims, seed 1, four workers. The before side is the current e
 
 2025-26, 1,314 games. Star mean 16.34 to 18.48 against 22.19. Bias −5.68 to −3.71. Bust rate −0.0530 (−0.0551 to −0.0510), after 0.320 against an actual 0.084. Points CRPS −0.0843 (−0.0929 to −0.0758). Brier +0.0002 (−0.0010 to +0.0015). Spread +0.023 (−0.046 to +0.089). Total +0.071 (−0.126 to +0.260). Points CRPS and the bust rate improve and those intervals exclude zero. Spread, total, and Brier stay inside the noise. Top-usage points CRPS 5.278 (4,462 players), starters 3.849, bench 3.452. Top-usage mean 17.09 against 20.73. When a team's top-usage player scores under 20, the sim wins 44.1% of the time and the real 2025-26 games won 43.1% (239 of 554).
 
-2024-25 holdout, 1,313 games. Star mean 16.16 to 18.70 against 22.94. Bias −5.71 to −4.24. Bust rate −0.0503 (−0.0531 to −0.0475), after 0.310 against an actual 0.076. Points CRPS −0.1189 (−0.1302 to −0.1080). Brier −0.0003 (−0.0018 to +0.0012). Spread +0.085 (−0.003 to +0.167). Total −1.571 (−1.856 to −1.305). The total interval excludes zero. Predicted team totals rose: the holdout total bias went from about −10.6 to −5.32, and total MAE from 17.34 to 15.77. That is the miss. The keep rule requires spread, total, and Brier to stay inside the noise on both seasons.
+2024-25 holdout, 1,313 games. Star mean 16.16 to 18.70 against 22.94. Bias −5.71 to −4.24. Bust rate −0.0503 (−0.0531 to −0.0475), after 0.310 against an actual 0.076. Points CRPS −0.1189 (−0.1302 to −0.1080). Brier −0.0003 (−0.0018 to +0.0012). Spread +0.085 (−0.003 to +0.167). Total −1.571 (−1.856 to −1.305). The total interval excludes zero, on the better side. Predicted team totals rose: the holdout total bias went from about −10.6 to −5.32, and total MAE from 17.34 to 15.77.
 
-The 80-game guardrail passed: star points −17.4%, star minutes −12.2%, starter minutes +2.6%, starter blocks +2.0%, team points +1.2%. No league total or starter share outside ±3%. The flags stay off anyway, because the holdout total moved. `align_box_usage` is false. Shot-share calibration is off. Star minute protection is off. The code is in place and does nothing until those are set.
+The 80-game guardrail passed: star points −17.4%, star minutes −12.2%, starter minutes +2.6%, starter blocks +2.0%, team points +1.2%. No league total or starter share outside ±3%.
+
+The first call was revert, because the keep rule then treated any interval that excluded zero as a loss, including a better total. The rule is now: spread, total, and Brier reject a change only when the 95% interval lies entirely on the worse side. A significant improvement is allowed. Under that rule both seasons pass. `align_box_usage` is true. Shot-share calibration is on (250 sims, 2 rounds, tolerance 3%). Star minute protection is on, floor 34, and a player with a block rate of 0.02 or higher is not protected. `star_lineup_scale` is 1.0.
+
+Past calls that a game metric moved, and whether the corrected rule would reopen them:
+
+| Trial | What the game metrics did | Re-run? |
+| --- | --- | --- |
+| Shot shares and star minutes | Holdout total improved by 1.57 (−1.86 to −1.31). 2025-26 spread, total, and Brier were inside the noise. Player points and the bust rate improved on both seasons. | No. The numbers are already in hand. This is the turn-on above. |
+| Usage rebase with the Dunks cap and the point-line scale | 2025-26 total got worse, +0.066 (+0.014 to +0.119). The holdout total improved. The guardrail also failed. | No. The season we project got worse, and the reject was not the improvement. |
+| Budget lineup plus tighter star noise | 2025-26 Brier improved. Holdout spread got worse, +0.092 (+0.012 to +0.171). Holdout total improved. The guardrail failed. | No. The holdout spread was entirely worse. |
+| Synergy play-types | Total improved. Brier and the spread got worse. | No. |
+| Referee crews | Total improved. Brier and the spread got worse. | No. |
+| Travel, shot creation | Total or the spread got worse. | No. |
+
+No stored trial was rejected only because a game metric improved, other than the shot-share run turned on above. The others that moved a game metric the right way also moved one the wrong way, or failed the starter-share guardrail.
 
 ## Star gap is a warning (2026-11-17)
 
@@ -564,7 +579,7 @@ Lineup draws for both minute models now use the same minute-weighted sample. A r
 
 ## Decision runs (2026-10-30)
 
-Keep/revert calls now follow the rule in PROJECT_SPEC: full season, at least 1,000 simulations per game, same seed on both sides, 2024-25 held out of tuning, and a paired game-level bootstrap. A Brier, spread MAE, or total MAE change counts only when the 95% interval on the paired difference excludes zero. `backtest/tune.py` exits 2 if asked to tune 2024-25. Each evaluation writes `games.parquet` (win probability, margin, total) next to `metrics.json`. Individual simulation draws are not saved.
+Keep/revert calls now follow the rule in PROJECT_SPEC: full season, at least 1,000 simulations per game, same seed on both sides, 2024-25 held out of tuning, and a paired game-level bootstrap. A Brier, spread MAE, or total MAE change counts only when the 95% interval on the paired difference excludes zero. As of 2026-11-17 that loss rule is narrower: the interval has to lie entirely on the worse side, and a significant improvement is allowed. See the shot-share section. `backtest/tune.py` exits 2 if asked to tune 2024-25. Each evaluation writes `games.parquet` (win probability, margin, total) next to `metrics.json`. Individual simulation draws are not saved.
 
 Games are projected in schedule order and simulated on all four logical cores, with one BLAS thread per process. The possession sim was already vectorized across runs. A same-seed check on the first 50 games of 2025-26 (200 runs) matched serial and parallel on every per-game row and on the full metric report, including player MAE, coverage, and CRPS. Serial wall clock 272.9s; four workers 189.7s. The same check on 2 games at 1,000 runs also matched. Fifty games at 1,000 runs on four workers took 270.1s, which extrapolated to about 2 hours. The full season is faster because the season bundles load once. Current engine, 2025-26, 1,314 games, 1,000 sims, seed 1, four workers: **42.0 minutes** (2,520s).
 

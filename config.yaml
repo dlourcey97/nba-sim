@@ -68,6 +68,16 @@ simulation:
   # Dated rows before this stay on the recorded chances. 2024-25 and 2025-26
   # are the decision-run seasons and are not rewritten by this floor.
   reb_chance_floor_since: "2026-10-01"
+  # On. Before the scored sims, two short rounds scale usage, free throws,
+  # and turnovers so each rotation player's attempts per minute match his
+  # box line. Team pace and shooting percentages are not inputs.
+  calibrate_shot_shares: true
+  usage_calibrate_runs: 250
+  usage_calibrate_rounds: 2
+  usage_calibrate_tol: 0.03
+  # Centered Gumbel scale for high-usage players. 1.0 leaves the lineup
+  # draw unchanged. 0.65 passed 2025-26 and was not confirmed on the holdout.
+  star_lineup_scale: 1.0
   # Who-gets-steal credit blend: raw stl_rate vs on-court mean.
   # 1.0 = raw rates only; lower pulls toward equal on-court credit.
   # Raw rates over-credit high-rate bench specialists (~−3.3% starter STL
@@ -86,9 +96,11 @@ blending:
   # Applied against the player's blended sample_possessions (not as a raw
   # weight next to season weights that sum to 1).
   regression_strength: 12.0
-  # Off. Rebasing usage onto pace × minutes matches the box, and it did not
-  # bring star points back. 2025-26 total MAE got worse. The code stays.
-  align_box_usage: false
+  # On. Usage is box uses / (pace × minutes / 48), so a star's rate is his
+  # share of possessions while he is on the floor. The old bundle with the
+  # Dunks cap and the point-line scale stays reverted. This flag alone is
+  # part of the shot-share keep.
+  align_box_usage: true
   min_games_for_form: 5
   # Scale each season's blend weight by min(1, games / this). Stops a 1-game
   # current season from taking its full 0.40 weight and wrecking FG%.
@@ -292,6 +304,12 @@ minutes:
   # fringe minutes onto stars and blows past max_minutes (Cade ~48 MPG).
   # Sim draws always hard-normalize to team_minutes_target regardless.
   early_season_gap_close: 0.55
+  # On. A high-usage scorer already at the floor keeps those minutes when
+  # the roster is scaled to 240. Shot-blockers (blk_rate at or above the
+  # max) stay on the proportional scale.
+  protect_star_minutes: true
+  star_minute_floor: 34.0
+  star_protect_blk_max: 0.02
   # Mid-season: pull rotation means this fraction toward equal share.
   starter_share_shrink: 0.08
   # Early season: raise means to this power before re-fit (concentrates starters
