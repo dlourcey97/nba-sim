@@ -62,6 +62,12 @@ class RateVector:
     above_break_3_fg_pct: float = 0.35
     sample_possessions: float = 0.0
     sample_games: float = 0.0
+    # Box attempts per minute from the same games as the rates. Not blended
+    # through RATE_FIELDS, so a prior without a box line cannot pull them to 0.
+    sample_minutes: float = 0.0
+    fga_per_min: float = 0.0
+    fta_per_min: float = 0.0
+    tov_per_min: float = 0.0
 
     def as_dict(self) -> dict[str, float]:
         return {name: float(getattr(self, name)) for name in RATE_FIELDS}
@@ -97,6 +103,10 @@ def empty_accumulator() -> dict[str, float]:
         "stl": 0.0,
         "blk": 0.0,
         "games": 0.0,
+        "minutes": 0.0,
+        "box_fga": 0.0,
+        "box_fta": 0.0,
+        "box_tov": 0.0,
         **{f"{zone}_fga": 0.0 for zone in ZONES},
         **{f"{zone}_fgm": 0.0 for zone in ZONES},
     }
@@ -243,6 +253,11 @@ def add_game_to_accumulator(
         acc[f"{zone}_fga"] += weight * float(rate_row.get(f"{zone}_fga") or 0.0)
         acc[f"{zone}_fgm"] += weight * float(rate_row.get(f"{zone}_fgm") or 0.0)
     if log_row is not None:
+        if played > 0.0:
+            acc["minutes"] += weight * played
+            acc["box_fga"] += weight * float(log_row.get("fga") or 0.0)
+            acc["box_fta"] += weight * float(log_row.get("fta") or 0.0)
+            acc["box_tov"] += weight * float(log_row.get("tov") or 0.0)
         acc["tov"] += weight * float(log_row.get("tov") or 0.0)
         acc["stl"] += weight * float(log_row.get("stl") or 0.0)
         acc["blk"] += weight * float(log_row.get("blk") or 0.0)
@@ -279,6 +294,7 @@ def vector_from_accumulator(acc: dict[str, float]) -> RateVector:
     # guardrail stays within ±3% (0.395 pushed mid TOV to +3.5%).
     raw_tov = (acc["tov"] / used) if used > 0 else 0.12
     tov_rate = max(0.015, min(0.18, raw_tov * 0.39))
+    minutes = float(acc.get("minutes") or 0.0)
     vector = RateVector(
         usage=(used / offensive_possessions) if offensive_possessions > 0 else 0.20,
         tov_rate=tov_rate,
@@ -293,6 +309,10 @@ def vector_from_accumulator(acc: dict[str, float]) -> RateVector:
         foul_rate=0.08,
         sample_possessions=possessions,
         sample_games=acc["games"],
+        sample_minutes=minutes,
+        fga_per_min=(float(acc.get("box_fga") or 0.0) / minutes) if minutes > 1.0 else 0.0,
+        fta_per_min=(float(acc.get("box_fta") or 0.0) / minutes) if minutes > 1.0 else 0.0,
+        tov_per_min=(float(acc.get("box_tov") or 0.0) / minutes) if minutes > 1.0 else 0.0,
         **shares,
         **pcts,
     )
@@ -315,6 +335,9 @@ def blend_vectors(
             continue
         items.append(vector)
         weights.append(float(weight))
+    # Box attempts per minute stay on the player's own games. The position
+    # prior's minutes are the whole bucket and would pull a star to the average.
+    shot_items = list(zip(items, weights))
     if prior is not None and prior_strength > 0:
         items.append(prior)
         weights.append(float(prior_strength))
@@ -326,7 +349,34 @@ def blend_vectors(
         merged[name] = sum(getattr(item, name) * weight for item, weight in zip(items, weights)) / total
     sample_poss = sum(item.sample_possessions * weight for item, weight in zip(items, weights)) / total
     sample_games = sum(item.sample_games * weight for item, weight in zip(items, weights)) / total
-    return RateVector.from_dict(merged, sample_possessions=sample_poss, sample_games=sample_games).normalize_shares()
+    shot_weight = 0.0
+    shot_fga = 0.0
+    shot_fta = 0.0
+    shot_tov = 0.0
+    minute_weight = 0.0
+    minute_sum = 0.0
+    for item, weight in shot_items:
+        if item.sample_minutes <= 0.0 or weight <= 0.0:
+            continue
+        share = weight * item.sample_minutes
+        shot_weight += share
+        shot_fga += item.fga_per_min * share
+        shot_fta += item.fta_per_min * share
+        shot_tov += item.tov_per_min * share
+        minute_weight += weight
+        minute_sum += item.sample_minutes * weight
+    vector = RateVector.from_dict(
+        merged, sample_possessions=sample_poss, sample_games=sample_games
+    ).normalize_shares()
+    if shot_weight <= 0.0:
+        return vector
+    return replace(
+        vector,
+        sample_minutes=minute_sum / minute_weight,
+        fga_per_min=shot_fga / shot_weight,
+        fta_per_min=shot_fta / shot_weight,
+        tov_per_min=shot_tov / shot_weight,
+    )
 
 
 def position_bucket(position: str | None) -> str:

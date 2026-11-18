@@ -78,6 +78,20 @@ def score_projected_game(payload: dict) -> dict:
     played_n = 0
     id_to_idx = {int(pid): index for index, pid in enumerate(sim.player_ids)}
     usage_by_id = {int(p.player_id): float(p.rates.usage) for p in projection.players}
+    cut = float((payload["config"].get("simulation") or {}).get("star_usage_min", 0.24))
+    role_by_id: dict[int, str] = {}
+    for proj_player in projection.players:
+        if float(proj_player.rates.usage) >= cut:
+            role = "top"
+        elif bool(proj_player.started) or int(proj_player.depth_rank) <= 5:
+            role = "start"
+        else:
+            role = "bench"
+        role_by_id[int(proj_player.player_id)] = role
+    tier_crps = {"top": 0.0, "start": 0.0, "bench": 0.0}
+    tier_n = {"top": 0, "start": 0, "bench": 0}
+    tier_pred = {"top": 0.0, "start": 0.0, "bench": 0.0}
+    tier_act = {"top": 0.0, "start": 0.0, "bench": 0.0}
     # Every player who played is scored. Someone the projection left off is a
     # point mass at 0: CRPS is the absolute error, and the 10–90 band is {0}.
     for pid, player, actual in iter_played(summary.players, logs):
@@ -128,8 +142,12 @@ def score_projected_game(payload: dict) -> dict:
         cover_hits.append(1.0 if pts_inside else 0.0)
         cover_pts_hits += 1.0 if pts_inside else 0.0
         cover_min_hits += 1.0 if min_inside else 0.0
+        role = role_by_id.get(int(pid), "bench")
+        tier_crps[role] += pts_crps
+        tier_n[role] += 1
+        tier_pred[role] += float(player.stats["pts"].mean)
+        tier_act[role] += y_pts
         usage = usage_by_id.get(int(pid), 0.0)
-        cut = float((payload["config"].get("simulation") or {}).get("star_usage_min", 0.24))
         if usage >= cut:
             cover_star_hits += 1.0 if pts_inside else 0.0
             cover_star_n += 1
@@ -137,6 +155,28 @@ def score_projected_game(payload: dict) -> dict:
             cover_bench_hits += 1.0 if pts_inside else 0.0
             cover_bench_n += 1
     groups = _star_bust(payload, projection, sim, id_to_idx)
+    cond_draws = cond_wins = cond_actual_n = cond_actual_wins = 0
+    home_won = sim.home_pts > sim.away_pts
+    for side, won in (("H", home_won), ("A", ~home_won)):
+        side_players = [p for p in projection.players if p.home_away == side and not p.minutes.out]
+        if not side_players:
+            continue
+        star = max(side_players, key=lambda p: float(p.rates.usage))
+        idx = id_to_idx.get(int(star.player_id))
+        if idx is None:
+            continue
+        under = sim.pts[idx] < 20.0
+        cond_draws += int(under.sum())
+        cond_wins += int((under & won).sum())
+        actual = logs.get(int(star.player_id))
+        if actual is None:
+            actual = logs.get(str(star.player_id))
+        scored = float(actual.get("pts") or 0.0) if actual else None
+        if scored is not None and scored < 20.0:
+            cond_actual_n += 1
+            team_pts = home_pts if side == "H" else away_pts
+            opp_pts = away_pts if side == "H" else home_pts
+            cond_actual_wins += int(team_pts > opp_pts)
     play_brier_sum, play_n, play_bins = _play_calibration(projection, logs)
     sim_poss = [float(sim.home_possessions), float(sim.away_possessions)]
     del sim
@@ -182,6 +222,22 @@ def score_projected_game(payload: dict) -> dict:
         "cover_bench_hits": cover_bench_hits,
         "cover_bench_n": cover_bench_n,
         **groups,
+        "crps_top": tier_crps["top"],
+        "crps_top_n": tier_n["top"],
+        "crps_start": tier_crps["start"],
+        "crps_start_n": tier_n["start"],
+        "crps_bench": tier_crps["bench"],
+        "crps_bench_n": tier_n["bench"],
+        "pred_top": tier_pred["top"],
+        "act_top": tier_act["top"],
+        "pred_start": tier_pred["start"],
+        "act_start": tier_act["start"],
+        "pred_bench": tier_pred["bench"],
+        "act_bench": tier_act["bench"],
+        "cond_draws": cond_draws,
+        "cond_wins": cond_wins,
+        "cond_actual_n": cond_actual_n,
+        "cond_actual_wins": cond_actual_wins,
         "play_brier_sum": play_brier_sum,
         "play_n": play_n,
         "play_bins": play_bins,

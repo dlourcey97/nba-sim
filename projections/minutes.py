@@ -972,6 +972,7 @@ def allocate_team_minutes(
     config: dict[str, Any],
     depth_ranks: Sequence[int] | None = None,
     return_floors: Sequence[float] | None = None,
+    protect_mask: Sequence[bool] | None = None,
 ) -> list[MinutesProjection]:
     """Scale available players so projected means sum to team_minutes_target.
 
@@ -1170,17 +1171,27 @@ def allocate_team_minutes(
     # E[sum]=sum(mean*play_prob)<target, normalize systematically dumps the
     # shortfall onto high-play_prob players (starters) → starter MIN share drift.
     # Scale conditionals so expected pre-normalize sum equals target.
-    expected = 0.0
-    for i in range(n):
-        if out[i] or means[i] <= 0:
-            continue
-        expected += float(means[i]) * float(play_probs[i])
-    if expected > 1e-9:
-        factor = target / expected
-        for i in np.where(~out)[0]:
-            if means[i] <= 0 or caps[i] <= 0:
-                continue
-            means[i] = min(float(means[i]) * factor, float(caps[i]))
+    # Off by default. On: a player already at the star floor keeps those
+    # minutes, and the 240 cut comes from the rest of the rotation. The
+    # proportional scale was taking a 36-minute star down to about 31.
+    protect_stars = bool(minutes_cfg.get("protect_star_minutes", False))
+    star_floor = float(minutes_cfg.get("star_minute_floor", 34.0))
+    protect_at = star_floor if protect_stars else None
+    mask = None
+    if protect_mask is not None:
+        mask = np.zeros(n, dtype=bool)
+        for i, flag in enumerate(protect_mask):
+            if i < n:
+                mask[i] = bool(flag)
+    _scale_expected_minutes(
+        means,
+        play_probs,
+        caps,
+        out,
+        target,
+        protect_at=protect_at,
+        protect_mask=mask,
+    )
 
     # Role-share shaping after play_prob-aware scale:
     # - Mid-season (gap_close=0): mild pull toward equal (starters were +3–4%).
@@ -1199,6 +1210,12 @@ def allocate_team_minutes(
             if shrink > 0:
                 equal = target / float(len(playing))
                 for i in playing:
+                    if (
+                        protect_at is not None
+                        and float(means[i]) >= protect_at
+                        and (mask is None or bool(mask[i]))
+                    ):
+                        continue
                     means[i] = (1.0 - shrink) * float(means[i]) + shrink * equal
                     means[i] = min(means[i], float(caps[i]))
         else:
@@ -1207,17 +1224,18 @@ def allocate_team_minutes(
                 for i in playing:
                     means[i] = float(means[i]) ** power
                     means[i] = min(means[i], float(caps[i]))
-        expected = sum(
-            float(means[i]) * float(play_probs[i])
-            for i in np.where(~out)[0]
-            if means[i] > 0
+        # Early-season power can push a mean past the floor. Do not lock that.
+        # Mid-season only locks the pre-shrink star line.
+        second_protect = protect_at if gap_close <= 0 else None
+        _scale_expected_minutes(
+            means,
+            play_probs,
+            caps,
+            out,
+            target,
+            protect_at=second_protect,
+            protect_mask=mask,
         )
-        if expected > 1e-9:
-            factor = target / expected
-            for i in np.where(~out)[0]:
-                if means[i] <= 0 or caps[i] <= 0:
-                    continue
-                means[i] = min(float(means[i]) * factor, float(caps[i]))
 
     out_proj: list[MinutesProjection] = []
     for i, prev in enumerate(projections):
@@ -1298,6 +1316,79 @@ def _trim_from_bottom(
     return values
 
 
+def _scale_expected_minutes(
+    means: np.ndarray,
+    play_probs: np.ndarray,
+    caps: np.ndarray,
+    out: np.ndarray,
+    target: float,
+    *,
+    protect_at: float | None,
+    protect_mask: np.ndarray | None = None,
+) -> None:
+    """Scale conditional means so sum(mean * P(plays)) matches ``target``.
+
+    With ``protect_at`` set, a roster that is over the target keeps players
+    already at that minute level. The cut comes from the rest of the rotation.
+    A short roster still scales everyone up. ``protect_at`` None is the
+    proportional scale.
+    """
+    idxs = [
+        i
+        for i in range(len(means))
+        if not out[i] and means[i] > 0 and caps[i] > 0
+    ]
+    expected = sum(float(means[i]) * float(play_probs[i]) for i in idxs)
+    if expected <= 1e-9:
+        return
+    factor = target / expected
+    if protect_at is None or factor >= 1.0:
+        for i in idxs:
+            means[i] = min(float(means[i]) * factor, float(caps[i]))
+        return
+    def _locked(i: int) -> bool:
+        if protect_mask is not None and not bool(protect_mask[i]):
+            return False
+        return float(means[i]) >= float(protect_at)
+
+    locked = [i for i in idxs if _locked(i)]
+    flex = [i for i in idxs if not _locked(i)]
+    locked_expected = sum(float(means[i]) * float(play_probs[i]) for i in locked)
+    flex_expected = sum(float(means[i]) * float(play_probs[i]) for i in flex)
+    remain = target - locked_expected
+    if remain < 1.0 or flex_expected <= 1e-9:
+        for i in idxs:
+            means[i] = min(float(means[i]) * factor, float(caps[i]))
+        return
+    flex_factor = remain / flex_expected
+    for i in flex:
+        means[i] = min(max(float(means[i]) * flex_factor, 0.0), float(caps[i]))
+
+
+def _shrink_protecting(
+    values: np.ndarray,
+    flexible: np.ndarray,
+    target: float,
+    protect_at: float,
+    protect_mask: np.ndarray | None = None,
+) -> None:
+    """Pull a team draw down to ``target`` without cutting protected players."""
+    protected = flexible & (values >= protect_at)
+    if protect_mask is not None:
+        protected = protected & np.asarray(protect_mask, dtype=bool)
+    prot_sum = float(values[protected].sum()) if np.any(protected) else 0.0
+    cuttable = flexible & ~protected
+    if prot_sum >= target - 1e-6 or not np.any(cuttable):
+        total = float(values[flexible].sum())
+        if total > 1e-9:
+            values[flexible] *= target / total
+        return
+    flex_sum = float(values[cuttable].sum())
+    if flex_sum <= 1e-9:
+        return
+    values[cuttable] *= (target - prot_sum) / flex_sum
+
+
 def normalize_team_minute_draws(
     draws: np.ndarray,
     *,
@@ -1305,6 +1396,8 @@ def normalize_team_minute_draws(
     caps: np.ndarray,
     target: float = 240.0,
     min_minutes: float = 0.0,
+    protect_at: float | None = None,
+    protect_mask: np.ndarray | None = None,
 ) -> np.ndarray:
     """Normalize per-run minute draws so each column sums to ``target``.
 
@@ -1331,6 +1424,8 @@ def normalize_team_minute_draws(
             caps=cap,
             target=target,
             min_minutes=min_minutes,
+            protect_at=protect_at,
+            protect_mask=protect_mask,
         )
         result[:, run] = col
     return result
@@ -1408,6 +1503,8 @@ def _normalize_vector(
     caps: np.ndarray,
     target: float,
     min_minutes: float,
+    protect_at: float | None = None,
+    protect_mask: np.ndarray | None = None,
 ) -> np.ndarray:
     """Iteratively scale and clip so available players sum to target.
 
@@ -1442,7 +1539,10 @@ def _normalize_vector(
             break
 
         if total > target:
-            out[flexible] *= target / total
+            if protect_at is None:
+                out[flexible] *= target / total
+            else:
+                _shrink_protecting(out, flexible, target, protect_at, protect_mask)
         else:
             deficit = target - total
             room = np.zeros_like(out)
@@ -1456,14 +1556,17 @@ def _normalize_vector(
 
     total = float(out[flexible].sum())
     if total > 1e-9 and abs(total - target) > 1e-3:
-        scaled = out.copy()
-        scaled[flexible] *= target / total
-        ok = True
-        for i in np.where(flexible)[0]:
-            if scaled[i] > float(caps[i]) + 1e-6:
-                ok = False
-                break
-        if ok:
-            out = scaled
+        if protect_at is not None and total > target:
+            _shrink_protecting(out, flexible, target, protect_at, protect_mask)
+        else:
+            scaled = out.copy()
+            scaled[flexible] *= target / total
+            ok = True
+            for i in np.where(flexible)[0]:
+                if scaled[i] > float(caps[i]) + 1e-6:
+                    ok = False
+                    break
+            if ok:
+                out = scaled
     out[~flexible] = 0.0
     return out

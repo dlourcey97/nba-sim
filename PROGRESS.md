@@ -1,6 +1,20 @@
 # Progress
 
-Last updated 2026-11-17 — The top-30 star check warns instead of blocking. Lineup noise is the bust component. Scale 0.65 passed 2025-26 and is not turned on: the holdout has not confirmed it. Tonight's card is the current engine.
+Last updated 2026-11-17 — The shot-share trial raised star points on both seasons and is not turned on. The 2024-25 total moved outside the noise. Scale 0.65 is still off. The live engine is unchanged.
+
+## Shot shares and star minutes (2026-11-17)
+
+Star points were short because a 34-minute scorer was scaled down with the roster, and his free throws per minute sat under his box line. Field goals per minute were already close. The trial, measured as one change against the current engine, rebases usage onto pace times minutes, keeps a high-usage scorer who already projects at 34 minutes from that cut, and runs two short rounds that match field goals, free throws, and turnovers per minute to his box line. Usage moves field goals. A separate scale moves free throws, and another moves turnovers. Shot-blockers stay on the old minute scale. Team pace and shooting percentages are not an input to the adjustment. The lineup scale stays 1.0.
+
+Luka Dončić on 2026-01-20, 200 sims, seed 1. Before: 29.3 minutes, 22.5 points, 0.579 field goals per minute. After: 33.9 minutes, 27.8 points, 0.610 field goals per minute against a box rate of 0.611, free throws 0.265 against 0.278, turnovers 0.098 against 0.116. That night he played 35.6 minutes and scored 38. His previous eight games averaged 36 minutes and 33 points.
+
+Full seasons, 1,000 sims, seed 1, four workers. The before side is the current engine. Variant minus baseline.
+
+2025-26, 1,314 games. Star mean 16.34 to 18.48 against 22.19. Bias −5.68 to −3.71. Bust rate −0.0530 (−0.0551 to −0.0510), after 0.320 against an actual 0.084. Points CRPS −0.0843 (−0.0929 to −0.0758). Brier +0.0002 (−0.0010 to +0.0015). Spread +0.023 (−0.046 to +0.089). Total +0.071 (−0.126 to +0.260). Points CRPS and the bust rate improve and those intervals exclude zero. Spread, total, and Brier stay inside the noise. Top-usage points CRPS 5.278 (4,462 players), starters 3.849, bench 3.452. Top-usage mean 17.09 against 20.73. When a team's top-usage player scores under 20, the sim wins 44.1% of the time and the real 2025-26 games won 43.1% (239 of 554).
+
+2024-25 holdout, 1,313 games. Star mean 16.16 to 18.70 against 22.94. Bias −5.71 to −4.24. Bust rate −0.0503 (−0.0531 to −0.0475), after 0.310 against an actual 0.076. Points CRPS −0.1189 (−0.1302 to −0.1080). Brier −0.0003 (−0.0018 to +0.0012). Spread +0.085 (−0.003 to +0.167). Total −1.571 (−1.856 to −1.305). The total interval excludes zero. Predicted team totals rose: the holdout total bias went from about −10.6 to −5.32, and total MAE from 17.34 to 15.77. That is the miss. The keep rule requires spread, total, and Brier to stay inside the noise on both seasons.
+
+The 80-game guardrail passed: star points −17.4%, star minutes −12.2%, starter minutes +2.6%, starter blocks +2.0%, team points +1.2%. No league total or starter share outside ±3%. The flags stay off anyway, because the holdout total moved. `align_box_usage` is false. Shot-share calibration is off. Star minute protection is off. The code is in place and does nothing until those are set.
 
 ## Star gap is a warning (2026-11-17)
 

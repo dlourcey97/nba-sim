@@ -1154,6 +1154,22 @@ def _build(
             )
             for i in range(len(ordered_ids))
         ]
+        star_usage_min = float((config.get("simulation") or {}).get("star_usage_min", 0.24))
+        star_floor = float((config.get("minutes") or {}).get("star_minute_floor", 34.0))
+        # High-usage shot blockers stay on the normal minute scale. Keeping
+        # every 34-minute scorer pushed starter block share past the guardrail.
+        blk_max = float((config.get("minutes") or {}).get("star_protect_blk_max", 0.02))
+        protect_players = []
+        for pid, minutes in zip(ordered_ids, raw_minutes):
+            rates = adjusted.get(pid)
+            usage = float(rates.usage) if rates is not None else 0.0
+            blk = float(rates.blk_rate) if rates is not None else 0.0
+            protect_players.append(
+                usage >= star_usage_min
+                and blk < blk_max
+                and float(minutes.mean) >= star_floor
+                and not minutes.out
+            )
         allocated = allocate_team_minutes(
             raw_minutes,
             config=config,
@@ -1163,6 +1179,7 @@ def _build(
                 if return_blend
                 else None
             ),
+            protect_mask=protect_players,
         )
         # Margin-conditioned rotation: close games shorten the rotation;
         # blowouts push minutes to the bench. Preserve team minute total.
@@ -2244,18 +2261,10 @@ def _normalize_usage_for_minutes(
     scale = max(0.70, min(1.15, float(scale)))
     for pid, usage in floored.items():
         rates = updated[pid]
-        updated[pid] = RateVector.from_dict(
-            {**rates.as_dict(), "usage": usage * scale},
-            sample_possessions=rates.sample_possessions,
-            sample_games=rates.sample_games,
-        )
+        updated[pid] = replace(rates, usage=usage * scale)
     for pid, rates in list(updated.items()):
         if pid not in playing:
-            updated[pid] = RateVector.from_dict(
-                {**rates.as_dict(), "usage": 0.0},
-                sample_possessions=rates.sample_possessions,
-                sample_games=rates.sample_games,
-            )
+            updated[pid] = replace(rates, usage=0.0)
     return updated
 
 

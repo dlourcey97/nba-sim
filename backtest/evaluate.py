@@ -239,6 +239,20 @@ def evaluate_seasons(
                     "star_bust_draws": item.get("star_bust_draws", 0),
                     "star_actual_bust": item.get("star_actual_bust", 0),
                     "star_n": item.get("star_n", 0),
+                    "star_pred_sum": item.get("star_pred_sum", 0.0),
+                    "star_act_sum": item.get("star_act_sum", 0.0),
+                    "crps_top": item.get("crps_top", 0.0),
+                    "crps_top_n": item.get("crps_top_n", 0),
+                    "crps_start": item.get("crps_start", 0.0),
+                    "crps_start_n": item.get("crps_start_n", 0),
+                    "crps_bench": item.get("crps_bench", 0.0),
+                    "crps_bench_n": item.get("crps_bench_n", 0),
+                    "pred_top": item.get("pred_top", 0.0),
+                    "act_top": item.get("act_top", 0.0),
+                    "cond_draws": item.get("cond_draws", 0),
+                    "cond_wins": item.get("cond_wins", 0),
+                    "cond_actual_n": item.get("cond_actual_n", 0),
+                    "cond_actual_wins": item.get("cond_actual_wins", 0),
                 }
             )
             crps_min_sum += float(item.get("crps_min_sum") or 0.0)

@@ -76,6 +76,9 @@ class GameSimResult:
     q4_floor_n: np.ndarray | None = None
     # Optional single-run possession narrative (typical-game hook).
     possession_log: PossessionLog | None = None
+    # Field-goal attempts and free-throw attempts. Same shape as pts.
+    fga: np.ndarray | None = None
+    fta: np.ndarray | None = None
 
 
 def simulate_game(
@@ -87,6 +90,9 @@ def simulate_game(
     trace_run: int | None = None,
     split_half: bool = False,
     resume: object | None = None,
+    usage_scale: np.ndarray | None = None,
+    ft_scale: np.ndarray | None = None,
+    tov_scale: np.ndarray | None = None,
 ) -> GameSimResult:
     """Simulate one game. Default runs/seed come from config.yaml when omitted.
 
@@ -108,6 +114,16 @@ def simulate_game(
     base_seed = seed if seed is not None else sim_cfg.get("seed")
     if base_seed is None:
         base_seed = int(np.random.SeedSequence().entropy) % (2**31 - 1)
+    # Fit usage shares on a side stream. The main sim keeps base_seed, so a
+    # scale of 1 reproduces the uncalibrated draw.
+    if (
+        usage_scale is None
+        and bool(sim_cfg.get("calibrate_shot_shares"))
+        and resume is None
+    ):
+        usage_scale, ft_scale, tov_scale = _calibrate_shot_shares(
+            projection, cfg, int(base_seed)
+        )
     rng = np.random.default_rng(int(base_seed))
     trace_i = int(trace_run) if trace_run is not None else None
 
@@ -144,13 +160,34 @@ def simulate_game(
         dtype=float,
     )
     if resume is None:
+        protect_at = None
+        protect_mask = None
+        if bool(minutes_cfg.get("protect_star_minutes")):
+            # Only high-usage scorers. Locking every 34-minute player kept
+            # rim protectors on the floor and blew the starter block share.
+            star_usage = float(sim_cfg.get("star_usage_min", 0.24))
+            star_floor = float(minutes_cfg.get("star_minute_floor", 34.0))
+            blk_max = float(minutes_cfg.get("star_protect_blk_max", 0.02))
+            protect_at = star_floor - 2.0
+            protect_mask = np.array(
+                [
+                    float(p.rates.usage) >= star_usage
+                    and float(p.rates.blk_rate) < blk_max
+                    and float(p.minutes.mean) >= star_floor
+                    for p in players
+                ],
+                dtype=bool,
+            )
         for pool in (home_idx, away_idx):
+            pool_mask = None if protect_mask is None else protect_mask[pool]
             minutes[pool] = normalize_team_minute_draws(
                 minutes[pool],
                 out_mask=out_mask[pool],
                 caps=caps[pool],
                 target=team_target,
                 min_minutes=min_minutes,
+                protect_at=protect_at,
+                protect_mask=pool_mask,
             )
     else:
         from sim.resume import apply_resume_minutes
@@ -166,6 +203,12 @@ def simulate_game(
         )
 
     packed = _pack_rates(players)
+    if usage_scale is not None:
+        packed["usage_scale"] = np.asarray(usage_scale, dtype=float)
+    if ft_scale is not None:
+        packed["ft_rate"] = packed["ft_rate"] * np.asarray(ft_scale, dtype=float)
+    if tov_scale is not None:
+        packed["tov_rate"] = packed["tov_rate"] * np.asarray(tov_scale, dtype=float)
     if resume is not None:
         from sim.resume import apply_resume_rates
 
@@ -310,6 +353,10 @@ def simulate_game(
     stl = np.zeros((n_players, n_runs), dtype=float)
     blk = np.zeros((n_players, n_runs), dtype=float)
     tov = np.zeros((n_players, n_runs), dtype=float)
+    fga = np.zeros((n_players, n_runs), dtype=np.float32)
+    fta_att = np.zeros((n_players, n_runs), dtype=np.float32)
+    packed["fga_count"] = fga
+    packed["fta_count"] = fta_att
     home_pts = np.zeros(n_runs, dtype=float)
     away_pts = np.zeros(n_runs, dtype=float)
     # Game clock (seconds remaining in regulation). Advances with possession
@@ -619,6 +666,8 @@ def simulate_game(
         blk=blk,
         tov=tov,
         minutes=minutes,
+        fga=fga,
+        fta=fta_att,
         home_pts=home_pts,
         away_pts=away_pts,
         overtime=overtime,
@@ -661,7 +710,102 @@ def _usage_weights(
     if player_usage is not None:
         run_ids = np.arange(n_runs)[:, None]
         usage_w *= player_usage[off_lineups, run_ids]
+    scale = packed.get("usage_scale")
+    if scale is not None:
+        usage_w *= np.asarray(scale, dtype=float)[off_lineups]
     return np.clip(usage_w, 1e-6, None)
+
+
+def _credit_attempts(packed: dict, key: str, users: np.ndarray, mask: np.ndarray, amount) -> None:
+    """Add shot or free-throw attempts. No random draw, so the sim cloud stays put."""
+    store = packed.get(key)
+    if store is None or not np.any(mask):
+        return
+    idx = np.flatnonzero(mask)
+    add = amount if np.isscalar(amount) else np.asarray(amount, dtype=float)[mask]
+    np.add.at(store, (users[mask], idx), add)
+
+
+def _target_attempts_per_minute(player, pace_per_min: float) -> tuple[float, float, float]:
+    """Box FGA, FTA, and TOV per minute from the games behind his rate line.
+
+    ``pace_per_min`` is unused. An older target rebuilt attempts from usage ×
+    pace and subtracted free throws and an inflated turnover, which sat below
+    the player's real field-goal rate and made the calibrator add shots.
+    """
+    del pace_per_min
+    rates = player.rates
+    return (
+        max(float(getattr(rates, "fga_per_min", 0.0)), 0.0),
+        max(float(getattr(rates, "fta_per_min", 0.0)), 0.0),
+        max(float(getattr(rates, "tov_per_min", 0.0)), 0.0),
+    )
+
+
+def _calibrate_shot_shares(
+    projection, cfg: dict, seed: int
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Match each rotation player's attempts per minute to his box line.
+
+    Usage moves field-goal attempts only. A separate free-throw scale moves
+    FTA, and a turnover scale moves TOV. One usage weight cannot lift free
+    throws without also adding field goals. Shares still renormalize across
+    the five, so team pace is unchanged. Stops when every rotation player is
+    inside the tolerance.
+    """
+    sim_cfg = cfg.get("simulation") or {}
+    runs = max(50, int(sim_cfg.get("usage_calibrate_runs", 500)))
+    rounds = max(1, int(sim_cfg.get("usage_calibrate_rounds", 3)))
+    tol = float(sim_cfg.get("usage_calibrate_tol", 0.03))
+    min_minutes = float(sim_cfg.get("usage_calibrate_min_minutes", 12.0))
+    players = list(projection.players)
+    scale = np.ones(len(players), dtype=float)
+    ft_scale = np.ones(len(players), dtype=float)
+    tov_scale = np.ones(len(players), dtype=float)
+    for round_i in range(rounds):
+        sim = simulate_game(
+            projection,
+            runs=runs,
+            seed=int(seed) + 10007 * (round_i + 1),
+            config=cfg,
+            usage_scale=scale.copy(),
+            ft_scale=ft_scale.copy(),
+            tov_scale=tov_scale.copy(),
+        )
+        worst = 0.0
+        for index, player in enumerate(players):
+            if player.minutes.out or float(player.minutes.mean) < min_minutes:
+                continue
+            target = _target_attempts_per_minute(player, 0.0)
+            if target[0] < 0.05:
+                continue
+            minutes = np.asarray(sim.minutes[index], dtype=float)
+            denom = float(minutes.sum())
+            if denom < runs * 2.0:
+                continue
+            fga_pm = float(np.asarray(sim.fga[index]).sum()) / denom
+            fta_pm = float(np.asarray(sim.fta[index]).sum()) / denom
+            tov_pm = float(np.asarray(sim.tov[index]).sum()) / denom
+            fga_ratio = target[0] / max(fga_pm, 1e-3)
+            worst = max(worst, abs(fga_ratio - 1.0))
+            if abs(fga_ratio - 1.0) > tol:
+                factor = float(np.clip(fga_ratio**0.65, 0.82, 1.22))
+                scale[index] = float(np.clip(scale[index] * factor, 0.55, 1.80))
+            if target[1] >= 0.02:
+                fta_ratio = target[1] / max(fta_pm, 1e-3)
+                worst = max(worst, abs(fta_ratio - 1.0))
+                if abs(fta_ratio - 1.0) > tol:
+                    factor = float(np.clip(fta_ratio**0.65, 0.82, 1.22))
+                    ft_scale[index] = float(np.clip(ft_scale[index] * factor, 0.55, 1.80))
+            if target[2] >= 0.02:
+                tov_ratio = target[2] / max(tov_pm, 1e-3)
+                worst = max(worst, abs(tov_ratio - 1.0))
+                if abs(tov_ratio - 1.0) > tol:
+                    factor = float(np.clip(tov_ratio**0.65, 0.82, 1.22))
+                    tov_scale[index] = float(np.clip(tov_scale[index] * factor, 0.55, 1.80))
+        if worst <= tol:
+            break
+    return scale, ft_scale, tov_scale
 
 
 def _pack_rates(players: list[PlayerProjection]) -> dict[str, np.ndarray]:
@@ -1476,6 +1620,7 @@ def _vector_possession(
             idx = np.flatnonzero(is_int_foul)
             made[idx] = rng.binomial(2, ft_pct[idx])
             np.add.at(pts, (users[is_int_foul], idx), made[is_int_foul])
+            _credit_attempts(packed, "fta_count", users, is_int_foul, 2.0)
             home_delta = np.where(is_int_foul & offense_home, made, home_delta)
             away_delta = np.where(is_int_foul & ~offense_home, made, away_delta)
             next_offense_home[is_int_foul] = ~offense_home[is_int_foul]
@@ -1588,6 +1733,7 @@ def _vector_possession(
         idx = np.flatnonzero(is_bonus_ft)
         made[idx] = rng.binomial(fta[idx], ft_pct[idx])
         np.add.at(pts, (users[is_bonus_ft], idx), made[is_bonus_ft])
+        _credit_attempts(packed, "fta_count", users, is_bonus_ft, fta)
         home_delta = np.where(is_bonus_ft & offense_home, made, home_delta)
         away_delta = np.where(is_bonus_ft & ~offense_home, made, away_delta)
         next_offense_home[is_bonus_ft] = ~offense_home[is_bonus_ft]
@@ -1604,6 +1750,8 @@ def _vector_possession(
         return home_delta, away_delta, next_offense_home, ended, trace
 
     # Shot zone
+    # Everyone who reaches a shot, including blocks, has taken a field-goal attempt.
+    _credit_attempts(packed, "fga_count", users, remaining, 1.0)
     zone_share = packed["zone_share"][users]  # (n_runs, 6)
     zone_i = _weighted_choice(rng, zone_share)
     fg_pct = packed["zone_fg"][users, zone_i]
@@ -1696,6 +1844,7 @@ def _vector_possession(
             ao_idx = np.flatnonzero(and_one)
             ao_made[ao_idx] = rng.binomial(1, ft_pct[ao_idx])
             np.add.at(pts, (users[and_one], ao_idx), ao_made[and_one])
+            _credit_attempts(packed, "fta_count", users, and_one, 1.0)
             points = points + ao_made
         home_delta = np.where(is_make & offense_home, points, home_delta)
         away_delta = np.where(is_make & ~offense_home, points, away_delta)
@@ -1736,6 +1885,7 @@ def _vector_possession(
         idx = np.flatnonzero(foul_miss)
         made[idx] = rng.binomial(fta[idx], ft_pct[idx])
         np.add.at(pts, (users[foul_miss], idx), made[foul_miss])
+        _credit_attempts(packed, "fta_count", users, foul_miss, fta)
         home_delta = np.where(foul_miss & offense_home, made, home_delta)
         away_delta = np.where(foul_miss & ~offense_home, made, away_delta)
         next_offense_home[foul_miss] = ~offense_home[foul_miss]
