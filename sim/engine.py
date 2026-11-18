@@ -79,6 +79,10 @@ class GameSimResult:
     # Field-goal attempts and free-throw attempts. Same shape as pts.
     fga: np.ndarray | None = None
     fta: np.ndarray | None = None
+    # Mean on-court shot share and the other four players' usage mass.
+    # Filled only when record_oncourt_share is set. Shape (players, runs).
+    oncourt_share: np.ndarray | None = None
+    mate_usage: np.ndarray | None = None
 
 
 def simulate_game(
@@ -209,6 +213,15 @@ def simulate_game(
         packed["ft_rate"] = packed["ft_rate"] * np.asarray(ft_scale, dtype=float)
     if tov_scale is not None:
         packed["tov_rate"] = packed["tov_rate"] * np.asarray(tov_scale, dtype=float)
+    if bool(sim_cfg.get("anchor_star_usage")):
+        packed["anchor_star_usage"] = True
+        packed["star_usage_min"] = float(sim_cfg.get("star_usage_min", 0.24))
+    oncourt_share = None
+    mate_usage = None
+    if bool(sim_cfg.get("record_oncourt_share")):
+        packed["share_sum"] = np.zeros((n_players, n_runs), dtype=np.float64)
+        packed["share_n"] = np.zeros((n_players, n_runs), dtype=np.float64)
+        packed["mate_sum"] = np.zeros((n_players, n_runs), dtype=np.float64)
     if resume is not None:
         from sim.resume import apply_resume_rates
 
@@ -276,6 +289,9 @@ def simulate_game(
         temperature=float(sim_cfg.get("lineup_temperature", 1.35)),
         star_lineup_scale=float(sim_cfg.get("star_lineup_scale", 1.0)),
         star_usage_min=float(sim_cfg.get("star_usage_min", 0.24)),
+        anchor_stars=bool(sim_cfg.get("anchor_star_usage")),
+        seat_stars=bool(sim_cfg.get("seat_star_minutes")),
+        star_blk_max=float((cfg.get("minutes") or {}).get("star_protect_blk_max", 0.02)),
     )
     away_grid = _lineups_state_grid(
         rng,
@@ -289,6 +305,9 @@ def simulate_game(
         temperature=float(sim_cfg.get("lineup_temperature", 1.35)),
         star_lineup_scale=float(sim_cfg.get("star_lineup_scale", 1.0)),
         star_usage_min=float(sim_cfg.get("star_usage_min", 0.24)),
+        anchor_stars=bool(sim_cfg.get("anchor_star_usage")),
+        seat_stars=bool(sim_cfg.get("seat_star_minutes")),
+        star_blk_max=float((cfg.get("minutes") or {}).get("star_protect_blk_max", 0.02)),
     )
     if resume is not None:
         from sim.resume import pin_on_court
@@ -632,6 +651,13 @@ def simulate_game(
         caps=caps,
     )
 
+    if packed.get("share_n") is not None:
+        denom = np.maximum(packed["share_n"], 1.0)
+        oncourt_share = packed["share_sum"] / denom
+        mate_usage = packed["mate_sum"] / denom
+        oncourt_share = np.where(packed["share_n"] > 0, oncourt_share, np.nan)
+        mate_usage = np.where(packed["share_n"] > 0, mate_usage, np.nan)
+
     possession_log = None
     if trace_i is not None:
         possession_log = PossessionLog(
@@ -679,6 +705,8 @@ def simulate_game(
         second_pts=second_pts,
         second_reb=second_reb,
         second_ast=second_ast,
+        oncourt_share=oncourt_share,
+        mate_usage=mate_usage,
         second_floor_poss=second_floor_poss,
         second_floor_n=second_floor_n,
         q4_floor_poss=q4_floor_poss,
@@ -713,7 +741,66 @@ def _usage_weights(
     scale = packed.get("usage_scale")
     if scale is not None:
         usage_w *= np.asarray(scale, dtype=float)[off_lineups]
-    return np.clip(usage_w, 1e-6, None)
+    usage_w = np.clip(usage_w, 1e-6, None)
+    if packed.get("anchor_star_usage"):
+        usage_w = _anchor_star_usage(usage_w, off_lineups, packed)
+    if packed.get("share_sum") is not None:
+        _record_oncourt_share(packed, off_lineups, usage_w)
+    return usage_w
+
+
+def _anchor_star_usage(
+    usage_w: np.ndarray,
+    off_lineups: np.ndarray,
+    packed: dict[str, np.ndarray],
+) -> np.ndarray:
+    """Give a high-usage player his own usage as his shot share.
+
+    The five-man weights otherwise divide him by the sum of the group, so
+    the same usage is a smaller share next to other creators than next to
+    the bench. Teammates split whatever share he does not take.
+    """
+    star_min = float(packed.get("star_usage_min", 0.24))
+    raw = packed["usage"][off_lineups]
+    scale = packed.get("usage_scale")
+    scaled = raw if scale is None else raw * np.asarray(scale, dtype=float)[off_lineups]
+    is_star = raw >= star_min
+    if not np.any(is_star):
+        return usage_w
+    draw = np.ones_like(usage_w)
+    safe = scaled > 1e-6
+    draw = np.where(safe, usage_w / np.maximum(scaled, 1e-6), 1.0)
+    # The shot-share scale is how calibration moves attempts. The anchor
+    # itself is the box usage, so a teammate draw cannot shrink it.
+    target = np.where(is_star, np.clip(raw * draw, 0.0, 0.75), 0.0)
+    star_sum = target.sum(axis=1, keepdims=True)
+    target = target * np.where(star_sum > 0.90, 0.90 / np.maximum(star_sum, 1e-6), 1.0)
+    rest = np.clip(1.0 - target.sum(axis=1, keepdims=True), 0.0, None)
+    others = np.where(~is_star, usage_w, 0.0)
+    other_sum = others.sum(axis=1, keepdims=True)
+    no_other = other_sum[:, 0] <= 1e-8
+    others = np.where(other_sum > 1e-8, others / np.maximum(other_sum, 1e-8) * rest, 0.0)
+    anchored = np.where(is_star, np.maximum(target, 1e-6), np.maximum(others, 1e-6))
+    if np.any(no_other):
+        anchored[no_other] = usage_w[no_other]
+    return anchored
+
+
+def _record_oncourt_share(
+    packed: dict[str, np.ndarray],
+    off_lineups: np.ndarray,
+    usage_w: np.ndarray,
+) -> None:
+    """Mean shot share and the other four players' usage, per run. No RNG."""
+    total = usage_w.sum(axis=1, keepdims=True)
+    shares = usage_w / np.maximum(total, 1e-8)
+    runs = np.arange(off_lineups.shape[0])
+    mate_mass = total[:, 0]
+    for slot in range(usage_w.shape[1]):
+        players = off_lineups[:, slot]
+        np.add.at(packed["share_sum"], (players, runs), shares[:, slot])
+        np.add.at(packed["share_n"], (players, runs), 1.0)
+        np.add.at(packed["mate_sum"], (players, runs), mate_mass - usage_w[:, slot])
 
 
 def _credit_attempts(packed: dict, key: str, users: np.ndarray, mask: np.ndarray, amount) -> None:
@@ -757,6 +844,7 @@ def _calibrate_shot_shares(
     runs = max(50, int(sim_cfg.get("usage_calibrate_runs", 500)))
     rounds = max(1, int(sim_cfg.get("usage_calibrate_rounds", 3)))
     tol = float(sim_cfg.get("usage_calibrate_tol", 0.03))
+    power = float(sim_cfg.get("usage_calibrate_power", 0.65))
     min_minutes = float(sim_cfg.get("usage_calibrate_min_minutes", 12.0))
     players = list(projection.players)
     scale = np.ones(len(players), dtype=float)
@@ -789,19 +877,19 @@ def _calibrate_shot_shares(
             fga_ratio = target[0] / max(fga_pm, 1e-3)
             worst = max(worst, abs(fga_ratio - 1.0))
             if abs(fga_ratio - 1.0) > tol:
-                factor = float(np.clip(fga_ratio**0.65, 0.82, 1.22))
+                factor = float(np.clip(fga_ratio**power, 0.82, 1.22))
                 scale[index] = float(np.clip(scale[index] * factor, 0.55, 1.80))
             if target[1] >= 0.02:
                 fta_ratio = target[1] / max(fta_pm, 1e-3)
                 worst = max(worst, abs(fta_ratio - 1.0))
                 if abs(fta_ratio - 1.0) > tol:
-                    factor = float(np.clip(fta_ratio**0.65, 0.82, 1.22))
+                    factor = float(np.clip(fta_ratio**power, 0.82, 1.22))
                     ft_scale[index] = float(np.clip(ft_scale[index] * factor, 0.55, 1.80))
             if target[2] >= 0.02:
                 tov_ratio = target[2] / max(tov_pm, 1e-3)
                 worst = max(worst, abs(tov_ratio - 1.0))
                 if abs(tov_ratio - 1.0) > tol:
-                    factor = float(np.clip(tov_ratio**0.65, 0.82, 1.22))
+                    factor = float(np.clip(tov_ratio**power, 0.82, 1.22))
                     tov_scale[index] = float(np.clip(tov_scale[index] * factor, 0.55, 1.80))
         if worst <= tol:
             break
@@ -1244,6 +1332,9 @@ def _lineups_state_grid(
     temperature: float = 1.35,
     star_lineup_scale: float = 1.0,
     star_usage_min: float = 0.24,
+    anchor_stars: bool = False,
+    seat_stars: bool = False,
+    star_blk_max: float = 0.02,
 ) -> np.ndarray:
     """Return player indexes for each run, period, and margin bucket.
 
@@ -1351,7 +1442,116 @@ def _lineups_state_grid(
             order = np.argsort(-noisy, axis=0)
             top = order[:size]
             out[:, period - 1, b_idx, :] = pool[top].T
+    # Seating a scorer for his full minute share lifted starter rebounds,
+    # assists, and blocks past the 3% guardrail (a 24-game slice was
+    # +7.8 / +5.5 / +12.6). It stays off unless seat_star_minutes is set.
+    if seat_stars and not use_budget and size >= 5:
+        _stabilize_star_quarters(
+            rng,
+            out,
+            base,
+            pool,
+            players,
+            star_usage_min=star_usage_min,
+            star_blk_max=star_blk_max,
+        )
     return out
+
+
+def _stabilize_star_quarters(
+    rng: np.random.Generator,
+    out: np.ndarray,
+    base: np.ndarray,
+    pool: np.ndarray,
+    players: list[PlayerProjection],
+    *,
+    star_usage_min: float,
+    star_blk_max: float,
+) -> None:
+    """Give a scorer his minute share of close and moderate quarters.
+
+    An independent Gumbel can leave him off the floor all game while the
+    minute line stays in the 30s. Each sim gets a quarter count with mean
+    4 × minutes/48 in the close and moderate buckets. Blowouts stay on the
+    Gumbel. The player who sits is a low-minute guard: shot-blockers and
+    rebounders stay so starter blocks and boards do not jump. Draws are
+    consumed only when this runs.
+    """
+    n_runs = out.shape[0]
+    star_local: list[int] = []
+    for local, player_index in enumerate(pool):
+        player = players[int(player_index)]
+        if float(player.rates.usage) < star_usage_min or float(player.minutes.mean) < 20.0:
+            continue
+        if float(player.rates.blk_rate) >= star_blk_max:
+            continue
+        if float(base[local].mean()) < 8.0:
+            continue
+        star_local.append(local)
+    if not star_local:
+        return
+    local_of = {int(player_index): local for local, player_index in enumerate(pool)}
+    protected = {int(pool[local]) for local in star_local}
+    reb_cut = 0.20
+    # Blowouts keep the Gumbel bench. Close and moderate get the minute share.
+    buckets = [b for b in range(out.shape[2]) if b < 2]
+    for local in star_local:
+        pidx = int(pool[local])
+        present = np.any(out == pidx, axis=-1)
+        rate = np.clip(base[local] / 48.0, 0.0, 0.96)
+        for bucket in buckets:
+            on = present[:, :, bucket]
+            quotas = np.floor(rate * 4.0).astype(np.int32)
+            quotas += (rng.random(n_runs) < (rate * 4.0 - quotas)).astype(np.int32)
+            counts = on.sum(axis=1).astype(np.int32)
+            for run in np.flatnonzero(counts != quotas):
+                need = int(quotas[run] - counts[run])
+                minutes = base[:, run]
+                if need > 0:
+                    ranked: list[tuple[float, int, int]] = []
+                    for period in np.flatnonzero(~on[run]):
+                        best_slot = -1
+                        best_min = 1.0e9
+                        for slot, idx in enumerate(out[run, int(period), bucket]):
+                            if int(idx) in protected:
+                                continue
+                            mate = players[int(pool[local_of[int(idx)]])]
+                            if float(mate.rates.blk_rate) >= star_blk_max:
+                                continue
+                            if float(mate.rates.dreb_rate) >= reb_cut:
+                                continue
+                            played = float(minutes[local_of[int(idx)]])
+                            if played < best_min:
+                                best_min = played
+                                best_slot = slot
+                        if best_slot >= 0:
+                            ranked.append((best_min, int(period), best_slot))
+                    ranked.sort()
+                    for _, period, slot in ranked[:need]:
+                        out[run, period, bucket, slot] = pidx
+                        on[run, period] = True
+                else:
+                    ranked_out: list[tuple[float, int, int]] = []
+                    for period in np.flatnonzero(on[run]):
+                        row = {int(idx) for idx in out[run, int(period), bucket]}
+                        best_local = -1
+                        best_min = -1.0
+                        for cand, cand_idx in local_of.items():
+                            if cand in protected or cand in row:
+                                continue
+                            played = float(minutes[cand_idx])
+                            if played > best_min:
+                                best_min = played
+                                best_local = cand_idx
+                        if best_local >= 0:
+                            ranked_out.append((best_min, int(period), best_local))
+                    ranked_out.sort(reverse=True)
+                    for _, period, repl in ranked_out[: -need]:
+                        slots = np.flatnonzero(out[run, period, bucket] == pidx)
+                        if len(slots) == 0:
+                            continue
+                        out[run, period, bucket, int(slots[0])] = int(pool[repl])
+                        on[run, period] = False
 
 
 def _empty_trace(n_runs: int) -> dict[str, np.ndarray]:

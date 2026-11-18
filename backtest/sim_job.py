@@ -156,6 +156,7 @@ def score_projected_game(payload: dict) -> dict:
             cover_bench_n += 1
     groups = _star_bust(payload, projection, sim, id_to_idx)
     cond_draws = cond_wins = cond_actual_n = cond_actual_wins = 0
+    over_draws = over_wins = over_actual_n = over_actual_wins = 0
     home_won = sim.home_pts > sim.away_pts
     for side, won in (("H", home_won), ("A", ~home_won)):
         side_players = [p for p in projection.players if p.home_away == side and not p.minutes.out]
@@ -166,17 +167,26 @@ def score_projected_game(payload: dict) -> dict:
         if idx is None:
             continue
         under = sim.pts[idx] < 20.0
+        over = ~under
         cond_draws += int(under.sum())
         cond_wins += int((under & won).sum())
+        over_draws += int(over.sum())
+        over_wins += int((over & won).sum())
         actual = logs.get(int(star.player_id))
         if actual is None:
             actual = logs.get(str(star.player_id))
         scored = float(actual.get("pts") or 0.0) if actual else None
-        if scored is not None and scored < 20.0:
+        if scored is None:
+            continue
+        team_pts = home_pts if side == "H" else away_pts
+        opp_pts = away_pts if side == "H" else home_pts
+        team_won = int(team_pts > opp_pts)
+        if scored < 20.0:
             cond_actual_n += 1
-            team_pts = home_pts if side == "H" else away_pts
-            opp_pts = away_pts if side == "H" else home_pts
-            cond_actual_wins += int(team_pts > opp_pts)
+            cond_actual_wins += team_won
+        else:
+            over_actual_n += 1
+            over_actual_wins += team_won
     play_brier_sum, play_n, play_bins = _play_calibration(projection, logs)
     sim_poss = [float(sim.home_possessions), float(sim.away_possessions)]
     del sim
@@ -238,6 +248,10 @@ def score_projected_game(payload: dict) -> dict:
         "cond_wins": cond_wins,
         "cond_actual_n": cond_actual_n,
         "cond_actual_wins": cond_actual_wins,
+        "over_draws": over_draws,
+        "over_wins": over_wins,
+        "over_actual_n": over_actual_n,
+        "over_actual_wins": over_actual_wins,
         "play_brier_sum": play_brier_sum,
         "play_n": play_n,
         "play_bins": play_bins,

@@ -1,6 +1,18 @@
 # Progress
 
-Last updated 2026-11-17 — The shot-share trial is on. A game metric rejects a change only when the interval is entirely worse, and the holdout total improved. The lineup scale stays at 1.0. Stars are still about 17% short.
+Last updated 2026-11-18 — The shot-share trial stays on. Locking a star's shot share to his usage is off. It made star points and the bust rate worse. The lineup scale stays at 1.0.
+
+## Star shot share in the lineup (2026-11-18)
+
+The shot-share engine left stars about 17% short (18.48 against 22.19) and busting in 32% of sims against 8.4% actual. The trial gave a high-usage player his own usage as his shot share, so a teammate draw could not dilute him. Seating him for his full minute share was measured on the guardrail and on one Luka game and was not part of this season run. That seating passed an 80-game guardrail only when it was off. Forcing the minutes onto the floor lifted starter rebounds, assists, and blocks past 3%.
+
+The share lock, 1,000 sims, seed 1, four workers, against the shot-share engine. 2025-26, 1,314 games. The 80-game guardrail passed. Star points −23.1% and star minutes −12.2% are warnings. Starter blocks +1.9%, starter minutes +2.6%.
+
+Star mean 18.48 to 17.31 against 22.19. Bias −3.71 to −4.88. Bust rate +0.0346 (+0.0334 to +0.0359), after 0.355 against an actual 0.084. Points CRPS +0.0278 (+0.0233 to +0.0325). Brier +0.0002 (−0.0007 to +0.0012). Spread +0.017 (−0.034 to +0.066). Total −0.002 (−0.043 to +0.038). Points and the bust rate got worse, and those intervals exclude zero. Spread, total, and Brier stayed inside the noise. The 2024-25 holdout was not run. When a team's top-usage player scores under 20, the sim wins 44.7% after against 44.1% before and 43.1% actual (239 of 554). When he scores 20 or more, the after sim wins 58.1% against 58.7% actual (754 of 1,285). The before file does not have the 20-plus split.
+
+A star's on-court share was already near his usage, and on the good draws it sat above it. Pinning the share to the usage number took those shots back. The call is revert. `anchor_star_usage` stays off.
+
+On Luka's 2026-11-15 game the same seating idea, tried outside this decision, moved a 160-sim mean from 27.2 to 32.2 against an actual 43. His season is 39.0 points a game. The rate line that morning was 31.5. Seating reached the rate line and not the hot night.
 
 ## Shot shares and star minutes (2026-11-17)
 

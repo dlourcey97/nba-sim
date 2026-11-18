@@ -253,6 +253,10 @@ def evaluate_seasons(
                     "cond_wins": item.get("cond_wins", 0),
                     "cond_actual_n": item.get("cond_actual_n", 0),
                     "cond_actual_wins": item.get("cond_actual_wins", 0),
+                    "over_draws": item.get("over_draws", 0),
+                    "over_wins": item.get("over_wins", 0),
+                    "over_actual_n": item.get("over_actual_n", 0),
+                    "over_actual_wins": item.get("over_actual_wins", 0),
                 }
             )
             crps_min_sum += float(item.get("crps_min_sum") or 0.0)
