@@ -344,6 +344,8 @@ def run_walkforward_reconcile(
             continue
         sim = simulate_game(projection, runs=runs, seed=seed + games, config=cfg)
         summary = summarize_game(projection, sim)
+        if games % 10 == 0:
+            print(f"reconcile games={games + 1} id={row['game_id']}", flush=True)
         usage_by_id = {int(p.player_id): float(p.rates.usage) for p in projection.players}
         sim_team["possessions"] += float(sim.home_possessions) + float(
             sim.away_possessions

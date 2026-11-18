@@ -1,6 +1,33 @@
 # Progress
 
-Last updated 2026-11-18 — The shot-share trial stays on. Locking a star's shot share to his usage is off. It made star points and the bust rate worse. The lineup scale stays at 1.0.
+Last updated 2026-11-18 — Lineup presence is on. Each rotation player's stints follow his minutes, and rebound, assist, block, and steal credit is calibrated per minute. Starter block credit is capped at 0.85 so the starter share stays inside 3%.
+
+## Lineup presence and counting-stat credit (2026-11-18)
+
+The shot-share engine left a star off the floor for a quarter while his minute line stayed in the 30s. Presence spreads each rotation player's substints across the game in proportion to his minute draw. A starter, mean minutes at or above 24, is on the floor in every close and moderate quarter unless that sim is a foul-trouble cut (under 72% of his mean), in which case he sits the fourth. Blowouts keep 10% of his minute weight, a few stints, so the bench plays the rest. Team pace is unchanged. The minute draw is still what the box records.
+
+That seating, tried earlier without the shot-share calibration, moved Luka on 2026-11-15 from 27.2 to 32.2. With calibration on, the same game (0022600237, 400 sims, seed 1) moves less on the mean, because the per-minute shot scale already targets his box line and the minute draw is the denominator. Gumbel: 27.75 points, 10th percentile 8, bust 0.240 against half of a 31.5-point line, team 115.9/122.5. Presence: 28.90 points, 10th percentile 13, median 28, bust 0.125, rebounds 6.32, assists 6.60, minutes 31.8 against a 33.8 projection, team 115.6/121.8. The left tail is the part that moves. The mean stays near the rate line.
+
+Putting starters on the floor together handed them the team's rebounds and blocks. The calibration batch that already matched field goals, free throws, and turnovers per minute now also scales who is credited for a rebound, an assist, a block, and a steal. Team rebound leak, assist probability, and block probability stay on the unscaled rates. Two rounds, 250 sims, tolerance 3%.
+
+The first 80-game guardrail (80 sims, skip 400, seed 1) passed team totals and passed starter minutes, points, rebounds, and assists, and failed starter steals (−4.0% with blowouts zeroed) and starter blocks. A 10% blowout weight plus the steal scale brought steals to −0.3%. Blocks were still +5.6%, because raising a starter's block credit cannot create blocks and only takes them from the other four. Capping starter block credit at 1.0 left blocks at +3.2%. The cap at 0.85 passes.
+
+80 games, 80 sims, skip 400, seed 1. No team total or starter share outside ±3%. Star points −18.8% and star minutes −12.2% are warnings, 30 players.
+
+| Share | Team | Starters |
+| --- | ---: | ---: |
+| MIN | −0.41% | +2.56% |
+| PTS | +1.14% | +0.29% |
+| REB | +0.32% | +2.53% |
+| AST | −1.30% | −1.43% |
+| STL | −2.10% | −0.26% |
+| BLK | +0.30% | +1.52% |
+
+`lineup_presence` is true. `lineup_presence_blowout_weight` is 0.10. `blk_starter_scale_max` is 0.85. Bench block credit can still rise.
+
+## Star shot share in the lineup (2026-11-18)
+
+The shot-share trial stays on. Locking a star's shot share to his usage is off. It made star points and the bust rate worse. The lineup scale stays at 1.0.
 
 ## Star shot share in the lineup (2026-11-18)
 

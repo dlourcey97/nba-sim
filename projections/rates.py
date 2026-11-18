@@ -68,6 +68,13 @@ class RateVector:
     fga_per_min: float = 0.0
     fta_per_min: float = 0.0
     tov_per_min: float = 0.0
+    # Box counting stats per minute. Same games as the shot line, and not
+    # mixed with the position prior, so a big's boards are not pulled to the
+    # average when the sim matches per-minute production.
+    reb_per_min: float = 0.0
+    ast_per_min: float = 0.0
+    blk_per_min: float = 0.0
+    stl_per_min: float = 0.0
 
     def as_dict(self) -> dict[str, float]:
         return {name: float(getattr(self, name)) for name in RATE_FIELDS}
@@ -313,6 +320,12 @@ def vector_from_accumulator(acc: dict[str, float]) -> RateVector:
         fga_per_min=(float(acc.get("box_fga") or 0.0) / minutes) if minutes > 1.0 else 0.0,
         fta_per_min=(float(acc.get("box_fta") or 0.0) / minutes) if minutes > 1.0 else 0.0,
         tov_per_min=(float(acc.get("box_tov") or 0.0) / minutes) if minutes > 1.0 else 0.0,
+        reb_per_min=((float(acc.get("oreb") or 0.0) + float(acc.get("dreb") or 0.0)) / minutes)
+        if minutes > 1.0
+        else 0.0,
+        ast_per_min=(float(acc.get("ast") or 0.0) / minutes) if minutes > 1.0 else 0.0,
+        blk_per_min=(float(acc.get("blk") or 0.0) / minutes) if minutes > 1.0 else 0.0,
+        stl_per_min=(float(acc.get("stl") or 0.0) / minutes) if minutes > 1.0 else 0.0,
         **shares,
         **pcts,
     )
@@ -353,6 +366,10 @@ def blend_vectors(
     shot_fga = 0.0
     shot_fta = 0.0
     shot_tov = 0.0
+    shot_reb = 0.0
+    shot_ast = 0.0
+    shot_blk = 0.0
+    shot_stl = 0.0
     minute_weight = 0.0
     minute_sum = 0.0
     for item, weight in shot_items:
@@ -363,6 +380,10 @@ def blend_vectors(
         shot_fga += item.fga_per_min * share
         shot_fta += item.fta_per_min * share
         shot_tov += item.tov_per_min * share
+        shot_reb += item.reb_per_min * share
+        shot_ast += item.ast_per_min * share
+        shot_blk += item.blk_per_min * share
+        shot_stl += item.stl_per_min * share
         minute_weight += weight
         minute_sum += item.sample_minutes * weight
     vector = RateVector.from_dict(
@@ -376,6 +397,10 @@ def blend_vectors(
         fga_per_min=shot_fga / shot_weight,
         fta_per_min=shot_fta / shot_weight,
         tov_per_min=shot_tov / shot_weight,
+        reb_per_min=shot_reb / shot_weight,
+        ast_per_min=shot_ast / shot_weight,
+        blk_per_min=shot_blk / shot_weight,
+        stl_per_min=shot_stl / shot_weight,
     )
 
 

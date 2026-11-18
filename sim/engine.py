@@ -97,6 +97,10 @@ def simulate_game(
     usage_scale: np.ndarray | None = None,
     ft_scale: np.ndarray | None = None,
     tov_scale: np.ndarray | None = None,
+    reb_scale: np.ndarray | None = None,
+    ast_scale: np.ndarray | None = None,
+    blk_scale: np.ndarray | None = None,
+    stl_scale: np.ndarray | None = None,
 ) -> GameSimResult:
     """Simulate one game. Default runs/seed come from config.yaml when omitted.
 
@@ -125,9 +129,15 @@ def simulate_game(
         and bool(sim_cfg.get("calibrate_shot_shares"))
         and resume is None
     ):
-        usage_scale, ft_scale, tov_scale = _calibrate_shot_shares(
-            projection, cfg, int(base_seed)
-        )
+        (
+            usage_scale,
+            ft_scale,
+            tov_scale,
+            reb_scale,
+            ast_scale,
+            blk_scale,
+            stl_scale,
+        ) = _calibrate_shot_shares(projection, cfg, int(base_seed))
     rng = np.random.default_rng(int(base_seed))
     trace_i = int(trace_run) if trace_run is not None else None
 
@@ -213,6 +223,16 @@ def simulate_game(
         packed["ft_rate"] = packed["ft_rate"] * np.asarray(ft_scale, dtype=float)
     if tov_scale is not None:
         packed["tov_rate"] = packed["tov_rate"] * np.asarray(tov_scale, dtype=float)
+    # Counting-stat scales change who is credited. Team rebound leak, assist
+    # probability, and block probability stay on the unscaled rates.
+    if reb_scale is not None:
+        packed["reb_scale"] = np.asarray(reb_scale, dtype=float)
+    if ast_scale is not None:
+        packed["ast_scale"] = np.asarray(ast_scale, dtype=float)
+    if blk_scale is not None:
+        packed["blk_scale"] = np.asarray(blk_scale, dtype=float)
+    if stl_scale is not None:
+        packed["stl_scale"] = np.asarray(stl_scale, dtype=float)
     if bool(sim_cfg.get("anchor_star_usage")):
         packed["anchor_star_usage"] = True
         packed["star_usage_min"] = float(sim_cfg.get("star_usage_min", 0.24))
@@ -292,6 +312,10 @@ def simulate_game(
         anchor_stars=bool(sim_cfg.get("anchor_star_usage")),
         seat_stars=bool(sim_cfg.get("seat_star_minutes")),
         star_blk_max=float((cfg.get("minutes") or {}).get("star_protect_blk_max", 0.02)),
+        lineup_presence=bool(sim_cfg.get("lineup_presence")),
+        starter_floor=float(minutes_cfg.get("starter_floor", 24.0)),
+        foul_ratio=float(sim_cfg.get("lineup_presence_foul_ratio", 0.72)),
+        blowout_weight=float(sim_cfg.get("lineup_presence_blowout_weight", 0.10)),
     )
     away_grid = _lineups_state_grid(
         rng,
@@ -308,6 +332,10 @@ def simulate_game(
         anchor_stars=bool(sim_cfg.get("anchor_star_usage")),
         seat_stars=bool(sim_cfg.get("seat_star_minutes")),
         star_blk_max=float((cfg.get("minutes") or {}).get("star_protect_blk_max", 0.02)),
+        lineup_presence=bool(sim_cfg.get("lineup_presence")),
+        starter_floor=float(minutes_cfg.get("starter_floor", 24.0)),
+        foul_ratio=float(sim_cfg.get("lineup_presence_foul_ratio", 0.72)),
+        blowout_weight=float(sim_cfg.get("lineup_presence_blowout_weight", 0.10)),
     )
     if resume is not None:
         from sim.resume import pin_on_court
@@ -829,16 +857,40 @@ def _target_attempts_per_minute(player, pace_per_min: float) -> tuple[float, flo
     )
 
 
+def _target_counting_per_minute(player) -> tuple[float, float, float, float]:
+    """Box rebounds, assists, blocks, and steals per minute. Zero when empty."""
+    rates = player.rates
+    return (
+        max(float(getattr(rates, "reb_per_min", 0.0)), 0.0),
+        max(float(getattr(rates, "ast_per_min", 0.0)), 0.0),
+        max(float(getattr(rates, "blk_per_min", 0.0)), 0.0),
+        max(float(getattr(rates, "stl_per_min", 0.0)), 0.0),
+    )
+
+
+def _nudge_scale(current: float, ratio: float, power: float) -> float:
+    """Move a per-minute scale part of the way toward the box rate."""
+    factor = float(np.clip(ratio**power, 0.82, 1.22))
+    return float(np.clip(current * factor, 0.55, 1.80))
+
+
 def _calibrate_shot_shares(
     projection, cfg: dict, seed: int
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Match each rotation player's attempts per minute to his box line.
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Match each rotation player's per-minute line to his box rates.
 
     Usage moves field-goal attempts only. A separate free-throw scale moves
-    FTA, and a turnover scale moves TOV. One usage weight cannot lift free
-    throws without also adding field goals. Shares still renormalize across
-    the five, so team pace is unchanged. Stops when every rotation player is
+    FTA, and a turnover scale moves TOV. Rebound, assist, and block scales
+    move who is credited inside the lineup. They do not change team pace,
+    the team rebound leak, assist probability, or block probability. Shares
+    still renormalize across the five. Stops when every rotation player is
     inside the tolerance.
+
+    Block credit for a starter (mean minutes at the starter floor) is only
+    scaled down. Raising it cannot create blocks — team block probability
+    stays on the unscaled on-court sum — and it takes the blocks that do
+    happen away from the bench, which pushed the starter block share past
+    the guardrail. Bench block credit can still rise.
     """
     sim_cfg = cfg.get("simulation") or {}
     runs = max(50, int(sim_cfg.get("usage_calibrate_runs", 500)))
@@ -846,10 +898,16 @@ def _calibrate_shot_shares(
     tol = float(sim_cfg.get("usage_calibrate_tol", 0.03))
     power = float(sim_cfg.get("usage_calibrate_power", 0.65))
     min_minutes = float(sim_cfg.get("usage_calibrate_min_minutes", 12.0))
+    starter_floor = float((cfg.get("minutes") or {}).get("starter_floor", 24.0))
+    blk_starter_max = float(sim_cfg.get("blk_starter_scale_max", 1.0))
     players = list(projection.players)
     scale = np.ones(len(players), dtype=float)
     ft_scale = np.ones(len(players), dtype=float)
     tov_scale = np.ones(len(players), dtype=float)
+    reb_scale = np.ones(len(players), dtype=float)
+    ast_scale = np.ones(len(players), dtype=float)
+    blk_scale = np.ones(len(players), dtype=float)
+    stl_scale = np.ones(len(players), dtype=float)
     for round_i in range(rounds):
         sim = simulate_game(
             projection,
@@ -859,41 +917,69 @@ def _calibrate_shot_shares(
             usage_scale=scale.copy(),
             ft_scale=ft_scale.copy(),
             tov_scale=tov_scale.copy(),
+            reb_scale=reb_scale.copy(),
+            ast_scale=ast_scale.copy(),
+            blk_scale=blk_scale.copy(),
+            stl_scale=stl_scale.copy(),
         )
         worst = 0.0
         for index, player in enumerate(players):
             if player.minutes.out or float(player.minutes.mean) < min_minutes:
                 continue
-            target = _target_attempts_per_minute(player, 0.0)
-            if target[0] < 0.05:
-                continue
             minutes = np.asarray(sim.minutes[index], dtype=float)
             denom = float(minutes.sum())
             if denom < runs * 2.0:
                 continue
-            fga_pm = float(np.asarray(sim.fga[index]).sum()) / denom
-            fta_pm = float(np.asarray(sim.fta[index]).sum()) / denom
-            tov_pm = float(np.asarray(sim.tov[index]).sum()) / denom
-            fga_ratio = target[0] / max(fga_pm, 1e-3)
-            worst = max(worst, abs(fga_ratio - 1.0))
-            if abs(fga_ratio - 1.0) > tol:
-                factor = float(np.clip(fga_ratio**power, 0.82, 1.22))
-                scale[index] = float(np.clip(scale[index] * factor, 0.55, 1.80))
-            if target[1] >= 0.02:
+            target = _target_attempts_per_minute(player, 0.0)
+            counting = _target_counting_per_minute(player)
+            if target[0] >= 0.05 and sim.fga is not None:
+                fga_pm = float(np.asarray(sim.fga[index]).sum()) / denom
+                fga_ratio = target[0] / max(fga_pm, 1e-3)
+                worst = max(worst, abs(fga_ratio - 1.0))
+                if abs(fga_ratio - 1.0) > tol:
+                    scale[index] = _nudge_scale(scale[index], fga_ratio, power)
+            if target[1] >= 0.02 and sim.fta is not None:
+                fta_pm = float(np.asarray(sim.fta[index]).sum()) / denom
                 fta_ratio = target[1] / max(fta_pm, 1e-3)
                 worst = max(worst, abs(fta_ratio - 1.0))
                 if abs(fta_ratio - 1.0) > tol:
-                    factor = float(np.clip(fta_ratio**power, 0.82, 1.22))
-                    ft_scale[index] = float(np.clip(ft_scale[index] * factor, 0.55, 1.80))
+                    ft_scale[index] = _nudge_scale(ft_scale[index], fta_ratio, power)
             if target[2] >= 0.02:
+                tov_pm = float(np.asarray(sim.tov[index]).sum()) / denom
                 tov_ratio = target[2] / max(tov_pm, 1e-3)
                 worst = max(worst, abs(tov_ratio - 1.0))
                 if abs(tov_ratio - 1.0) > tol:
-                    factor = float(np.clip(tov_ratio**power, 0.82, 1.22))
-                    tov_scale[index] = float(np.clip(tov_scale[index] * factor, 0.55, 1.80))
+                    tov_scale[index] = _nudge_scale(tov_scale[index], tov_ratio, power)
+            reb_pm = float(np.asarray(sim.reb[index]).sum()) / denom
+            ast_pm = float(np.asarray(sim.ast[index]).sum()) / denom
+            blk_pm = float(np.asarray(sim.blk[index]).sum()) / denom
+            stl_pm = float(np.asarray(sim.stl[index]).sum()) / denom
+            if counting[0] >= 0.04:
+                reb_ratio = counting[0] / max(reb_pm, 1e-3)
+                worst = max(worst, abs(reb_ratio - 1.0))
+                if abs(reb_ratio - 1.0) > tol:
+                    reb_scale[index] = _nudge_scale(reb_scale[index], reb_ratio, power)
+            if counting[1] >= 0.02:
+                ast_ratio = counting[1] / max(ast_pm, 1e-3)
+                worst = max(worst, abs(ast_ratio - 1.0))
+                if abs(ast_ratio - 1.0) > tol:
+                    ast_scale[index] = _nudge_scale(ast_scale[index], ast_ratio, power)
+            if counting[2] >= 0.01:
+                blk_ratio = counting[2] / max(blk_pm, 1e-3)
+                worst = max(worst, abs(blk_ratio - 1.0))
+                if abs(blk_ratio - 1.0) > tol:
+                    updated = _nudge_scale(blk_scale[index], blk_ratio, power)
+                    if float(player.minutes.mean) >= starter_floor:
+                        updated = min(updated, blk_starter_max)
+                    blk_scale[index] = updated
+            if counting[3] >= 0.01:
+                stl_ratio = counting[3] / max(stl_pm, 1e-3)
+                worst = max(worst, abs(stl_ratio - 1.0))
+                if abs(stl_ratio - 1.0) > tol:
+                    stl_scale[index] = _nudge_scale(stl_scale[index], stl_ratio, power)
         if worst <= tol:
             break
-    return scale, ft_scale, tov_scale
+    return scale, ft_scale, tov_scale, reb_scale, ast_scale, blk_scale, stl_scale
 
 
 def _pack_rates(players: list[PlayerProjection]) -> dict[str, np.ndarray]:
@@ -1335,6 +1421,10 @@ def _lineups_state_grid(
     anchor_stars: bool = False,
     seat_stars: bool = False,
     star_blk_max: float = 0.02,
+    lineup_presence: bool = False,
+    starter_floor: float = 24.0,
+    foul_ratio: float = 0.72,
+    blowout_weight: float = 0.10,
 ) -> np.ndarray:
     """Return player indexes for each run, period, and margin bucket.
 
@@ -1363,6 +1453,18 @@ def _lineups_state_grid(
         return out
 
     base = np.clip(minutes[pool], 0.0, None)  # (pool, runs)
+    if lineup_presence and not use_budget and size >= 5:
+        # Substints replace the one-lineup quarter. The Gumbel draw below is
+        # the path when presence is off.
+        return _presence_grid(
+            rng,
+            base,
+            pool,
+            n_sub=4,
+            starter_floor=float(starter_floor),
+            foul_ratio=float(foul_ratio),
+            blowout_weight=float(blowout_weight),
+        )
     team_id = int(players[int(pool[0])].team_id) if pool.size else 0
     player_ids = [int(players[int(i)].player_id) for i in pool]
     depths = [int(getattr(players[int(i)], "depth_rank", 99)) for i in pool]
@@ -1455,6 +1557,274 @@ def _lineups_state_grid(
             star_usage_min=star_usage_min,
             star_blk_max=star_blk_max,
         )
+    return out
+
+
+def _quotas_from_minutes(
+    rng: np.random.Generator,
+    minutes: np.ndarray,
+    total: int,
+) -> np.ndarray:
+    """Integer substint counts that sum to ``total`` and follow the minute share."""
+    raw = np.clip(minutes, 0.0, None).astype(float)
+    n_pool, n_runs = raw.shape
+    sums = raw.sum(axis=0)
+    scaled = np.zeros_like(raw)
+    ok = sums > 1e-6
+    scaled[:, ok] = raw[:, ok] / sums[ok] * float(total)
+    if np.any(~ok):
+        scaled[:, ~ok] = float(total) / max(n_pool, 1)
+    floors = np.floor(scaled + 1e-8)
+    frac = scaled - floors
+    deficit = np.rint(float(total) - floors.sum(axis=0)).astype(np.int32)
+    jitter = rng.random(raw.shape) * 1e-6
+    order = np.argsort(-(frac + jitter), axis=0)
+    ranks = np.empty(order.shape, dtype=np.int32)
+    run_idx = np.arange(n_runs)[None, :]
+    ranks[order, run_idx] = np.arange(n_pool)[:, None]
+    quotas = floors.astype(np.int32)
+    give = (ranks < np.maximum(deficit, 0)[None, :]) & (deficit[None, :] > 0)
+    quotas += give.astype(np.int32)
+    cap = total  # tightened by the caller when a player cannot play every slot
+    # Largest-remainder can overshoot by a count when the float sum drifts.
+    for _ in range(3):
+        diff = total - quotas.sum(axis=0)
+        if np.all(diff == 0):
+            break
+        short = diff > 0
+        if np.any(short):
+            room = np.where(quotas < cap, -quotas.astype(float), -1.0e9)
+            pick = np.argmax(room, axis=0)
+            hit = np.flatnonzero(short)
+            quotas[pick[hit], hit] += 1
+        over = diff < 0
+        if np.any(over):
+            tall = np.where(quotas > 0, quotas.astype(float), -1.0)
+            pick = np.argmax(tall, axis=0)
+            hit = np.flatnonzero(over)
+            quotas[pick[hit], hit] -= 1
+    return quotas
+
+
+def _schedule_substints(
+    rng: np.random.Generator,
+    quotas: np.ndarray,
+    n_steps: int,
+) -> np.ndarray:
+    """Spread each player's substints across the game.
+
+    Shape (n_steps, 5, n_runs) of local indexes. Adding the quota every step
+    and subtracting ``n_steps`` when a player is picked puts him on the floor
+    about ``quota`` times, with the sits spaced out instead of clumped in one
+    quarter.
+    """
+    n_pool, n_runs = quotas.shape
+    picks = np.empty((n_steps, 5, n_runs), dtype=np.int32)
+    key = rng.random((n_pool, n_runs)) * 0.05
+    run_idx = np.arange(n_runs)
+    dead = quotas <= 0
+    for step in range(n_steps):
+        key = key + quotas
+        score = key.copy()
+        score[dead] = -1.0e18
+        order = np.argsort(-score, axis=0)[:5]
+        picks[step] = order
+        key[order, np.broadcast_to(run_idx, order.shape)] -= float(n_steps)
+    return picks
+
+
+def _write_picks(
+    out: np.ndarray,
+    picks: np.ndarray,
+    pool: np.ndarray,
+    buckets: tuple[int, ...],
+    n_sub: int,
+) -> None:
+    for step in range(picks.shape[0]):
+        quarter, sub = divmod(step, n_sub)
+        row = pool[picks[step]].T
+        for bucket in buckets:
+            out[:, quarter, bucket, sub, :] = row
+
+
+def _repair_starter_quarters(
+    picks: np.ndarray,
+    starter_locals: list[int],
+    foul: np.ndarray,
+    n_sub: int,
+) -> None:
+    """Move a healthy starter into any close quarter the scheduler skipped.
+
+    The move is a swap with a bench player, so his substint count stays on
+    the minute quota instead of picking up an extra stint.
+    """
+    if not starter_locals:
+        return
+    n_steps, _, n_runs = picks.shape
+    n_quarters = n_steps // n_sub
+    starter_set = set(starter_locals)
+    for local in starter_locals:
+        healthy = ~foul[local]
+        if not np.any(healthy):
+            continue
+        for quarter in range(n_quarters):
+            present = np.zeros(n_runs, dtype=bool)
+            block = picks[quarter * n_sub : (quarter + 1) * n_sub]
+            for sub in range(n_sub):
+                present |= np.any(block[sub] == local, axis=0)
+            miss = healthy & ~present
+            if not np.any(miss):
+                continue
+            for run in np.flatnonzero(miss):
+                _swap_into_quarter(picks, local, int(run), quarter, starter_set, foul, n_sub)
+
+
+def _swap_into_quarter(
+    picks: np.ndarray,
+    local: int,
+    run: int,
+    quarter: int,
+    starter_set: set[int],
+    foul: np.ndarray,
+    n_sub: int,
+) -> None:
+    """Swap ``local`` into ``quarter`` from a quarter where he already appears twice."""
+    n_quarters = picks.shape[0] // n_sub
+    n_pool = picks.shape[1] and int(picks[:, :, run].max()) + 1
+    extras: list[tuple[int, int]] = []
+    for other_q in range(n_quarters):
+        if other_q == quarter:
+            continue
+        hits: list[tuple[int, int]] = []
+        for sub in range(n_sub):
+            five = picks[other_q * n_sub + sub, :, run]
+            slots = np.flatnonzero(five == local)
+            if len(slots):
+                hits.append((other_q * n_sub + sub, int(slots[0])))
+        if len(hits) >= 2:
+            extras.extend(hits)
+    if not extras:
+        return
+    extra_step, extra_slot = extras[0]
+    extra_five = {int(idx) for idx in picks[extra_step, :, run]}
+    # Prefer handing that stint to the bench player we displace. Otherwise
+    # the highest index not already in the five keeps the slot filled.
+    displaced = None
+    displaced_slot = None
+    for sub in range(n_sub):
+        step = quarter * n_sub + sub
+        five = picks[step, :, run]
+        for slot, other in enumerate(five):
+            other_i = int(other)
+            if other_i in starter_set and not bool(foul[other_i, run]):
+                continue
+            displaced = other_i
+            displaced_slot = (step, slot)
+            break
+        if displaced is not None:
+            break
+    if displaced is None or displaced_slot is None:
+        return
+    if displaced not in extra_five:
+        replacement = displaced
+    else:
+        replacement = -1
+        for cand in range(n_pool):
+            if cand == local or cand in extra_five:
+                continue
+            replacement = cand
+            break
+        if replacement < 0:
+            return
+    step, slot = displaced_slot
+    picks[step, slot, run] = local
+    picks[extra_step, extra_slot, run] = replacement
+
+
+def _sit_foul_trouble(
+    picks: np.ndarray,
+    base: np.ndarray,
+    starter_locals: list[int],
+    foul: np.ndarray,
+    n_sub: int,
+) -> None:
+    """A foul-trouble starter sits the fourth quarter. The next man takes the spot."""
+    if not starter_locals:
+        return
+    n_pool = base.shape[0]
+    n_quarters = picks.shape[0] // n_sub
+    last = n_quarters - 1
+    for local in starter_locals:
+        runs = np.flatnonzero(foul[local])
+        if len(runs) == 0:
+            continue
+        for run in runs:
+            for sub in range(n_sub):
+                step = last * n_sub + sub
+                five = picks[step, :, run]
+                slots = np.flatnonzero(five == local)
+                if len(slots) == 0:
+                    continue
+                present = {int(idx) for idx in five}
+                best = -1
+                best_min = -1.0
+                for cand in range(n_pool):
+                    if cand in present:
+                        continue
+                    played = float(base[cand, run])
+                    if played > best_min:
+                        best_min = played
+                        best = cand
+                if best >= 0:
+                    picks[step, int(slots[0]), run] = best
+
+
+def _presence_grid(
+    rng: np.random.Generator,
+    base: np.ndarray,
+    pool: np.ndarray,
+    *,
+    n_sub: int,
+    starter_floor: float,
+    foul_ratio: float,
+    blowout_weight: float,
+) -> np.ndarray:
+    """Substints whose counts match the minute draw.
+
+    Close and moderate games spread a starter across every quarter. A draw
+    under ``foul_ratio`` of his mean sits the fourth. Blowouts keep
+    ``blowout_weight`` of a starter's minutes and give the rest to the bench.
+    """
+    n_pool, n_runs = base.shape
+    n_steps = 4 * int(n_sub)
+    total = 5 * n_steps
+    means = base.mean(axis=1)
+    starter_locals = [
+        int(idx)
+        for idx in np.argsort(-means)
+        if float(means[int(idx)]) >= float(starter_floor)
+    ][:5]
+    close_quotas = _quotas_from_minutes(rng, base, total)
+    close_quotas = np.minimum(close_quotas, n_steps)
+    close_picks = _schedule_substints(rng, close_quotas, n_steps)
+    foul = np.zeros((n_pool, n_runs), dtype=bool)
+    for local in starter_locals:
+        foul[local] = base[local] < float(foul_ratio) * float(means[local])
+    _repair_starter_quarters(close_picks, starter_locals, foul, n_sub)
+    _sit_foul_trouble(close_picks, base, starter_locals, foul, n_sub)
+
+    blow = np.clip(base, 0.0, None).copy()
+    if starter_locals:
+        blow[np.array(starter_locals, dtype=np.int32)] *= float(np.clip(blowout_weight, 0.0, 1.0))
+    thin = (blow > 0.5).sum(axis=0) < 5
+    if np.any(thin):
+        blow[:, thin] = np.clip(base[:, thin], 0.0, None)
+    blow_quotas = np.minimum(_quotas_from_minutes(rng, blow, total), n_steps)
+    blow_picks = _schedule_substints(rng, blow_quotas, n_steps)
+
+    out = np.empty((n_runs, 4, 3, n_sub, 5), dtype=np.int32)
+    _write_picks(out, close_picks, pool, (0, 1), n_sub)
+    _write_picks(out, blow_picks, pool, (2,), n_sub)
     return out
 
 
@@ -1853,6 +2223,11 @@ def _vector_possession(
         mean_w = raw_w.mean(axis=1, keepdims=True)
         raw_frac = float(packed.get("stl_credit_raw_weight", 1.0))
         credit_w = raw_frac * raw_w + (1.0 - raw_frac) * mean_w
+        stl_scale = packed.get("stl_scale")
+        if stl_scale is not None:
+            # Who records the steal. The steal probability above stays the
+            # unscaled on-court sum, so the team total does not follow the scale.
+            credit_w = credit_w * np.asarray(stl_scale, dtype=float)[def_lineups[is_stl]]
         pick = _weighted_choice(rng, credit_w)
         runners = np.flatnonzero(is_stl)
         players = def_lineups[is_stl, pick]
@@ -2020,6 +2395,11 @@ def _vector_possession(
         mean_w = raw_w.mean(axis=1, keepdims=True)
         blk_raw = float(packed.get("blk_credit_raw_weight", 0.35))
         credit_w = blk_raw * raw_w + (1.0 - blk_raw) * mean_w
+        blk_scale = packed.get("blk_scale")
+        if blk_scale is not None:
+            # Who records the block. The block probability above stays the
+            # unscaled on-court sum, so the team total does not follow the scale.
+            credit_w = credit_w * np.asarray(blk_scale, dtype=float)[def_lineups[is_blk]]
         pick = _weighted_choice(rng, credit_w)
         runners = np.flatnonzero(is_blk)
         players = def_lineups[is_blk, pick]
@@ -2114,6 +2494,13 @@ def _vector_possession(
         power = float(packed.get("reb_share_power", 1.0))
         o_w = np.power(np.maximum(o_raw, 0.0), power)
         d_w = np.power(np.maximum(d_raw, 0.0), power)
+        reb_scale = packed.get("reb_scale")
+        if reb_scale is not None:
+            # Credit only. Offensive-rebound probability and the team leak
+            # stay on the raw rates, so team boards do not move with the scale.
+            weights = np.asarray(reb_scale, dtype=float)
+            o_w = o_w * weights[off_lineups]
+            d_w = d_w * weights[def_lineups]
         is_orb = live_miss & (rng.random(n_runs) < p_orb)
         is_drb = live_miss & ~is_orb
         if trace is not None:
@@ -2203,6 +2590,10 @@ def _credit_assists(
         alpha = 0.35
         blended = (1.0 - alpha) * rates + alpha * scaled
         rates = np.where(has_net[:, None], blended, rates)
+    ast_scale = packed.get("ast_scale")
+    if ast_scale is not None:
+        # Who records the assist. P(assisted) below stays on the unscaled sum.
+        rates = rates * np.asarray(ast_scale, dtype=float)[off_lineups]
     # P(assisted) from ast_rate sums so team AST volume stays calibrated.
     p_rates = packed["ast_rate"][off_lineups].copy()
     p_rates[np.arange(n_runs), user_slot] = 0.0

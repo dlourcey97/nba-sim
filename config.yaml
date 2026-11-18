@@ -41,6 +41,18 @@ simulation:
   # line in substints. Budget cut the star bust and won 2025-26 Brier, and
   # it lost the holdout spread and the starter-share check.
   lineup_model: gumbel
+  # On. Each rotation player's substints follow his minute draw, spread
+  # across the quarter. A starter (mean at or above starter_floor) is on the
+  # floor in every close and moderate quarter unless that sim's minutes are
+  # a foul-trouble cut. Blowouts cut his minute weight by the factor below,
+  # so he sits most garbage-time stints and the bench plays.
+  lineup_presence: true
+  # A starter draw under this fraction of his mean may sit the fourth quarter.
+  lineup_presence_foul_ratio: 0.72
+  # Share of a starter's minute weight kept in a blowout. Zero handed the
+  # garbage-time steals to the bench. A full weight kept him in every
+  # blowout quarter. 0.10 is a few stints, not a quarter of the blowout.
+  lineup_presence_blowout_weight: 0.10
   lineup_substints: 4
   lineup_budget_noise: 0.40
   team_hot_sd: 0.05
@@ -69,8 +81,15 @@ simulation:
   # are the decision-run seasons and are not rewritten by this floor.
   reb_chance_floor_since: "2026-10-01"
   # On. Before the scored sims, two short rounds scale usage, free throws,
-  # and turnovers so each rotation player's attempts per minute match his
-  # box line. Team pace and shooting percentages are not inputs.
+  # turnovers, and who-gets-it weights for rebounds, assists, blocks, and
+  # steals so each rotation player's per-minute line matches his box line.
+  # Team pace, shooting percentages, and the team rebound, assist, and block
+  # rates are not inputs. The counting-stat scales only move credit inside
+  # the lineup. Starter block credit is capped at blk_starter_scale_max.
+  # A cap of 1.0 left the starter block share at +3.2%. 0.85 landed at
+  # +1.5% on the 80-game guardrail. Bench block credit can still rise.
+  # Team block probability is not scaled.
+  blk_starter_scale_max: 0.85
   calibrate_shot_shares: true
   usage_calibrate_runs: 250
   usage_calibrate_rounds: 2
